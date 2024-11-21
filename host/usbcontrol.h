@@ -49,6 +49,7 @@ public slots:
     
     // Only keep brightness and contrast controls
     bool findAndOpenUVCDevice();
+    void getDeviceDescriptor();
 
 private:
     static const uint16_t VENDOR_ID = 0x534D;   // 534D
@@ -79,6 +80,7 @@ private:
     libusb_device_handle *deviceHandle;
     libusb_device *device;
     libusb_config_descriptor *config_descriptor;
+    libusb_device_descriptor device_descriptor;
     void getConfigDescriptor();
     void showConfigDescriptor();
     int getBrightness();

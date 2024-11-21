@@ -87,17 +87,28 @@ bool USBControl::findAndOpenUVCDevice()
         return false;
     }
     qCDebug(log_usb) << "Successfully opened and configured device";
+    // libusb_release_interface(deviceHandle, 0);
+
+    // int r = libusb_set_auto_detach_kernel_driver(deviceHandle, 1);
+    // if (r == LIBUSB_ERROR_NOT_SUPPORTED){
+    //     for (int i=0; i < 5;i++){
+    //         if (libusb_kernel_driver_active(deviceHandle, i) == 1) {
+    //             libusb_detach_kernel_driver(deviceHandle, i);
+    //         }
+    //     }
+    // }else{
+    //     return false;
+    // }
+    
+    // int result = libusb_claim_interface(deviceHandle, 1);
+    // if (result != 0) {
+    //     qCDebug(log_usb) << "Failed to claim interface: " << libusb_error_name(result);
+    //     return false;
+    // }
 
     getConfigDescriptor();
     showConfigDescriptor();
-
-    int result = libusb_claim_interface(deviceHandle, 0x00);
-    if (result != 0) {
-        qCDebug(log_usb) << "Failed to claim interface: " << libusb_error_name(result) << libusb_strerror(result);
-        return false;
-    }
-
-    
+    getDeviceDescriptor();
     int brightness = getBrightness();
     qCDebug(log_usb) << "Brightness: " << brightness;
     emit deviceConnected();
@@ -110,6 +121,7 @@ void USBControl::getConfigDescriptor()
     libusb_free_config_descriptor(config_descriptor);
 }
 
+
 void USBControl::showConfigDescriptor()
 {
     qCDebug(log_usb) << "Config descriptor: ";
@@ -121,27 +133,64 @@ void USBControl::showConfigDescriptor()
     qCDebug(log_usb) << "iConfiguration: " << config_descriptor->iConfiguration;
     qCDebug(log_usb) << "bmAttributes: " << config_descriptor->bmAttributes;
     qCDebug(log_usb) << "bMaxPower: " << config_descriptor->MaxPower;
-    
-    
+
 }
 
 int USBControl::getBrightness()
 {
     unsigned char data[2];
+    int transferred; // To hold the number of bytes transferred
     int result;
-    result = libusb_control_transfer(
+
+    // Assuming you have a bulk IN endpoint for brightness control
+    // Replace `BULK_IN_ENDPOINT` with the actual endpoint address
+    const int BULK_IN_ENDPOINT = 0x83; // Example endpoint address, adjust as necessary
+
+    result = libusb_bulk_transfer(
         deviceHandle,
-        LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE,
-        UVC_GET_CUR,
-        (PU_BRIGHTNESS_CONTROL << 8) | INTERFACE_ID,
-        (bDescriptorSubtype << 8) | INTERFACE_ID,
+        BULK_IN_ENDPOINT,
         data,
         sizeof(data),
-        0
+        &transferred,
+        1000 // Timeout in milliseconds
     );
-    if (result != sizeof(data)) {
-        qCDebug(log_usb) << "Failed to get brightness: " << libusb_strerror(result);
+
+    if (result != LIBUSB_SUCCESS) {
+        qCDebug(log_usb) << "Failed to get brightness: " << libusb_error_name(result);
         return -1;
     }
+
+    // Check if the number of bytes transferred is correct
+    if (transferred != sizeof(data)) {
+        qCDebug(log_usb) << "Unexpected number of bytes transferred: " << transferred;
+        return -1;
+    }
+
     return (data[0] << 8) | data[1];
+}
+
+void USBControl::getDeviceDescriptor()
+{
+    // Get the device descriptor
+    int result = libusb_get_device_descriptor(device, &device_descriptor);
+    if (result != LIBUSB_SUCCESS) {
+        qCDebug(log_usb) << "Failed to get device descriptor: " << libusb_error_name(result);
+        return;
+    }
+
+    // Log the device descriptor information
+    qCDebug(log_usb) << "Device Descriptor:";
+    qCDebug(log_usb) << "bLength: " << device_descriptor.bLength;
+    qCDebug(log_usb) << "bDescriptorType: " << device_descriptor.bDescriptorType;
+    qCDebug(log_usb) << "bcdUSB: " << device_descriptor.bcdUSB;
+    qCDebug(log_usb) << "bDeviceClass: " << device_descriptor.bDeviceClass;
+    qCDebug(log_usb) << "bDeviceSubClass: " << device_descriptor.bDeviceSubClass;
+    qCDebug(log_usb) << "bDeviceProtocol: " << device_descriptor.bDeviceProtocol;
+    qCDebug(log_usb) << "bMaxPacketSize0: " << device_descriptor.bMaxPacketSize0;
+    qCDebug(log_usb) << "idVendor: " << QString("0x%1").arg(device_descriptor.idVendor, 4, 16, QChar('0'));
+    qCDebug(log_usb) << "idProduct: " << QString("0x%1").arg(device_descriptor.idProduct, 4, 16, QChar('0'));
+    qCDebug(log_usb) << "iManufacturer: " << device_descriptor.iManufacturer;
+    qCDebug(log_usb) << "iProduct: " << device_descriptor.iProduct;
+    qCDebug(log_usb) << "iSerialNumber: " << device_descriptor.iSerialNumber;
+    qCDebug(log_usb) << "bNumConfigurations: " << device_descriptor.bNumConfigurations;
 }

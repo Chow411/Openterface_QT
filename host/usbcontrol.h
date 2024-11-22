@@ -49,11 +49,14 @@ public slots:
     
     // Only keep brightness and contrast controls
     bool findAndOpenUVCDevice();
+    void getContrastAsync();
 
 private:
     static const uint16_t VENDOR_ID = 0x534D;   // 534D
     static const uint16_t PRODUCT_ID = 0x2109;  // 2109
     
+    static const uint8_t GET_CUR = 0x00;
+    static const uint8_t SET_CUR = 0x01;
     static const uint8_t UVC_GET_CUR = 0x81;
     static const uint8_t UVC_GET_MIN = 0x82;
     static const uint8_t UVC_GET_MAX = 0x83;
@@ -66,8 +69,8 @@ private:
     static const uint8_t bSourceID = 0x01;
     static const uint8_t bControlSize = 0x02;
     static const uint8_t bmControls = 0x0F;
-    static const uint8_t PU_BRIGHTNESS_CONTROL = 0x01;
-    static const uint8_t PU_CONTRAST_CONTROL = 0x02;
+    static const uint16_t PU_BRIGHTNESS_CONTROL = 0x0200;
+    static const uint16_t PU_CONTRAST_CONTROL = 0x0300;
 
 
     // Define the vendor and product IDs
@@ -79,9 +82,15 @@ private:
     libusb_device_handle *deviceHandle;
     libusb_device *device;
     libusb_config_descriptor *config_descriptor;
+    // libusb_interface *Allinterface;
+    libusb_interface_descriptor *interface_descriptor;
     void getConfigDescriptor();
     void showConfigDescriptor();
     int getBrightness();
+    libusb_transfer *contrastTransfer;
+    unsigned char buffer[2];
+    bool initTransfer();
+    // void getContrastAsync();
 };
 
 #endif // USBCONTROL_H

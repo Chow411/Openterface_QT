@@ -133,6 +133,8 @@ void CameraAdjust::initializeControls()
     if (usbControl && usbControl->initializeUSB()) {
         // qDebug() << "USB initialized";
         if (usbControl->findAndOpenUVCDevice()) {
+            usbControl->getContrastAsync();
+            
             // qDebug() << "USB device found and opened";
             // int currentContrast = usbControl->getContrast();
             // if (currentContrast >= 0) {

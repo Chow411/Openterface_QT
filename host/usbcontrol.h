@@ -42,6 +42,7 @@ signals:
     void deviceConnected();
     void deviceDisconnected();
     void error(const QString &message);
+    void contrastValueReceived(int value);
 
 public slots:
     bool initializeUSB();
@@ -89,8 +90,12 @@ private:
     int getBrightness();
     libusb_transfer *contrastTransfer;
     unsigned char buffer[2];
-    bool initTransfer();
     // void getContrastAsync();
+    
+    static const int CONTROL_BUFFER_SIZE = 32;  // Size for control transfer buffer
+    uint8_t *controlBuffer;
+    static void LIBUSB_CALL contrastTransferCallback(struct libusb_transfer *transfer);
+    void handleContrastData(uint8_t *data, int length);
 };
 
 #endif // USBCONTROL_H

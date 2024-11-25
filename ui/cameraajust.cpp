@@ -131,15 +131,13 @@ void CameraAdjust::updateColors()
 void CameraAdjust::initializeControls()
 {
     if (usbControl && usbControl->initializeUSB()) {
-        // qDebug() << "USB initialized";
         if (usbControl->findAndOpenUVCDevice()) {
-            usbControl->getContrastAsync();
+            // Connect the contrast value signal
+            connect(usbControl, &USBControl::contrastValueReceived,
+                    this, &CameraAdjust::onContrastValueReceived);
             
-            // qDebug() << "USB device found and opened";
-            // int currentContrast = usbControl->getContrast();
-            // if (currentContrast >= 0) {
-            //     contrastSlider->setValue(currentContrast);
-            // }
+            // Request contrast value
+            usbControl->getContrastAsync();
         }
     }
 }
@@ -176,4 +174,12 @@ void CameraAdjust::onContrastChanged(int value)
     //         qDebug() << "Failed to set contrast";
     //     }
     // }
+}
+
+void CameraAdjust::onContrastValueReceived(int value)
+{
+    contrastSlider->setValue(value);
+    qCDebug(log_usb) << "**************************";
+    qCDebug(log_usb) << "Received contrast value:" << value;
+    qCDebug(log_usb) << "**************************";
 }

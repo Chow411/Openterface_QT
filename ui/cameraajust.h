@@ -55,6 +55,7 @@ private:
     QSlider *contrastSlider;
     QLabel *contrastLabel;
     USBControl *usbControl;
+    void onContrastValueReceived(int value);
 };
 
 #endif // CAMERAAJUST_H

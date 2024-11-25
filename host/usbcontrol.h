@@ -51,25 +51,19 @@ public slots:
     // Only keep brightness and contrast controls
     bool findAndOpenUVCDevice();
     void getContrastAsync();
+    void setContrastAsync(uint16_t value);
 
 private:
     static const uint16_t VENDOR_ID = 0x534D;   // 534D
     static const uint16_t PRODUCT_ID = 0x2109;  // 2109
-    
-    static const uint8_t GET_CUR = 0x00;
+    // The uvc control constants
     static const uint8_t SET_CUR = 0x01;
-    static const uint8_t UVC_GET_CUR = 0x81;
-    static const uint8_t UVC_GET_MIN = 0x82;
-    static const uint8_t UVC_GET_MAX = 0x83;
-    static const uint8_t UVC_GET_DEF = 0x87;
-    static const uint8_t UVC_SET_CUR = 0x01;
-    static const uint8_t bLength = 0x0B;
-    static const uint8_t bDescriptorType = 0x24;
-    static const uint8_t bDescriptorSubtype = 0x05;
-    static const uint8_t bUnitID = 0x02;
-    static const uint8_t bSourceID = 0x01;
-    static const uint8_t bControlSize = 0x02;
-    static const uint8_t bmControls = 0x0F;
+    static const uint8_t GET_CUR = 0x81;
+    static const uint8_t GET_MIN = 0x82;
+    static const uint8_t GET_MAX = 0x83;
+    static const uint8_t GET_RES = 0x84;
+    static const uint8_t bTerminalID = 0x01;
+    
     static const uint16_t PU_BRIGHTNESS_CONTROL = 0x0200;
     static const uint16_t PU_CONTRAST_CONTROL = 0x0300;
 
@@ -96,6 +90,8 @@ private:
     uint8_t *controlBuffer;
     static void LIBUSB_CALL contrastTransferCallback(struct libusb_transfer *transfer);
     void handleContrastData(uint8_t *data, int length);
+    static void LIBUSB_CALL setContrastTransferCallback(struct libusb_transfer *transfer);
+    void handleSetContrastComplete(libusb_transfer *transfer);
 };
 
 #endif // USBCONTROL_H

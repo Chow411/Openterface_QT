@@ -111,11 +111,14 @@ bool USBControl::findAndOpenUVCDevice()
     if (result != 0) {
         qCDebug(log_usb) << "Failed to claim interface: " << libusb_error_name(result) << libusb_strerror(result);
         return false;
+    }else{
+        qCDebug(log_usb) << "Successfully claimed interface";
     }
 
-    getConfigDescriptor();
-    showConfigDescriptor();
+    // getConfigDescriptor();
+    // showConfigDescriptor();
     // int brightness = getBrightness();
+    // qCDebug(log_usb) << "brigtness" << brightness << "*************************";
     // bool init_result = initTransfer();
     // if(result)
     // getContrastAsync();
@@ -177,7 +180,7 @@ int USBControl::getBrightness()
     uint8_t 	bmRequestType = 0xA1;
     uint8_t 	bRequest = GET_CUR;
     uint16_t 	wValue = PU_BRIGHTNESS_CONTROL;
-    uint16_t 	wIndex = 0x0002;
+    uint16_t 	wIndex = 0x0200;
     uint8_t 	data[2];
     uint16_t 	wLength = 2;
     unsigned int 	timeout = 1000;
@@ -208,8 +211,9 @@ int USBControl::getBrightness()
         qCDebug(log_usb) << "Unexpected number of bytes received for brightness: " << result;
         return -1;
     }
-    
+    qCDebug(log_usb) << "brightness:" << data[0] << data[1];
     return (data[0] << 8) | data[1];
+
 }
 
 void USBControl::getContrastAsync()
@@ -268,7 +272,8 @@ void USBControl::getContrastAsync()
 void LIBUSB_CALL USBControl::contrastTransferCallback(struct libusb_transfer *transfer)
 {
     USBControl *self = static_cast<USBControl*>(transfer->user_data);
-    
+    qCDebug(log_usb) << "Contrast transfer callback";
+
     if (transfer->status != LIBUSB_TRANSFER_COMPLETED) {
         qCDebug(log_usb) << "Transfer failed:" << libusb_error_name(transfer->status);
     } else {
@@ -291,4 +296,79 @@ void USBControl::handleContrastData(uint8_t *data, int length)
     } else {
         qCDebug(log_usb) << "Received incomplete contrast data";
     }
+}
+
+void USBControl::setContrastAsync(uint16_t value)
+{
+    if (!deviceHandle) {
+        qCDebug(log_usb) << "No device handle available";
+        return;
+    }
+
+    // Setup the control transfer
+    uint8_t bmRequestType = 0x21;  // Host to Device | Class | Interface
+    uint8_t bRequest = SET_CUR;
+    uint16_t wValue = PU_CONTRAST_CONTROL;  // Processing Unit + Contrast control
+    uint16_t wIndex = 0x0200;  // Processing Unit ID in high byte
+    uint16_t wLength = 2;  // 16-bit value = 2 bytes
+
+    // Prepare the control setup packet
+    libusb_fill_control_setup(
+        controlBuffer,
+        bmRequestType,
+        bRequest,
+        wValue,
+        wIndex,
+        wLength
+    );
+
+    // Set the contrast value in the data portion (after setup packet)
+    controlBuffer[LIBUSB_CONTROL_SETUP_SIZE] = value & 0xFF;        // Low byte
+    controlBuffer[LIBUSB_CONTROL_SETUP_SIZE + 1] = (value >> 8) & 0xFF;  // High byte
+
+    // Allocate transfer
+    libusb_transfer *setContrastTransfer = libusb_alloc_transfer(0);
+    if (!setContrastTransfer) {
+        qCDebug(log_usb) << "Failed to allocate transfer";
+        return;
+    }
+
+    // Fill the transfer
+    libusb_fill_control_transfer(
+        setContrastTransfer,
+        deviceHandle,
+        controlBuffer,
+        setContrastTransferCallback,
+        this,  // User data is the USBControl instance
+        1000   // Timeout in milliseconds
+    );
+
+    // Submit transfer
+    int result = libusb_submit_transfer(setContrastTransfer);
+    if (result != 0) {
+        qCDebug(log_usb) << "Failed to submit contrast set transfer:" << libusb_error_name(result);
+        libusb_free_transfer(setContrastTransfer);
+        return;
+    }
+
+    qCDebug(log_usb) << "Set contrast transfer submitted successfully with value:" << value;
+}
+
+void LIBUSB_CALL USBControl::setContrastTransferCallback(struct libusb_transfer *transfer)
+{
+    USBControl *self = static_cast<USBControl*>(transfer->user_data);
+    self->handleSetContrastComplete(transfer);
+}
+
+void USBControl::handleSetContrastComplete(libusb_transfer *transfer)
+{
+    if (transfer->status != LIBUSB_TRANSFER_COMPLETED) {
+        qCDebug(log_usb) << "Set contrast transfer failed:" << libusb_error_name(transfer->status);
+    } else {
+        qCDebug(log_usb) << "Set contrast transfer completed successfully";
+        // Request the current contrast value to verify the change
+        getContrastAsync();
+    }
+
+    libusb_free_transfer(transfer);
 }

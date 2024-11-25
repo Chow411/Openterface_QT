@@ -167,13 +167,10 @@ void CameraAdjust::updatePosition(int menuBarHeight, int parentWidth)
 
 void CameraAdjust::onContrastChanged(int value)
 {
-    // if (usbControl) {
-    //     if (usbControl->setContrast(value)) {
-    //         qDebug() << "Contrast set to:" << value;
-    //     } else {
-    //         qDebug() << "Failed to set contrast";
-    //     }
-    // }
+    if (usbControl) {
+        usbControl->setContrastAsync(value);
+        qCDebug(log_usb) << "Requesting to set contrast to:" << value;
+    }
 }
 
 void CameraAdjust::onContrastValueReceived(int value)

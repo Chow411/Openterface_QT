@@ -37,7 +37,7 @@ public:
 
 private:
     MouseManager* mouseManager;
-    
+    void analyzeCommandStetement(const CommandStatementNode* node);
     void analyzeClickStatement(const CommandStatementNode* node);
     QPoint parseCoordinates(const std::vector<std::string>& options);
     int parseMouseButton(const std::vector<std::string>& options);

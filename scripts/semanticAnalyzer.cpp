@@ -42,8 +42,8 @@ void SemanticAnalyzer::analyze(const ASTNode* node) {
             break;
             
         case ASTNodeType::CommandStatement:
-            analyzeClickStatement(static_cast<const CommandStatementNode*>(node));
-            qDebug() << "click statement";
+            
+            analyzeCommandStetement(static_cast<const CommandStatementNode*>(node));
             break;
             
         default:
@@ -59,6 +59,13 @@ void SemanticAnalyzer::resetParameters() {
     // Reset mouse manager state
     mouseManager->reset();
     qDebug() << "Reset parameters for next statement";
+}
+
+void SemanticAnalyzer::analyzeCommandStetement(const CommandStatementNode* node){
+    QString comandName = node->getCommandName();
+    if(comandName == "Click"){
+        analyzeClickStatement(node);
+    }
 }
 
 void SemanticAnalyzer::analyzeClickStatement(const CommandStatementNode* node) {

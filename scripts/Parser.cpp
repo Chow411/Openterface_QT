@@ -67,9 +67,7 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
     }
     
     if (currentToken().type == AHKTokenType::COMMAND) {
-        if (currentToken().value == "Click"){
-            return parseClickStatement();
-        }
+        return parseCommandStatement();
     }
     // Add other statement types here
     
@@ -82,9 +80,13 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
     return nullptr;
 }
 
-std::unique_ptr<ASTNode> Parser::parseClickStatement() {
-    advance(); // Move past the 'Click' token
-
+std::unique_ptr<ASTNode> Parser::parseCommandStatement() {
+    QString tmp = "";
+    if (currentToken().value == "Click"){
+        tmp = "Click";
+    }
+    advance(); // Move past the COMMAND token
+    
     std::vector<std::string> options;
     while (currentToken().type == AHKTokenType::INTEGER
             || currentToken().type == AHKTokenType::IDENTIFIER
@@ -93,6 +95,8 @@ std::unique_ptr<ASTNode> Parser::parseClickStatement() {
         options.push_back(currentToken().value);
         advance();
     }
-
-    return std::make_unique<ClickStatementNode>(options);
+    auto commandStatementNode = std::make_unique<CommandStatementNode>(options);
+    commandStatementNode->setCommandName(tmp);
+    return commandStatementNode;
 }
+

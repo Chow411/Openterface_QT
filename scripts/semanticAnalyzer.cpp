@@ -41,8 +41,8 @@ void SemanticAnalyzer::analyze(const ASTNode* node) {
             }
             break;
             
-        case ASTNodeType::ClickStatement:
-            analyzeClickStatement(static_cast<const ClickStatementNode*>(node));
+        case ASTNodeType::CommandStatement:
+            analyzeClickStatement(static_cast<const CommandStatementNode*>(node));
             qDebug() << "click statement";
             break;
             
@@ -61,7 +61,7 @@ void SemanticAnalyzer::resetParameters() {
     qDebug() << "Reset parameters for next statement";
 }
 
-void SemanticAnalyzer::analyzeClickStatement(const ClickStatementNode* node) {
+void SemanticAnalyzer::analyzeClickStatement(const CommandStatementNode* node) {
     const auto& options = node->getOptions();
     if (options.empty()) {
         qDebug() << "No coordinates provided for Click command";

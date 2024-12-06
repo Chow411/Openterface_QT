@@ -81,10 +81,7 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
 }
 
 std::unique_ptr<ASTNode> Parser::parseCommandStatement() {
-    QString tmp = "";
-    if (currentToken().value == "Click"){
-        tmp = "Click";
-    }
+    QString tmp = QString::fromStdString(currentToken().value);
     advance(); // Move past the COMMAND token
     
     std::vector<std::string> options;
@@ -99,4 +96,3 @@ std::unique_ptr<ASTNode> Parser::parseCommandStatement() {
     commandStatementNode->setCommandName(tmp);
     return commandStatementNode;
 }
-

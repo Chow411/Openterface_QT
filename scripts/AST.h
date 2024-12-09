@@ -64,7 +64,7 @@ public:
     ASTNodeType getType() const override { return ASTNodeType::CommandStatement; }
     const std::vector<std::string>& getOptions() const { return options; }
     const QString getCommandName() const { return commandName; }
-    QString setCommandName(QString name) { commandName = name; }
+    void setCommandName(QString name) { commandName = name; }
 private:
     std::vector<std::string> options;
     QString commandName;

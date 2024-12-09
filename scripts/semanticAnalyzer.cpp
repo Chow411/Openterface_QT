@@ -27,28 +27,37 @@
 #include <QString>
 
 SemanticAnalyzer::SemanticAnalyzer(MouseManager* mouseManager) 
-    : mouseManager(mouseManager) {}
+    : mouseManager(mouseManager) {
+    if (!mouseManager) {
+        qDebug() << "MouseManager is not initialized!";
+    }
+}
 
 void SemanticAnalyzer::analyze(const ASTNode* node) {
-    if (!node) return;
+    if (!node) {
+        qDebug() << "Received null node in analyze method.";
+        return;
+    }
     
     switch (node->getType()) {
         case ASTNodeType::StatementList:
             // Process each statement in the list
             for (const auto& child : node->getChildren()) {
+                qDebug() << "Analyzing child node.";
                 analyze(child.get());
                 resetParameters(); // Reset after each statement
             }
             break;
             
         case ASTNodeType::CommandStatement:
-            
+            qDebug() << "Analyzing command statement.";
             analyzeCommandStetement(static_cast<const CommandStatementNode*>(node));
             break;
             
         default:
             // Process any child nodes
             for (const auto& child : node->getChildren()) {
+                qDebug() << "Analyzing default child node.";
                 analyze(child.get());
             }
             break;
@@ -56,9 +65,13 @@ void SemanticAnalyzer::analyze(const ASTNode* node) {
 }
 
 void SemanticAnalyzer::resetParameters() {
-    // Reset mouse manager state
-    mouseManager->reset();
-    qDebug() << "Reset parameters for next statement";
+    if (mouseManager) {
+        // Reset mouse manager state
+        mouseManager->reset();
+        qDebug() << "Reset parameters for next statement";
+    } else {
+        qDebug() << "MouseManager is not available for reset!";
+    }
 }
 
 void SemanticAnalyzer::analyzeCommandStetement(const CommandStatementNode* node){
@@ -82,8 +95,13 @@ void SemanticAnalyzer::analyzeClickStatement(const CommandStatementNode* node) {
     qDebug() << "Executing click at:" << coords.x() << "," << coords.y() 
              << "with button:" << mouseButton;
 
-    // Execute the mouse action
-    mouseManager->handleAbsoluteMouseAction(coords.x(), coords.y(), mouseButton, 0);
+    try {
+        mouseManager->handleAbsoluteMouseAction(coords.x(), coords.y(), mouseButton, 0);
+    } catch (const std::exception& e) {
+        qDebug() << "Exception caught in handleAbsoluteMouseAction:" << e.what();
+    } catch (...) {
+        qDebug() << "Unknown exception caught in handleAbsoluteMouseAction.";
+    }
 }
 
 QPoint SemanticAnalyzer::parseCoordinates(const std::vector<std::string>& options) {

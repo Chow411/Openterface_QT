@@ -30,7 +30,7 @@
 #include "../scripts/Lexer.h"
 #include "../scripts/Parser.h"
 #include "../scripts/semanticAnalyzer.h"
-#include "../target/MouseManager.h"
+// #include "../target/MouseManager.h"
 
 ScriptTool::ScriptTool(QWidget *parent)
     : QDialog(parent)

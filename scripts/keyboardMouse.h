@@ -35,99 +35,106 @@
 #define KEYBOARDMOUSE_H
 
 #include <QMap>
-const QMap<QString, int> AHKmapping = {
-    {"a", 0x04}, // a
-    {"b", 0x05}, // b
-    {"c", 0x06}, // c
-    {"d", 0x07}, // d
-    {"e", 0x08}, // e
-    {"f", 0x09}, // f
-    {"g", 0x0A}, // g
-    {"h", 0x0B}, // h
-    {"i", 0x0C}, // i
-    {"j", 0x0D}, // j
-    {"k", 0x0E}, // k
-    {"l", 0x0F}, // l
-    {"m", 0x10}, // m
-    {"n", 0x11}, // n
-    {"o", 0x12}, // o
-    {"p", 0x13}, // p
-    {"q", 0x14}, // q
-    {"r", 0x15}, // r
-    {"s", 0x16}, // s
-    {"t", 0x17}, // t
-    {"u", 0x18}, // u
-    {"v", 0x19}, // v
-    {"w", 0x1A}, // w
-    {"x", 0x1B}, // x
-    {"y", 0x1C}, // y
-    {"z", 0x1D},  // z
-    {"0", 0x27}, // 0
-    {"1", 0x1E}, // 1
-    {"2", 0x1F}, // 2
-    {"3", 0x20}, // 3
-    {"4", 0x21}, // 4
-    {"5", 0x22}, // 5
-    {"6", 0x23}, // 6
-    {"7", 0x24}, // 7
-    {"8", 0x25}, // 8
-    {"9", 0x26}, // 9
-    {"NumberpadEnter", 0x58}, // NumberpadEnter
-    {"NumpadSub", 0x2D},
-    {"F1", 0x3A}, // f1
-    {"F2", 0x3B}, // f2
-    {"F3", 0x3C}, // f3
-    {"F4", 0x3D}, // f4
-    {"F5", 0x3E}, // f5
-    {"F6", 0x3F}, // f6
-    {"F7", 0x40}, // f7
-    {"F8", 0x41}, // f8
-    {"F9", 0x42}, // f9
-    {"F10", 0x43}, // f10
-    {"F11", 0x44}, // f11
-    {"F12", 0x45}, // f12
-    {"!", 0x1E}, // !
-    {"#", 0x32}, // #
-    {"+", 0x2E}, // +
-    {"^", 0x23}, // ^
-    {"{", 0x2F}, // {
-    {"}", 0x30}, // }
-    {"Enter", 0x28}, // Enter
-    {"Esc", 0x29}, // esc
-    {"Escape", 0x29}, // Escape
-    {"Space", 0x2C}, // space
-    {"Tab", 0x2B} , // Tab
-    {"Backspace", 0x2A}, // Backspace
-    {"BS", 0x2A},  //Backspace
-    {"Del", 0x4C}, // Del
-    {"Delete", 0x4C}, // Delete
-    {"Insert", 0x49}, // Insert
-    {"Ins", 0x49}, // Ins
-    {"Up", 0x52},    // Up
-    {"Down", 0x51},  // Down
-    {"Left", 0x50}, // Left
-    {"Right", 0x4F}, // Right
-    {"Home", 0x4A}, // Home
-    {"End", 0x4D}, // End
-    {"PgUp", 0x4B}, // PgUp
-    {"PgDn", 0x4E}, // PgDn
-    {"CapsLock", 0x39}, // CapsLock
-    {"ScrollLock", 0x47}, // ScrollLock
-    {"NumLock", 0x53}, // NumLock
-    {"Control", 0xE4}, // Control right
-    {"Ctrl", 0xE4}, // Control right
-    {"LControl", 0xE0}, // Control left
-    {"LCtrl", 0xE0}, // Control left
-    {"Alt", 0xE6}, // Alt
-    {"RAlt", 0xE6}, // RAlt
-    {"Shift", 0xE5}, // Shift
-    {"LWin", 0xE3}, // LWin
-    {"RWin", 0xE7}, // RWin 
-    {"AppsKey", 0x65} // APPWin
 
+// ... existing code ...
+const QMap<QString, Qt::Key> AHKmapping = {
+    {"a", Qt::Key_A}, // a
+    {"b", Qt::Key_B}, // b
+    {"c", Qt::Key_C}, // c
+    {"d", Qt::Key_D}, // d
+    {"e", Qt::Key_E}, // e
+    {"f", Qt::Key_F}, // f
+    {"g", Qt::Key_G}, // g
+    {"h", Qt::Key_H}, // h
+    {"i", Qt::Key_I}, // i
+    {"j", Qt::Key_J}, // j
+    {"k", Qt::Key_K}, // k
+    {"l", Qt::Key_L}, // l
+    {"m", Qt::Key_M}, // m
+    {"n", Qt::Key_N}, // n
+    {"o", Qt::Key_O}, // o
+    {"p", Qt::Key_P}, // p
+    {"q", Qt::Key_Q}, // q
+    {"r", Qt::Key_R}, // r
+    {"s", Qt::Key_S}, // s
+    {"t", Qt::Key_T}, // t
+    {"u", Qt::Key_U}, // u
+    {"v", Qt::Key_V}, // v
+    {"w", Qt::Key_W}, // w
+    {"x", Qt::Key_X}, // x
+    {"y", Qt::Key_Y}, // y
+    {"z", Qt::Key_Z}, // z
+    {"0", Qt::Key_0}, // 0
+    {"1", Qt::Key_1}, // 1
+    {"2", Qt::Key_2}, // 2
+    {"3", Qt::Key_3}, // 3
+    {"4", Qt::Key_4}, // 4
+    {"5", Qt::Key_5}, // 5
+    {"6", Qt::Key_6}, // 6
+    {"7", Qt::Key_7}, // 7
+    {"8", Qt::Key_8}, // 8
+    {"9", Qt::Key_9}, // 9
+    {"NumberpadEnter", Qt::Key_Return}, // NumberpadEnter
+    {"NumpadSub", Qt::Key_Minus}, // NumpadSub
+    {"F1", Qt::Key_F1}, // F1
+    {"F2", Qt::Key_F2}, // F2
+    {"F3", Qt::Key_F3}, // F3
+    {"F4", Qt::Key_F4}, // F4
+    {"F5", Qt::Key_F5}, // F5
+    {"F6", Qt::Key_F6}, // F6
+    {"F7", Qt::Key_F7}, // F7
+    {"F8", Qt::Key_F8}, // F8
+    {"F9", Qt::Key_F9}, // F9
+    {"F10", Qt::Key_F10}, // F10
+    {"F11", Qt::Key_F11}, // F11
+    {"F12", Qt::Key_F12}, // F12
+    {"!", Qt::Key_Exclam}, // !
+    {"#", Qt::Key_NumberSign}, // #
+    {"+", Qt::Key_Plus}, // +
+    {"^", Qt::Key_AsciiCircum}, // ^
+    {"{", Qt::Key_BraceLeft}, // {
+    {"}", Qt::Key_BraceRight}, // }
+    {"Enter", Qt::Key_Return}, // Enter
+    {"Esc", Qt::Key_Escape}, // esc
+    {"Escape", Qt::Key_Escape}, // Escape
+    {"Space", Qt::Key_Space}, // space
+    {"Tab", Qt::Key_Tab}, // Tab
+    {"Backspace", Qt::Key_Backspace}, // Backspace
+    {"BS", Qt::Key_Backspace}, // Backspace
+    {"Del", Qt::Key_Delete}, // Del
+    {"Delete", Qt::Key_Delete}, // Delete
+    {"Insert", Qt::Key_Insert}, // Insert
+    {"Ins", Qt::Key_Insert}, // Ins
+    {"Up", Qt::Key_Up}, // Up
+    {"Down", Qt::Key_Down}, // Down
+    {"Left", Qt::Key_Left}, // Left
+    {"Right", Qt::Key_Right}, // Right
+    {"Home", Qt::Key_Home}, // Home
+    {"End", Qt::Key_End}, // End
+    {"PgUp", Qt::Key_PageUp}, // PgUp
+    {"PgDn", Qt::Key_PageDown}, // PgDn
+    {"CapsLock", Qt::Key_CapsLock}, // CapsLock
+    {"ScrollLock", Qt::Key_ScrollLock}, // ScrollLock
+    {"NumLock", Qt::Key_NumLock}, // NumLock
+    {"Control", Qt::Key_Control}, // Control right
+    {"Ctrl", Qt::Key_Control}, // Control right
+    {"LControl", Qt::Key_Control}, // Control left
+    {"LCtrl", Qt::Key_Control}, // Control left
+    {"Alt", Qt::Key_Alt}, // Alt
+    {"RAlt", Qt::Key_Alt}, // RAlt
+    {"Shift", Qt::Key_Shift}, // Shift
+    {"LWin", Qt::Key_Meta}, // LWin
+    {"RWin", Qt::Key_Meta}, // RWin 
+    {"AppsKey", Qt::Key_Menu} // APPWin
 };
+// ... existing code ...
 
-
+const QMap<QString, Qt::Key> specialKeys = {
+    {"^", Qt::Key_Control}, // Ctrl
+    {"+", Qt::Key_Shift}, // Shift
+    {"!", Qt::Key_Alt}, // Alt
+    {"#", Qt::Key_Meta}  // Win
+};
 
 
 #endif // KEYBOARDMOUSE_H

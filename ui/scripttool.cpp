@@ -30,7 +30,7 @@
 #include "../scripts/Lexer.h"
 #include "../scripts/Parser.h"
 #include "../scripts/semanticAnalyzer.h"
-// #include "../target/MouseManager.h"
+
 
 ScriptTool::ScriptTool(QWidget *parent)
     : QDialog(parent)
@@ -65,7 +65,8 @@ ScriptTool::ScriptTool(QWidget *parent)
     connect(runButton, &QPushButton::clicked, this, &ScriptTool::runScript);
 
     mouseManager = std::make_unique<MouseManager>();
-    semanticAnalyzer = std::make_unique<SemanticAnalyzer>(mouseManager.get());
+    keyboardManager = std::make_unique<KeyboardManager>();
+    semanticAnalyzer = std::make_unique<SemanticAnalyzer>(mouseManager.get(), keyboardManager.get());
 }
 
 ScriptTool::~ScriptTool()
@@ -123,7 +124,7 @@ void ScriptTool::selectFile()
                         break;
                 }
                 styledText += QString("<span style='color:%1;'>%2</span>").arg(color, tokenText);
-                qDebug() << "Token Type:" << static_cast<int>(token.type) << "Value:" << tokenText;
+                // qDebug() << "Token Type:" << static_cast<int>(token.type) << "Value:" << tokenText;
             }
             scriptEdit->setText(styledText);
         } else {

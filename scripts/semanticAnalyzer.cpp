@@ -25,11 +25,15 @@
 #include <stdexcept>
 #include <QDebug>
 #include <QString>
+#include "keyboardMouse.h"
 
-SemanticAnalyzer::SemanticAnalyzer(MouseManager* mouseManager) 
-    : mouseManager(mouseManager) {
+SemanticAnalyzer::SemanticAnalyzer(MouseManager* mouseManager, KeyboardManager* keyboardManager) 
+    : mouseManager(mouseManager), keyboardManager(keyboardManager) {
     if (!mouseManager) {
         qDebug() << "MouseManager is not initialized!";
+    }
+    if (!keyboardManager) {
+        qDebug() << "KeyboardManager is not initialized!";
     }
 }
 
@@ -75,10 +79,62 @@ void SemanticAnalyzer::resetParameters() {
 }
 
 void SemanticAnalyzer::analyzeCommandStetement(const CommandStatementNode* node){
-    QString comandName = node->getCommandName();
-    if(comandName == "Click"){
+    QString commandName = node->getCommandName();
+    
+    if(commandName == "Click"){
         analyzeClickStatement(node);
     }
+    if(commandName == "Send"){
+        qDebug() << "send command";
+        analyzeSendStatement(node);
+    }
+}
+
+void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
+    const auto& options = node->getOptions();
+    // Map for special keys
+    QMap<QChar, uint8_t> specialKeys = {
+        {'^', 0xE4}, // Ctrl
+        {'+', 0xE5}, // Shift
+        {'!', 0xE6}, // Alt
+        {'#', 0xE3}  // Win
+    };
+    
+    if (options.empty()) {
+        qDebug() << "No coordinates provided for Send command";
+        return;
+    }
+    QString tmpKeys;
+    for (const auto& token : options){
+        qDebug() << token;
+        if (token != "\"") tmpKeys.append(token);
+    }
+    bool hasBrace = tmpKeys.contains("{");
+    qDebug() << "tmp key:" << tmpKeys;
+    if (!hasBrace){
+        // Iterate through each character in the text to send
+        for (const QChar& ch : tmpKeys) {
+            qDebug() << "Sent key:" << ch;
+            if (specialKeys.contains(ch)) {
+                int keyCode = specialKeys[ch];
+                // Send the special key
+                qDebug() << "keycode: " << keyCode; 
+                keyboardManager->handleKeyboardAction(keyCode, 0, true); // Key down
+                keyboardManager->handleKeyboardAction(keyCode, 0, false); // Key up
+                
+            } else {
+                // Check if the character is a regular key
+                if (AHKmapping.contains(ch)) {
+                    int keyCode = AHKmapping.value(ch);
+                    // Send the regular key
+                    qDebug() << "keycode: " << keyCode; 
+                    keyboardManager->handleKeyboardAction(keyCode, 0, true); // Key down
+                    keyboardManager->handleKeyboardAction(keyCode, 0, false); // Key up
+                }
+            }
+        }
+    }
+
 }
 
 void SemanticAnalyzer::analyzeClickStatement(const CommandStatementNode* node) {
@@ -161,7 +217,6 @@ int SemanticAnalyzer::parseMouseButton(const std::vector<std::string>& options) 
         }
     }
     
-
     // qDebug() << "Parsed mouse button:" << mouseButton << "from options:" << options;
 
     return mouseButton;

@@ -35,6 +35,7 @@
 #include "../scripts/Parser.h"
 #include "../scripts/semanticAnalyzer.h"
 #include "../target/MouseManager.h"
+#include "../target/KeyboardManager.h"
 
 class ScriptTool : public QDialog
 {
@@ -58,6 +59,7 @@ private:
     std::vector<Token> tokens;
     QString fileContents;
     std::unique_ptr<MouseManager> mouseManager;
+    std::unique_ptr<KeyboardManager> keyboardManager;
     std::unique_ptr<SemanticAnalyzer> semanticAnalyzer;
     void processAST(ASTNode *node);
 };

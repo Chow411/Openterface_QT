@@ -22,7 +22,7 @@
 
 
 #include "Parser.h"
-
+#include <QDebug>
 Parser::Parser(const std::vector<Token>& tokens) : tokens(tokens), currentIndex(0) {}
 
 Token Parser::currentToken() {
@@ -85,14 +85,13 @@ std::unique_ptr<ASTNode> Parser::parseCommandStatement() {
     advance(); // Move past the COMMAND token
     
     std::vector<std::string> options;
-    while (currentToken().type == AHKTokenType::INTEGER
-            || currentToken().type == AHKTokenType::IDENTIFIER
-            || currentToken().type == AHKTokenType::SYMBOL
-            || currentToken().type == AHKTokenType::WHITESPACE) {
+    while (currentToken().type != AHKTokenType::NEWLINE &&
+           currentToken().type != AHKTokenType::ENDOFFILE) {
         options.push_back(currentToken().value);
         advance();
     }
     auto commandStatementNode = std::make_unique<CommandStatementNode>(options);
+    qDebug() << "Command name: " << tmp;
     commandStatementNode->setCommandName(tmp);
     return commandStatementNode;
 }

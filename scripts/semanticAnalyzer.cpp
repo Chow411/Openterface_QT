@@ -93,12 +93,7 @@ void SemanticAnalyzer::analyzeCommandStetement(const CommandStatementNode* node)
 void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
     const auto& options = node->getOptions();
     // Map for special keys
-    QMap<QChar, uint8_t> specialKeys = {
-        {'^', 0xE4}, // Ctrl
-        {'+', 0xE5}, // Shift
-        {'!', 0xE6}, // Alt
-        {'#', 0xE3}  // Win
-    };
+    
     
     if (options.empty()) {
         qDebug() << "No coordinates provided for Send command";
@@ -113,7 +108,7 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
     qDebug() << "tmp key:" << tmpKeys;
     if (!hasBrace){
         // Iterate through each character in the text to send
-        for (const QChar& ch : tmpKeys) {
+        for (const QString& ch : tmpKeys) {
             qDebug() << "Sent key:" << ch;
             if (specialKeys.contains(ch)) {
                 int keyCode = specialKeys[ch];

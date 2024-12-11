@@ -23,6 +23,8 @@
 
 #include "Parser.h"
 #include <QDebug>
+
+
 Parser::Parser(const std::vector<Token>& tokens) : tokens(tokens), currentIndex(0) {}
 
 Token Parser::currentToken() {
@@ -91,7 +93,6 @@ std::unique_ptr<ASTNode> Parser::parseCommandStatement() {
         advance();
     }
     auto commandStatementNode = std::make_unique<CommandStatementNode>(options);
-    qDebug() << "Command name: " << tmp;
     commandStatementNode->setCommandName(tmp);
     return commandStatementNode;
 }

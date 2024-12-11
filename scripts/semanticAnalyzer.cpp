@@ -102,8 +102,8 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
     }
     QString tmpKeys;
     for (const auto& token : options){
-        qDebug(log_script) << token;
-        if (token != "\"") tmpKeys.append(token);
+        qDebug(log_script) << QString::fromStdString(token);
+        if (token != "\"") tmpKeys.append(QString::fromStdString(token));
     }
     bool hasBrace = tmpKeys.contains("{");
     qDebug(log_script) << "tmp key:" << tmpKeys;

@@ -92,6 +92,7 @@ sudo ./openterfaceQT
 # or 
 sudo usermod -a -G dialout <your_username>
 sudo reboot
+# back to the build floder
 ./openterfaceQT
 
 ```

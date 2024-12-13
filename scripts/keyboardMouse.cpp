@@ -29,27 +29,28 @@
 * ========================================================================== *
 */
 
-#include "keyboardMouse.h"
+#include "KeyboardMouse.h"
 #include <queue>
+#include <QDebug>
 
 
-
-keyboardMouse::keyboardMouse()
+KeyboardMouse::KeyboardMouse(QObject *parent) : QObject(parent)
 {
+    // Constructor implementation
 }
 
-keyboardMouse::~keyboardMouse()
-{
-}
-
-void keyboardMouse::addKeyPacket(const keyPacket& packet) {
+void KeyboardMouse::addKeyPacket(const keyPacket& packet) {
     keyData.push(packet);
 }
 
-void keyboardMouse::excute(){
+void KeyboardMouse::executeCommand(){
+    QByteArray data = CMD_SEND_KB_GENERAL_DATA;
+    QByteArray release = CMD_SEND_KB_GENERAL_DATA;
     while(!keyData.empty()){
-        QByteArray tmpKeyData = keyData.front().toQByteArray;
-        emit SerialPortManager::getInstance().sendCommandAsync(tmpKeyData, false);
+        QByteArray tmpKeyData = keyData.front().toQByteArray();
+        data.replace(data.size() - 8, 8, tmpKeyData);
+        emit SerialPortManager::getInstance().sendCommandAsync(data, false);
         keyData.pop();
+        emit SerialPortManager::getInstance().sendCommandAsync(release, false);
     }
 }

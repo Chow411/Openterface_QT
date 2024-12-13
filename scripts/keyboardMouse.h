@@ -38,6 +38,7 @@
 #include <QMap>
 #include <QString>
 #include <QDebug>
+#include <QObject>
 #include "serial/SerialPortManager.h"
 
 // keyboard data packet
@@ -61,19 +62,19 @@ struct keyPacket
     }
 };
 
-
-class keyboardMouse
+class KeyboardMouse : public QObject
 {
+    Q_OBJECT
+
+public:
+    explicit KeyboardMouse(QObject *parent = nullptr);
+
+    void addKeyPacket(const keyPacket& packet);
+    void executeCommand();
+
 private:
     std::queue<keyPacket> keyData;
-public:
-    keyboardMouse();
-    ~keyboardMouse();
-    void addKeyPacket(const keyPacket& packet);
-    void excute();
 };
-
-
 
 const QMap<QString, uint8_t> keydata = {
     {"a", 0x04}, // a

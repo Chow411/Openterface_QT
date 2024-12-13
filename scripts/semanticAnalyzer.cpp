@@ -26,18 +26,16 @@
 #include <QDebug>
 #include <QString>
 #include "AHKKeyboard.h"
-#include "keyboardMouse.h"
+#include "KeyboardMouse.h"
 
 Q_LOGGING_CATEGORY(log_script, "opf.scripts")
 
-SemanticAnalyzer::SemanticAnalyzer(MouseManager* mouseManager, KeyboardManager* keyboardManager) 
-    : mouseManager(mouseManager), keyboardManager(keyboardManager) {
+SemanticAnalyzer::SemanticAnalyzer(MouseManager* mouseManager, KeyboardMouse* keyboardMouse)
+    : mouseManager(mouseManager), keyboardMouse(keyboardMouse) {
     if (!mouseManager) {
         qDebug(log_script) << "MouseManager is not initialized!";
     }
-    if (!keyboardManager) {
-        qDebug(log_script) << "KeyboardManager is not initialized!";
-    }
+
 }
 
 void SemanticAnalyzer::analyze(const ASTNode* node) {
@@ -112,8 +110,10 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
     while (i<tmpKeys.length()){
         const QChar& ch = tmpKeys[i];
         
+        std::array<uint8_t, 6> general = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        uint8_t control = 0x00;
         if (ch != '{' && !specialKeys.contains(ch)){
-            keys.push_back(int(AHKmapping.value(ch)));
+            general[0] = keydata.value(ch);
         } else if(ch  == '{'){
             QString tmpkey;
             for (int j = i+1; j<tmpKeys.length();j++){
@@ -121,7 +121,7 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
                     tmpkey.append(tmpKeys[j]);
                     qDebug(log_script) << "tmpkey: " << tmpkey;
                 }else{
-                    keys.push_back(AHKmapping.value(tmpkey));
+                    general[0] = keydata.value(tmpkey);
                     qDebug(log_script) << "tmpkey: " << tmpkey;
                     qDebug(log_script) << "**********************";
                     i = j;
@@ -130,15 +130,19 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
             }
         } else if (specialKeys.contains(ch))
         {
+            // add the combine key.
             keys.push_back(specialKeys[ch]);
         }
+        keyPacket pack(general,control);
+        keyboardMouse->addKeyPacket(pack);
         i++;
     }
 
-    for (int i =0; i<keys.size(); i++){
-        keyboardManager->handleKeyboardAction(keys[i], 0, true);
-        keyboardManager->handleKeyboardAction(keys[i], 0, false);
-    }
+    keyboardMouse->executeCommand();
+    // for (int i =0; i<keys.size(); i++){
+    //     keyboardManager->handleKeyboardAction(keys[i], 0, true);
+    //     keyboardManager->handleKeyboardAction(keys[i], 0, false);
+    // }
 
 }
 

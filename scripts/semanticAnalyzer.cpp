@@ -26,6 +26,7 @@
 #include <QDebug>
 #include <QString>
 #include "AHKKeyboard.h"
+#include "keyboardMouse.h"
 
 Q_LOGGING_CATEGORY(log_script, "opf.scripts")
 
@@ -110,6 +111,7 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
     std::vector<int> keys;
     while (i<tmpKeys.length()){
         const QChar& ch = tmpKeys[i];
+        
         if (ch != '{' && !specialKeys.contains(ch)){
             keys.push_back(int(AHKmapping.value(ch)));
         } else if(ch  == '{'){
@@ -137,32 +139,6 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
         keyboardManager->handleKeyboardAction(keys[i], 0, true);
         keyboardManager->handleKeyboardAction(keys[i], 0, false);
     }
-
-    
-
-    // // Iterate through each character in the text to send
-    // for (const QString& ch : tmpKeys) {
-        
-    //     qDebug(log_script) << "Sent key:" << ch;
-    //     if (specialKeys.contains(ch)) {
-    //         int keyCode = specialKeys[ch];
-    //         // Send the special key
-    //         qDebug(log_script) << "keycode: " << keyCode; 
-    //         keyboardManager->handleKeyboardAction(keyCode, 0, true); // Key down
-    //         keyboardManager->handleKeyboardAction(keyCode, 0, false); // Key up
-            
-    //     } else {
-    //         // Check if the character is a regular key
-    //         if (AHKmapping.contains(ch)) {
-    //             int keyCode = AHKmapping.value(ch);
-    //             // Send the regular key
-    //             qDebug(log_script) << "keycode: " << keyCode; 
-    //             keyboardManager->handleKeyboardAction(keyCode, 0, true); // Key down
-    //             keyboardManager->handleKeyboardAction(keyCode, 0, false); // Key up
-    //         }
-    //     }
-    // }
-    
 
 }
 

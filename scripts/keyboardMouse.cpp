@@ -29,3 +29,27 @@
 * ========================================================================== *
 */
 
+#include "keyboardMouse.h"
+#include <queue>
+
+
+
+keyboardMouse::keyboardMouse()
+{
+}
+
+keyboardMouse::~keyboardMouse()
+{
+}
+
+void keyboardMouse::addKeyPacket(const keyPacket& packet) {
+    keyData.push(packet);
+}
+
+void keyboardMouse::excute(){
+    while(!keyData.empty()){
+        QByteArray tmpKeyData = keyData.front().toQByteArray;
+        emit SerialPortManager::getInstance().sendCommandAsync(tmpKeyData, false);
+        keyData.pop();
+    }
+}

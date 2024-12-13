@@ -25,7 +25,7 @@
 #include <stdexcept>
 #include <QDebug>
 #include <QString>
-#include "keyboardMouse.h"
+#include "AHKKeyboard.h"
 
 Q_LOGGING_CATEGORY(log_script, "opf.scripts")
 
@@ -105,31 +105,64 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
         qDebug(log_script) << QString::fromStdString(token);
         if (token != "\"") tmpKeys.append(QString::fromStdString(token));
     }
-    bool hasBrace = tmpKeys.contains("{");
-    qDebug(log_script) << "tmp key:" << tmpKeys;
-    if (!hasBrace){
-        // Iterate through each character in the text to send
-        for (const QString& ch : tmpKeys) {
-            qDebug(log_script) << "Sent key:" << ch;
-            if (specialKeys.contains(ch)) {
-                int keyCode = specialKeys[ch];
-                // Send the special key
-                qDebug(log_script) << "keycode: " << keyCode; 
-                keyboardManager->handleKeyboardAction(keyCode, 0, true); // Key down
-                keyboardManager->handleKeyboardAction(keyCode, 0, false); // Key up
-                
-            } else {
-                // Check if the character is a regular key
-                if (AHKmapping.contains(ch)) {
-                    int keyCode = AHKmapping.value(ch);
-                    // Send the regular key
-                    qDebug(log_script) << "keycode: " << keyCode; 
-                    keyboardManager->handleKeyboardAction(keyCode, 0, true); // Key down
-                    keyboardManager->handleKeyboardAction(keyCode, 0, false); // Key up
+    int i = 0;
+
+    std::vector<int> keys;
+    while (i<tmpKeys.length()){
+        const QChar& ch = tmpKeys[i];
+        if (ch != '{' && !specialKeys.contains(ch)){
+            keys.push_back(int(AHKmapping.value(ch)));
+        } else if(ch  == '{'){
+            QString tmpkey;
+            for (int j = i+1; j<tmpKeys.length();j++){
+                if (tmpKeys[j] != '}'){
+                    tmpkey.append(tmpKeys[j]);
+                    qDebug(log_script) << "tmpkey: " << tmpkey;
+                }else{
+                    keys.push_back(AHKmapping.value(tmpkey));
+                    qDebug(log_script) << "tmpkey: " << tmpkey;
+                    qDebug(log_script) << "**********************";
+                    i = j;
+                    break;
                 }
             }
+        } else if (specialKeys.contains(ch))
+        {
+            keys.push_back(specialKeys[ch]);
         }
+        i++;
     }
+
+    for (int i =0; i<keys.size(); i++){
+        keyboardManager->handleKeyboardAction(keys[i], 0, true);
+        keyboardManager->handleKeyboardAction(keys[i], 0, false);
+    }
+
+    
+
+    // // Iterate through each character in the text to send
+    // for (const QString& ch : tmpKeys) {
+        
+    //     qDebug(log_script) << "Sent key:" << ch;
+    //     if (specialKeys.contains(ch)) {
+    //         int keyCode = specialKeys[ch];
+    //         // Send the special key
+    //         qDebug(log_script) << "keycode: " << keyCode; 
+    //         keyboardManager->handleKeyboardAction(keyCode, 0, true); // Key down
+    //         keyboardManager->handleKeyboardAction(keyCode, 0, false); // Key up
+            
+    //     } else {
+    //         // Check if the character is a regular key
+    //         if (AHKmapping.contains(ch)) {
+    //             int keyCode = AHKmapping.value(ch);
+    //             // Send the regular key
+    //             qDebug(log_script) << "keycode: " << keyCode; 
+    //             keyboardManager->handleKeyboardAction(keyCode, 0, true); // Key down
+    //             keyboardManager->handleKeyboardAction(keyCode, 0, false); // Key up
+    //         }
+    //     }
+    // }
+    
 
 }
 

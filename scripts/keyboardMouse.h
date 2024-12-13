@@ -145,7 +145,7 @@ const QMap<QString, uint8_t> keydata = {
     {"F10", 0x43}, // f10
     {"F11", 0x44}, // f11
     {"F12", 0x45}, // f12
-    {"Print", 0x46}, // print screen
+    {"PrintScreen", 0x46}, // print screen
     {"ScrollLock", 0x47}, // scroll lock
     {"Pause", 0x48}, // pause
     {"Insert", 0x49}, // insert
@@ -188,7 +188,9 @@ const QMap<QString, uint8_t> keydata = {
     {"Bar", 0x31}, // Backslash
     {"Less", 0x36}, // key ,
     {"Greater", 0x37}, // key .
-    {"Question", 0x38} // key /
+    {"Question", 0x38}, // key /
+    {"Win", 0xE3}, // win
+
 };
 
 

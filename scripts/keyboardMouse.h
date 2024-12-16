@@ -76,6 +76,15 @@ private:
     std::queue<keyPacket> keyData;
 };
 
+const QMap<QString, uint8_t> controldata = {
+    {"^", 0x01}, // Ctrl
+    {"+", 0x02}, // Shift
+    {"!", 0x04}, // Alt
+    {"#", 0x08}  // Win
+};
+
+
+
 const QMap<QString, uint8_t> keydata = {
     {"a", 0x04}, // a
     {"b", 0x05}, // b
@@ -190,7 +199,10 @@ const QMap<QString, uint8_t> keydata = {
     {"Greater", 0x37}, // key .
     {"Question", 0x38}, // key /
     {"Win", 0xE3}, // win
-
+    {"^", 0xE4}, // Ctrl
+    {"+", 0xE5}, // Shift
+    {"!", 0xE6}, // Alt
+    {"#", 0xE3}  // Win
 };
 
 

@@ -47,6 +47,7 @@ private:
     QPoint parseCoordinates(const std::vector<std::string>& options);
     int parseMouseButton(const std::vector<std::string>& options);
     void resetParameters();
+    void extractKeyFromBrace(const QString& tmpKeys, int& i, std::array<uint8_t, 6>& general, int genral_index = 0);
 };
 
 #endif // SEMANTIC_ANALYZER_H

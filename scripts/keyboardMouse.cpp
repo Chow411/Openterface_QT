@@ -48,6 +48,7 @@ void KeyboardMouse::executeCommand(){
     QByteArray release = CMD_SEND_KB_GENERAL_DATA;
     while(!keyData.empty()){
         QByteArray tmpKeyData = keyData.front().toQByteArray();
+        qDebug() << "Data: " << tmpKeyData;
         data.replace(data.size() - 8, 8, tmpKeyData);   // replace the last 8 byte data
         emit SerialPortManager::getInstance().sendCommandAsync(data, false);
         keyData.pop();

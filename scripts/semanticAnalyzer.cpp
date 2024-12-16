@@ -112,26 +112,31 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
         
         std::array<uint8_t, 6> general = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
         uint8_t control = 0x00;
-        if (ch != '{' && !specialKeys.contains(ch)){
+        if (ch != '{' && !controldata.contains(ch)){
             general[0] = keydata.value(ch);
         } else if(ch  == '{'){
-            QString tmpkey;
-            for (int j = i+1; j<tmpKeys.length();j++){
-                if (tmpKeys[j] != '}'){
-                    tmpkey.append(tmpKeys[j]);
-                    qDebug(log_script) << "tmpkey: " << tmpkey;
+            qDebug(log_script) << "General data";
+            extractKeyFromBrace(tmpKeys, i, general);
+        } else if (controldata.contains(ch))
+        {
+            qDebug(log_script) << "control data";
+            int index = 0;
+            control = controldata.value(ch);
+            for (int j = i+1; j < tmpKeys.length(); j++){
+                if (tmpKeys[j] == '{'){
+                    extractKeyFromBrace(tmpKeys, j, general, index);
+                    index += 1;
+                }else if(controldata.contains(tmpKeys[j])){
+                    qDebug() << index << ": " << keydata.value(tmpKeys[j]);
+                    general[index] = keydata.value(tmpKeys[j]);
+                    index += 1;
                 }else{
-                    general[0] = keydata.value(tmpkey);
-                    qDebug(log_script) << "tmpkey: " << tmpkey;
-                    qDebug(log_script) << "**********************";
+                    qDebug() << index << ": " << keydata.value(tmpKeys[j]);
+                    general[index] = keydata.value(tmpKeys[j]);
                     i = j;
                     break;
                 }
             }
-        } else if (specialKeys.contains(ch))
-        {
-            // add the combine key.
-            keys.push_back(specialKeys[ch]);
         }
         keyPacket pack(general,control);
         keyboardMouse->addKeyPacket(pack);
@@ -144,6 +149,22 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
     //     keyboardManager->handleKeyboardAction(keys[i], 0, false);
     // }
 
+}
+
+void SemanticAnalyzer::extractKeyFromBrace(const QString& tmpKeys, int& i, std::array<uint8_t, 6>& general, int genral_index){
+    QString tmpkey;
+    for (int j = i + 1; j < tmpKeys.length(); j++) {
+        if (tmpKeys[j] != '}') {
+            tmpkey.append(tmpKeys[j]);
+            qDebug(log_script) << "tmpkey: " << tmpkey;
+        } else {
+            general[genral_index] = keydata.value(tmpkey);
+            qDebug(log_script) << "tmpkey: " << tmpkey;
+            qDebug(log_script) << "**********************";
+            i = j;
+            break;
+        }
+    }
 }
 
 void SemanticAnalyzer::analyzeClickStatement(const CommandStatementNode* node) {

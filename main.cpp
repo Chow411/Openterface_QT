@@ -122,7 +122,7 @@ void setupEnv(){
     QStringList hid = getDevices("/dev/hidraw*");
     QStringList ttyUSB = getDevices("/dev/ttyUSB*");
     QStringList allDevices = hid + ttyUSB;
-    setDevicePermissions(allDevices);
+    // setDevicePermissions(allDevices);
 
 #endif
 }

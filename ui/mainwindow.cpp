@@ -256,22 +256,23 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
 
     // Add this line after ui->setupUi(this)
     connect(ui->actionScriptTool, &QAction::triggered, this, &MainWindow::showScriptTool);
-
-    uint16_t hidvid = 0x534D;
-    uint16_t hidpid = 0x2109;
-    uint16_t ch34xvid = 0x1A86;
-    uint16_t ch34xpid = 0x7523;
-    bool hid = CheckDeviceAccess(hidvid, hidpid);
-    bool ch34x = CheckDeviceAccess(ch34xvid, ch34xpid);
-    
-    if (!(hid || ch34x)){
-        QString errorMessage = "Device access error:\n";
-        errorMessage += "HID: " + QString(hid ? "Accessible" : "Not accessible") + "\n";
-        errorMessage += "CH34X: " + QString(ch34x ? "Accessible" : "Not accessible") + "\n";
-        errorMessage += "Please get the hidraw and ttyUSB permission first.";
-        // Show the error message in a QMessageBox
-        QMessageBox::information(nullptr, "Device Error", errorMessage);
-    }
+    #ifdef Q_OS_LINUX 
+        uint16_t hidvid = 0x534D;
+        uint16_t hidpid = 0x2109;
+        uint16_t ch34xvid = 0x1A86;
+        uint16_t ch34xpid = 0x7523;
+        bool hid = CheckDeviceAccess(hidvid, hidpid);
+        bool ch34x = CheckDeviceAccess(ch34xvid, ch34xpid);
+        
+        if (!(hid || ch34x)){
+            QString errorMessage = "Device access error:\n";
+            errorMessage += "HID: " + QString(hid ? "Accessible" : "Not accessible") + "\n";
+            errorMessage += "CH34X: " + QString(ch34x ? "Accessible" : "Not accessible") + "\n";
+            errorMessage += "Please get the hidraw and ttyUSB permission first.";
+            // Show the error message in a QMessageBox
+            QMessageBox::information(nullptr, "Device Error", errorMessage);
+        }
+    #endif
 }
 
 void MainWindow::onZoomIn()

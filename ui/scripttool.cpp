@@ -37,7 +37,7 @@ Q_DECLARE_LOGGING_CATEGORY(log_script)
 ScriptTool::ScriptTool(QWidget *parent)
     : QDialog(parent)
 {
-    setWindowTitle(tr("Bash Bunny Script Tool"));
+    setWindowTitle(tr("Autohotkey Script Tool"));
     setFixedSize(640, 480);
 
     filePathEdit = new QLineEdit(this);

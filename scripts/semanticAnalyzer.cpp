@@ -88,12 +88,34 @@ void SemanticAnalyzer::analyzeCommandStetement(const CommandStatementNode* node)
     if(commandName == "Send"){
         analyzeSendStatement(node);
     }
+    if(commandName == "Sleep"){
+        
+    }
+}
+
+void SematicAnalyzer::analyzeSleepStatement(const CommandStatementNode* node){
+    const auto& options = node->getOptions();
+
+    if (options.empty()){
+        qDebug(log_script) << "No sleep time set";
+    }
+    for (const auto& token : options){
+        // Assuming the first option is the sleep time in milliseconds
+        bool ok;
+        int sleepTime = QString::fromStdString(token).toInt(&ok);
+        
+        if (!ok || sleepTime < 0) {
+            continue; // Exit if the sleep time is invalid
+        }else{
+            qDebug(log_script) << "Sleeping for" << sleepTime << "milliseconds";
+            QThread::msleep(sleepTime); // Introduce the delay
+        }
+    }
 }
 
 void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
     const auto& options = node->getOptions();
     // Map for special keys
-    
     
     if (options.empty()) {
         qDebug(log_script) << "No coordinates provided for Send command";

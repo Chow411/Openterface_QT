@@ -89,11 +89,11 @@ void SemanticAnalyzer::analyzeCommandStetement(const CommandStatementNode* node)
         analyzeSendStatement(node);
     }
     if(commandName == "Sleep"){
-        
+        analyzeSleepStatement(node);
     }
 }
 
-void SematicAnalyzer::analyzeSleepStatement(const CommandStatementNode* node){
+void SemanticAnalyzer::analyzeSleepStatement(const CommandStatementNode* node){
     const auto& options = node->getOptions();
 
     if (options.empty()){
@@ -149,11 +149,11 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
                     extractKeyFromBrace(tmpKeys, j, general, index);
                     index += 1;
                 }else if(controldata.contains(tmpKeys[j])){
-                    qDebug() << index << ": " << keydata.value(tmpKeys[j]);
+                    // qDebug() << index << ": " << keydata.value(tmpKeys[j]);
                     general[index] = keydata.value(tmpKeys[j]);
                     index += 1;
                 }else{
-                    qDebug() << index << ": " << keydata.value(tmpKeys[j]);
+                    // qDebug() << index << ": " << keydata.value(tmpKeys[j]);
                     general[index] = keydata.value(tmpKeys[j]);
                     i = j;
                     break;
@@ -178,11 +178,8 @@ void SemanticAnalyzer::extractKeyFromBrace(const QString& tmpKeys, int& i, std::
     for (int j = i + 1; j < tmpKeys.length(); j++) {
         if (tmpKeys[j] != '}') {
             tmpkey.append(tmpKeys[j]);
-            qDebug(log_script) << "tmpkey: " << tmpkey;
         } else {
             general[genral_index] = keydata.value(tmpkey);
-            qDebug(log_script) << "tmpkey: " << tmpkey;
-            qDebug(log_script) << "**********************";
             i = j;
             break;
         }

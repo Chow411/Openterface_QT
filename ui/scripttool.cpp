@@ -27,6 +27,7 @@
 #include <QCoreApplication>
 #include <QShortcut>
 #include <QDebug>
+#include <thread>
 #include "../scripts/Lexer.h"
 #include "../scripts/Parser.h"
 #include "../scripts/semanticAnalyzer.h"
@@ -160,6 +161,9 @@ void ScriptTool::processAST(ASTNode* node)
     if (!node) return;
 
     // Use the semantic analyzer to process the AST
-    semanticAnalyzer->analyze(node);
+    std::thread t([this, node]() {
+            semanticAnalyzer->analyze(node);
+        });
+    t.detach();
 }
 

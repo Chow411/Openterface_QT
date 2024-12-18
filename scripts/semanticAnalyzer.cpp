@@ -149,11 +149,9 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
                     extractKeyFromBrace(tmpKeys, j, general, index);
                     index += 1;
                 }else if(controldata.contains(tmpKeys[j])){
-                    // qDebug() << index << ": " << keydata.value(tmpKeys[j]);
                     general[index] = keydata.value(tmpKeys[j]);
                     index += 1;
                 }else{
-                    // qDebug() << index << ": " << keydata.value(tmpKeys[j]);
                     general[index] = keydata.value(tmpKeys[j]);
                     i = j;
                     break;

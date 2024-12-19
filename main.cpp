@@ -33,8 +33,6 @@
 #include <QLoggingCategory>
 #include <QStyleFactory>
 
-
-
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     Q_UNUSED(context)
@@ -71,7 +69,6 @@ void customMessageHandler(QtMsgType type, const QMessageLogContext &context, con
     std::cout << txt.toStdString() << std::endl;
 }
 
-
 void setupEnv(){
 #ifdef Q_OS_LINUX
     QString originalMediaBackend = qgetenv("QT_MEDIA_BACKEND");
@@ -87,10 +84,6 @@ void setupEnv(){
     } else {
         qDebug() << "Current QT_QPA_PLATFORM:" << qgetenv("QT_QPA_PLATFORM");
     }
-    
-    
-    // setDevicePermissions(allDevices);
-
 #endif
 }
 

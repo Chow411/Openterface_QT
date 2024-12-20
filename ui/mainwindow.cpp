@@ -160,9 +160,10 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollArea->setBackgroundRole(QPalette::Dark);
     stackedLayout->addWidget(scrollArea);
+    
 
     stackedLayout->setCurrentIndex(0);
-
+    
     ui->menubar->setCornerWidget(ui->cornerWidget, Qt::TopRightCorner);
 
     setCentralWidget(centralWidget);
@@ -366,7 +367,15 @@ void MainWindow::resizeEvent(QResizeEvent *event) {
     qCDebug(log_ui_mainwindow) << "menuBar height:" << this->menuBar()->height() << ", statusbar height:" << ui->statusbar->height() << ", titleBarHeight" << titleBarHeight;
 
     // Calculate the new height based on the width and the aspect ratio
-    int new_height = static_cast<int>(width() / aspect_ratio) + this->menuBar()->height() + ui->statusbar->height();
+    bool isVisible = toolbarManager->getToolbar()->isVisible();
+    int new_height = 0;
+    if (!isVisible){
+        new_height = static_cast<int>(width() / aspect_ratio) + this->menuBar()->height() + ui->statusbar->height();
+    }else{
+        int offset = toolbarManager->getToolbar()->height() * 2;
+        new_height = static_cast<int>(width() / aspect_ratio) + this->menuBar()->height() + ui->statusbar->height() + offset;
+    }
+    
 
     // Set the new size of the window
     qCDebug(log_ui_mainwindow) << "Resize to " << width() << "x" << new_height;
@@ -378,6 +387,8 @@ void MainWindow::resizeEvent(QResizeEvent *event) {
         this->height() - ui->statusbar->height() - ui->menubar->height());
     videoPane->resize(this->width(), this->height() - ui->statusbar->height() - ui->menubar->height());
     scrollArea->resize(this->width(), this->height() - ui->statusbar->height() - ui->menubar->height());
+
+    
 
     // Update camera adjust position
     // if (cameraAdjust) {
@@ -598,6 +609,20 @@ void MainWindow::onToggleVirtualKeyboard()
 {
     bool isVisible = toolbarManager->getToolbar()->isVisible();
     toolbarManager->getToolbar()->setVisible(!isVisible);
+    int offset = toolbarManager->getToolbar()->height();
+    static bool firstRun = true;
+    QSize winSize = this->size();
+    if (!isVisible) {
+        this->resize(GlobalVar::instance().getWinWidth(), GlobalVar::instance().getWinHeight() + offset*2);
+        firstRun = false;
+    } else {
+        if (firstRun) {
+            this->resize(GlobalVar::instance().getWinWidth(), GlobalVar::instance().getWinHeight());
+            firstRun = false;
+        } else {
+            this->resize(GlobalVar::instance().getWinWidth(), GlobalVar::instance().getWinHeight() - offset*2);
+        }
+    }
 
     // Toggle the icon
     QString iconPath = isVisible ? ":/images/keyboard-down.svg" : ":/images/keyboard-up.svg";

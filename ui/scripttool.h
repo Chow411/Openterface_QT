@@ -31,6 +31,8 @@
 #include <QTextEdit>
 #include <QThread>
 #include <QFile>
+#include <QGuiApplication>
+#include <QPalette>
 #include "../scripts/Lexer.h"
 #include "../scripts/Parser.h"
 #include "../scripts/semanticAnalyzer.h"
@@ -47,11 +49,14 @@ public:
 private slots:
     void selectFile();
     void runScript();
+    void saveScript();
 
 private:
     QLineEdit *filePathEdit;
     QPushButton *selectButton;
     QPushButton *runButton;
+    QPushButton *saveButton;
+    QPushButton *cancelButton;
     QTextEdit *scriptEdit;
     QFile currentFile;
     Lexer lexer;

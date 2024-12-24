@@ -66,6 +66,7 @@ private:
     std::unique_ptr<KeyboardMouse> keyboardMouse;
     std::unique_ptr<SemanticAnalyzer> semanticAnalyzer;
     void processAST(ASTNode *node);
+    QString highlightTokens(const std::vector<Token>& tokens);
 };
 
 #endif // SCRIPTTOOL_H

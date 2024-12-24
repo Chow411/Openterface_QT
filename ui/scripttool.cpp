@@ -71,11 +71,11 @@ ScriptTool::ScriptTool(QWidget *parent)
     buttonLayout->addWidget(selectButton);
     buttonLayout->addWidget(runButton);
     buttonLayout->addWidget(saveButton);
-    buttonLayout->addWidget(cancelButton); // Add cancel button to layout
+    buttonLayout->addWidget(cancelButton);
 
     mainLayout->addLayout(fileLayout);
     mainLayout->addWidget(scriptEdit);
-    mainLayout->addLayout(buttonLayout); // Use the new button layout
+    mainLayout->addLayout(buttonLayout);
 
     connect(selectButton, &QPushButton::clicked, this, &ScriptTool::selectFile);
     connect(runButton, &QPushButton::clicked, this, &ScriptTool::runScript);
@@ -111,43 +111,10 @@ void ScriptTool::selectFile()
             file.close();
             lexer.setSource(fileContents.toStdString());
             tokens = lexer.tokenize();
-            QString styledText;
-            for (const auto& token : tokens) {
-                QString tokenText = QString::fromStdString(token.value);
-                QString color;
-                if (tokenText == "\\n")
-                tokenText = tokenText.replace("\\n", "<br>");
-                switch (token.type) {
-                    case AHKTokenType::KEYWORD:
-                        color = "green";
-                        break;
-                    case AHKTokenType::FUNCTION:
-                        color = "blue";
-                        break;
-                    case AHKTokenType::VARIABLE:
-                        color = "white";
-                        break;
-                    case AHKTokenType::INTEGER:
-                    case AHKTokenType::FLOAT:
-                        color = "DarkGoldenRod";
-                        break;
-                    case AHKTokenType::COMMAND:
-                        color = "purple";
-                        break;
-                    case AHKTokenType::COMMENT:
-                        color = "grey";
-                        break;
-                    default:
-                        if (QGuiApplication::palette().color(QPalette::Window).lightness() < 128) {
-                            color = "white"; // Set to white if in dark mode
-                        } else {
-                            color = "black"; // Default color for unrecognized tokens
-                        }
-                        break;
-                }
-                styledText += QString("<span style='color:%1;'>%2</span>").arg(color, tokenText);
-                // qDebug(log_script) << "Token Type:" << static_cast<int>(token.type) << "Value:" << tokenText;
-            }
+            QString styledText = highlightTokens(tokens);
+
+            // qDebug(log_script) << "Token Type:" << static_cast<int>(token.type) << "Value:" << tokenText;
+            
             scriptEdit->setText(styledText);
             scriptEdit->setReadOnly(false);
             saveButton->setEnabled(true);
@@ -166,8 +133,6 @@ void ScriptTool::runScript()
     }
 
     // Use the syntax tree as needed
-    // For example, you can traverse it or print it for debugging
-    // lexer.clear();
     lexer.setSource(scriptEdit->toPlainText().toStdString());
     tokens = lexer.tokenize();
 
@@ -206,5 +171,46 @@ void ScriptTool::saveScript()
             QMessageBox::warning(this, tr("Error"), tr("Could not save file."));
         }
     }
+}
+
+QString ScriptTool::highlightTokens(const std::vector<Token>& tokens) {
+    QString styledText;
+    for (const auto& token : tokens) {
+        QString tokenText = QString::fromStdString(token.value);
+        QString color;
+        if (tokenText == "\\n") {
+            tokenText = tokenText.replace("\\n", "<br>");
+        }
+        switch (token.type) {
+            case AHKTokenType::KEYWORD:
+                color = "green";
+                break;
+            case AHKTokenType::FUNCTION:
+                color = "blue";
+                break;
+            case AHKTokenType::VARIABLE:
+                color = "white";
+                break;
+            case AHKTokenType::INTEGER:
+            case AHKTokenType::FLOAT:
+                color = "DarkGoldenRod";
+                break;
+            case AHKTokenType::COMMAND:
+                color = "purple";
+                break;
+            case AHKTokenType::COMMENT:
+                color = "grey";
+                break;
+            default:
+                if (QGuiApplication::palette().color(QPalette::Window).lightness() < 128) {
+                    color = "white";
+                } else {
+                    color = "black";
+                }
+                break;
+        }
+        styledText += QString("<span style='color:%1;'>%2</span>").arg(color, tokenText);
+    }
+    return styledText;
 }
 

@@ -116,15 +116,23 @@ void SemanticAnalyzer::analyzeCapsLockState(const CommandStatementNode* node){
     }
     if (tmpKeys.contains("True", Qt::CaseInsensitive)){
         keyboardMouse->updateNumCapsScrollLockState();
-        if (!keyboardMouse->getCapsLockState_()) general[0] = keydata.value("CapsLock");
+        if (!keyboardMouse->getCapsLockState_()){
+            general[0] = keydata.value("CapsLock");
+            keyPacket pack(general);
+            keyboardMouse->addKeyPacket(pack);
+            keyboardMouse->executeCommand();
+        }
     }
     if (tmpKeys.contains("False", Qt::CaseInsensitive)){
         keyboardMouse->updateNumCapsScrollLockState();
-        if (keyboardMouse->getCapsLockState_()) general[0] = keydata.value("CapsLock");
+        if (keyboardMouse->getCapsLockState_()) {
+            general[0] = keydata.value("CapsLock");
+            keyPacket pack(general);
+            keyboardMouse->addKeyPacket(pack);
+            keyboardMouse->executeCommand();
+        }
     }
-    keyPacket pack(general);
-    keyboardMouse->addKeyPacket(pack);
-    keyboardMouse->executeCommand();
+
 }
 
 void SemanticAnalyzer::analyzeNumLockState(const CommandStatementNode* node){
@@ -141,15 +149,24 @@ void SemanticAnalyzer::analyzeNumLockState(const CommandStatementNode* node){
     }
     if (tmpKeys.contains("True", Qt::CaseInsensitive)){
         keyboardMouse->updateNumCapsScrollLockState();
-        if (!keyboardMouse->getNumLockState_()) general[0] = keydata.value("NumLock");
+        if (!keyboardMouse->getNumLockState_()){
+            general[0] = keydata.value("NumLock");
+            keyPacket pack(general);
+            keyboardMouse->addKeyPacket(pack);
+            keyboardMouse->executeCommand();
+        }
+
     }
     if (tmpKeys.contains("False", Qt::CaseInsensitive)){
         keyboardMouse->updateNumCapsScrollLockState();
-        if (keyboardMouse->getNumLockState_()) general[0] = keydata.value("NumLock");
+        if (!keyboardMouse->getNumLockState_()){
+            general[0] = keydata.value("NumLock");
+            keyPacket pack(general);
+            keyboardMouse->addKeyPacket(pack);
+            keyboardMouse->executeCommand();
+        }
     }
-    keyPacket pack(general);
-    keyboardMouse->addKeyPacket(pack);
-    keyboardMouse->executeCommand();
+    
 }
 
 void SemanticAnalyzer::analyzeScrollLockState(const CommandStatementNode* node){
@@ -166,15 +183,23 @@ void SemanticAnalyzer::analyzeScrollLockState(const CommandStatementNode* node){
     }
     if (tmpKeys.contains("True", Qt::CaseInsensitive)){
         keyboardMouse->updateNumCapsScrollLockState();
-        if (!keyboardMouse->getScrollLockState_()) general[0] = keydata.value("ScrollLock");
+        if (!keyboardMouse->getScrollLockState_()){
+            general[0] = keydata.value("ScrollLock");
+            keyPacket pack(general);
+            keyboardMouse->addKeyPacket(pack);
+            keyboardMouse->executeCommand();
+        }
     }
     if (tmpKeys.contains("False", Qt::CaseInsensitive)){
         keyboardMouse->updateNumCapsScrollLockState();
-        if (keyboardMouse->getScrollLockState_()) general[0] = keydata.value("ScrollLock");
+        if (keyboardMouse->getScrollLockState_()){
+            general[0] = keydata.value("ScrollLock");
+            keyPacket pack(general);
+            keyboardMouse->addKeyPacket(pack);
+            keyboardMouse->executeCommand();
+        };
     }
-    keyPacket pack(general);
-    keyboardMouse->addKeyPacket(pack);
-    keyboardMouse->executeCommand();
+
 }
 
 void SemanticAnalyzer::analyzeSleepStatement(const CommandStatementNode* node){

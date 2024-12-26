@@ -147,7 +147,9 @@ void SemanticAnalyzer::analyzeNumLockState(const CommandStatementNode* node){
         qDebug(log_script) << "num lock token: " << token;
         if (token != "\"") tmpKeys.append(QString::fromStdString(token));
     }
-    if (tmpKeys.contains("True", Qt::CaseInsensitive)){
+    if (tmpKeys.contains("1", Qt::CaseInsensitive) || 
+        tmpKeys.contains("True", Qt::CaseInsensitive) || 
+        tmpKeys.contains("On", Qt::CaseInsensitive)){
         keyboardMouse->updateNumCapsScrollLockState();
         if (!keyboardMouse->getNumLockState_()){
             general[0] = keydata.value("NumLock");
@@ -157,7 +159,9 @@ void SemanticAnalyzer::analyzeNumLockState(const CommandStatementNode* node){
         }
 
     }
-    if (tmpKeys.contains("False", Qt::CaseInsensitive)){
+    if (tmpKeys.contains("0", Qt::CaseInsensitive) || 
+        tmpKeys.contains("False", Qt::CaseInsensitive) || 
+        tmpKeys.contains("Off", Qt::CaseInsensitive)){
         keyboardMouse->updateNumCapsScrollLockState();
         if (!keyboardMouse->getNumLockState_()){
             general[0] = keydata.value("NumLock");

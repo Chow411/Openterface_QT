@@ -56,6 +56,7 @@ private:
     QRegularExpression onRegex{QString("^(1|True|On)$"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression offRegex{QString("^(0|False|Off)$"), QRegularExpression::CaseInsensitiveOption};
     void analyzeLockState(const CommandStatementNode* node, const QString& keyName, bool (KeyboardMouse::*getStateFunc)());
+    
 };
 
 #endif // SEMANTIC_ANALYZER_H

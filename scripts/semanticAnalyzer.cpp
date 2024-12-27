@@ -379,3 +379,14 @@ int SemanticAnalyzer::parseMouseButton(const std::vector<std::string>& options) 
 
     return mouseButton;
 }
+
+void SemanticAnalyzer::analyzeMouseMove(const CommandStatementNode* node) {
+    const auto& options = node->getOptions();
+    if (options.empty()) {
+        qDebug(log_script) << "No coordinates provided for MouseMove command";
+        return;
+    }
+    
+    // Parse coordinates and speed from options
+    QPoint coords = parseCoordinates(options);
+}

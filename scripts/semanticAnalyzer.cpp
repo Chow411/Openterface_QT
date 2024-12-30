@@ -161,88 +161,73 @@ void SemanticAnalyzer::analyzeSleepStatement(const CommandStatementNode* node){
 
 void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
     const auto& options = node->getOptions();
-    // Map for special keys
     
     if (options.empty()) {
-        qDebug(log_script) << "No coordinates provided for Send command";
+        qDebug(log_script) << "No keys provided for Send command";
         return;
     }
+
+    // Combine all tokens into a single string, excluding quotes
     QString tmpKeys;
-    for (const auto& token : options){
-        qDebug(log_script) << QString::fromStdString(token);
-        if (token != "\"") tmpKeys.append(QString::fromStdString(token));
+    for (const auto& token : options) {
+        if (token != "\"") {
+            tmpKeys.append(QString::fromStdString(token));
+        }
     }
-    int i = 0;
-    // QRegularExpressionMatch embedClick = sendEmbedRegex(tmpKeys);
-    QRegularExpression regex(R"((\{[^}]+\}|[^{]\w+))");
-    QRegularExpressionMatchIterator matchIterator = regex.globalMatch(tmpKeys);
-    std::vector<int> keys;
-    while (i<tmpKeys.length()){
-        const QChar& ch = tmpKeys[i];
-        
+
+    qDebug(log_script) << "Processing keys:" << tmpKeys;
+
+    int pos = 0;
+    while (pos < tmpKeys.length()) {
         std::array<uint8_t, 6> general = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
         uint8_t control = 0x00;
-        if (ch != '{' && !controldata.contains(ch)){
-            general[0] = keydata.value(ch);
-        } else if(ch  == '{'){
-            qDebug(log_script) << "General data";
-            extractKeyFromBrace(tmpKeys, i, general);
-        } else if (controldata.contains(ch))
-        {
-            qDebug(log_script) << "control data";
-            int index = 0;
-            control = controldata.value(ch);
-            for (int j = i+1; j < tmpKeys.length(); j++){
-                if (tmpKeys[j] == '{'){
-                    extractKeyFromBrace(tmpKeys, j, general, index);
-                    index += 1;
-                }else if(controldata.contains(tmpKeys[j])){
-                    general[index] = keydata.value(tmpKeys[j]);
-                    index += 1;
-                }else{
-                    general[index] = keydata.value(tmpKeys[j]);
-                    i = j;
-                    break;
+        
+        // Check for control characters first
+        QRegularExpressionMatch controlMatch = controlKeyRegex.match(tmpKeys, pos);
+        if (controlMatch.hasMatch() && controlMatch.capturedStart() == pos) {
+            // Process control key sequence
+            QString controlChar = controlMatch.captured(1);
+            QString keys = controlMatch.captured(2);
+            control = controldata.value(controlChar[0]);
+            
+            // Process the keys after the control character
+            int keyIndex = 0;
+            int keyPos = 0;
+            while (keyPos < keys.length() && keyIndex < 6) {
+                if (keys[keyPos] == '{') {
+                    // Handle braced key
+                    QRegularExpressionMatch braceMatch = braceKeyRegex.match(keys, keyPos);
+                    if (braceMatch.hasMatch()) {
+                        QString keyName = braceMatch.captured(1);
+                        general[keyIndex++] = keydata.value(keyName);
+                        keyPos = braceMatch.capturedEnd();
+                        continue;
+                    }
                 }
+                // Handle single character
+                general[keyIndex++] = keydata.value(keys[keyPos]);
+                keyPos++;
+            }
+            pos = controlMatch.capturedEnd();
+        } else {
+            // Check for braced keys
+            QRegularExpressionMatch braceMatch = braceKeyRegex.match(tmpKeys, pos);
+            if (braceMatch.hasMatch() && braceMatch.capturedStart() == pos) {
+                QString keyName = braceMatch.captured(1);
+                general[0] = keydata.value(keyName);
+                pos = braceMatch.capturedEnd();
+            } else {
+                // Handle single character
+                general[0] = keydata.value(tmpKeys[pos]);
+                pos++;
             }
         }
-        keyPacket pack(general,control);
+
+        keyPacket pack(general, control);
         keyboardMouse->addKeyPacket(pack);
-        i++;
     }
 
     keyboardMouse->keyboardSend();
-    // for (int i =0; i<keys.size(); i++){
-    //     keyboardManager->handleKeyboardAction(keys[i], 0, true);
-    //     keyboardManager->handleKeyboardAction(keys[i], 0, false);
-    // }
-
-}
-
-void SemanticAnalyzer::extractClickParameters(const QString& statement){
-    QRegularExpressionMatch match = clickRegex.match(statement);
-    QString coords;
-    if(match.hasMatch()){
-        QString coords = match.captured(1).isEmpty() ? match.captured(2).trimmed() : match.captured(1).trimmed();
-        QString button = match.captured(3).isEmpty() ? match.captured(4).trimmed() : match.captured(3).trimmed();
-        QString count = match.captured(5).isEmpty() ? match.captured(6).trimmed() : match.captured(5).trimmed();
-        QString DownOrUp = match.captured(7).isEmpty() ? match.captured(8).trimmed() : match.captured(7).trimmed();
-        QString Relative = match.captured(9).isEmpty() ? match.captured(10).trimmed() : match.captured(9).trimmed();
-    }
-}
-
-void SemanticAnalyzer::extractKeyFromBrace(const QString& tmpKeys, int& i, std::array<uint8_t, 6>& general, int genral_index){
-    QString tmpkey;
-
-    for (int j = i + 1; j < tmpKeys.length(); j++) {
-        if (tmpKeys[j] != '}') {
-            tmpkey.append(tmpKeys[j]);
-        } else {
-            general[genral_index] = keydata.value(tmpkey);
-            i = j;
-            break;
-        }
-    }
 }
 
 void SemanticAnalyzer::analyzeClickStatement(const CommandStatementNode* node) {

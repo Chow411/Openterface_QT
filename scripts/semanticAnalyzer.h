@@ -61,6 +61,8 @@ private:
         QRegularExpression::CaseInsensitiveOption};
     void analyzeLockState(const CommandStatementNode* node, const QString& keyName, bool (KeyboardMouse::*getStateFunc)());
     void extractClickParameters(const QString& statement);
+    QRegularExpression braceKeyRegex{QString(R"(\{([^}]+)\})"), QRegularExpression::CaseInsensitiveOption};
+    QRegularExpression controlKeyRegex{QString(R"(([!^+#])((?:\{[^}]+\}|[^{])+))")};
 };
 
 #endif // SEMANTIC_ANALYZER_H

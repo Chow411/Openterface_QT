@@ -55,8 +55,12 @@ private:
     void analyzeMouseMove(const CommandStatementNode* node);
     QRegularExpression onRegex{QString("^(1|True|On)$"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression offRegex{QString("^(0|False|Off)$"), QRegularExpression::CaseInsensitiveOption};
+    QRegularExpression sendEmbedRegex{QString(R"(\{Click\s*([^}]*)\})"),QRegularExpression::CaseInsensitiveOption};
+    QRegularExpression clickRegex{
+        QString(R"((?:Click\s+)?(?:\"[^\"]*\"|[^\s]+)\s*(?:\"[^\"]*\"|[^\s]+)\s*(?:\"[^\"]*\"|[^\s]+)\s*(?:\"[^\"]*\"|[^\s]+)\s*)"),
+        QRegularExpression::CaseInsensitiveOption};
     void analyzeLockState(const CommandStatementNode* node, const QString& keyName, bool (KeyboardMouse::*getStateFunc)());
-    
+    void extractClickParameters(const QString& statement);
 };
 
 #endif // SEMANTIC_ANALYZER_H

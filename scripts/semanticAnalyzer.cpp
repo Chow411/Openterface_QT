@@ -123,7 +123,7 @@ void SemanticAnalyzer::analyzeLockState(const CommandStatementNode* node, const 
             general[0] = keydata.value(keyName);
             keyPacket pack(general);
             keyboardMouse->addKeyPacket(pack);
-            keyboardMouse->executeCommand();
+            keyboardMouse->keyboardSend();
         }
     }
     if (offRegex.match(tmpKeys).hasMatch()){
@@ -133,7 +133,7 @@ void SemanticAnalyzer::analyzeLockState(const CommandStatementNode* node, const 
             general[0] = keydata.value(keyName);
             keyPacket pack(general);
             keyboardMouse->addKeyPacket(pack);
-            keyboardMouse->executeCommand();
+            keyboardMouse->keyboardSend();
         }
     }
 }
@@ -173,7 +173,9 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
         if (token != "\"") tmpKeys.append(QString::fromStdString(token));
     }
     int i = 0;
-
+    // QRegularExpressionMatch embedClick = sendEmbedRegex(tmpKeys);
+    QRegularExpression regex(R"((\{[^}]+\}|[^{]\w+))");
+    QRegularExpressionMatchIterator matchIterator = regex.globalMatch(tmpKeys);
     std::vector<int> keys;
     while (i<tmpKeys.length()){
         const QChar& ch = tmpKeys[i];
@@ -209,7 +211,7 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
         i++;
     }
 
-    keyboardMouse->executeCommand();
+    keyboardMouse->keyboardSend();
     // for (int i =0; i<keys.size(); i++){
     //     keyboardManager->handleKeyboardAction(keys[i], 0, true);
     //     keyboardManager->handleKeyboardAction(keys[i], 0, false);
@@ -217,8 +219,21 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
 
 }
 
+void SemanticAnalyzer::extractClickParameters(const QString& statement){
+    QRegularExpressionMatch match = clickRegex.match(statement);
+    QString coords;
+    if(match.hasMatch()){
+        QString coords = match.captured(1).isEmpty() ? match.captured(2).trimmed() : match.captured(1).trimmed();
+        QString button = match.captured(3).isEmpty() ? match.captured(4).trimmed() : match.captured(3).trimmed();
+        QString count = match.captured(5).isEmpty() ? match.captured(6).trimmed() : match.captured(5).trimmed();
+        QString DownOrUp = match.captured(7).isEmpty() ? match.captured(8).trimmed() : match.captured(7).trimmed();
+        QString Relative = match.captured(9).isEmpty() ? match.captured(10).trimmed() : match.captured(9).trimmed();
+    }
+}
+
 void SemanticAnalyzer::extractKeyFromBrace(const QString& tmpKeys, int& i, std::array<uint8_t, 6>& general, int genral_index){
     QString tmpkey;
+
     for (int j = i + 1; j < tmpKeys.length(); j++) {
         if (tmpKeys[j] != '}') {
             tmpkey.append(tmpKeys[j]);

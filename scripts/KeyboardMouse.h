@@ -42,7 +42,6 @@
 #include "serial/SerialPortManager.h"
 #include "AST.h"
 
-
 // keyboard data packet
 union Coordinate {
     struct {
@@ -61,20 +60,23 @@ struct keyPacket {
     uint8_t constant = 0x00;
     std::array<uint8_t, 6> keyGeneral;
 
+    // Reorder the member variables
     uint8_t mouseMode = 0x00;
     uint8_t mouseButton = 0x00;
-
-    Coordinate mouseCoord;
     uint8_t mouseRollWheel = 0x00;
+    Coordinate mouseCoord;
 
+    bool mouseSend = false;
     // packet key data
     keyPacket(const std::array<uint8_t, 6>& gen, uint8_t ctrl = 0x00)
         : control(ctrl), keyGeneral(gen) {}
 
     // packet Mouse data (unified for ABS and REL)
-    keyPacket(uint8_t mouseMode, uint8_t mouseButton, const Coordinate& coord, uint8_t mouseRollWheel)
-        : mouseMode(mouseMode), mouseButton(mouseButton), mouseCoord(coord), mouseRollWheel(mouseRollWheel) {}
+    keyPacket(const std::array<uint8_t, 6>& gen, uint8_t ctrl, uint8_t mouseMode, uint8_t mouseButton, uint8_t mouseRollWheel, const Coordinate& coord)
+        : control(ctrl), keyGeneral(gen), mouseMode(mouseMode), mouseButton(mouseButton), mouseRollWheel(mouseRollWheel), mouseCoord(coord) {}
 
+    keyPacket(uint8_t mouseMode, uint8_t mouseButton, uint8_t mouseRollWheel, const Coordinate& coord, bool mouseSend)
+        : mouseMode(mouseMode), mouseButton(mouseButton), mouseRollWheel(mouseRollWheel), mouseCoord(coord), mouseSend(mouseSend) {}
     
     QByteArray KeytoQByteArray() const {
         QByteArray byteArray;
@@ -86,7 +88,6 @@ struct keyPacket {
         return byteArray;
     }
 
-
     QByteArray MousetoQByteArray() const {
         QByteArray byteArray;
         byteArray.append(mouseMode);
@@ -94,14 +95,14 @@ struct keyPacket {
 
         if (mouseMode == 0x02) { // ABS
             for (const auto& byte : mouseCoord.abs.x) {
-                byteArray.append(byte);
+                byteArray.append(byte & 0xFF);
             }
             for (const auto& byte : mouseCoord.abs.y) {
-                byteArray.append(byte);
+                byteArray.append(byte & 0xFF);
             }
         } else if (mouseMode == 0x01) { // REL
-            byteArray.append(mouseCoord.rel.x);
-            byteArray.append(mouseCoord.rel.y);
+            byteArray.append(mouseCoord.rel.x & 0xFF);
+            byteArray.append(mouseCoord.rel.y & 0xFF);
         }
 
         byteArray.append(mouseRollWheel);
@@ -118,7 +119,9 @@ public:
     explicit KeyboardMouse(QObject *parent = nullptr);
 
     void addKeyPacket(const keyPacket& packet);
-    void executeCommand();
+    void keyboardSend();
+    void mouseSend();
+    void keyboardMouseSend();
     void updateNumCapsScrollLockState();
     bool getNumLockState_();
     bool getCapsLockState_();

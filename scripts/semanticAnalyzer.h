@@ -54,9 +54,7 @@ private:
     void analyzeCapsLockState(const CommandStatementNode* node);
     void analyzeNumLockState(const CommandStatementNode* node);
     void analyzeScrollLockState(const CommandStatementNode* node);
-<<<<<<<<< Temporary merge branch 1
-    
-=========
+
     void analyzeMouseMove(const CommandStatementNode* node);
     QRegularExpression onRegex{QString("^(1|True|On)$"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression offRegex{QString("^(0|False|Off)$"), QRegularExpression::CaseInsensitiveOption};

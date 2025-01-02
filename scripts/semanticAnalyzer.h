@@ -51,7 +51,12 @@ private:
     void resetParameters();
     void extractKeyFromBrace(const QString& tmpKeys, int& i, std::array<uint8_t, 6>& general, int genral_index = 0);
     void analyzeSleepStatement(const CommandStatementNode* node);
+    void analyzeCapsLockState(const CommandStatementNode* node);
+    void analyzeNumLockState(const CommandStatementNode* node);
+    void analyzeScrollLockState(const CommandStatementNode* node);
+<<<<<<<<< Temporary merge branch 1
     
+=========
     void analyzeMouseMove(const CommandStatementNode* node);
     QRegularExpression onRegex{QString("^(1|True|On)$"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression offRegex{QString("^(0|False|Off)$"), QRegularExpression::CaseInsensitiveOption};

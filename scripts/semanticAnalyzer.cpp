@@ -220,8 +220,6 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
                 // Handle single character
                 if (tmpKeys[pos].isUpper()){
                     control = 0x02;     // shift press let the char become upper while send data
-                    general[0] = keydata.value(tmpKeys[pos]);
-                    pos++;
                 }else{
                     general[0] = keydata.value(tmpKeys[pos]);
                     pos++;

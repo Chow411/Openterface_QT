@@ -51,11 +51,24 @@ private:
     void resetParameters();
     void extractKeyFromBrace(const QString& tmpKeys, int& i, std::array<uint8_t, 6>& general, int genral_index = 0);
     void analyzeSleepStatement(const CommandStatementNode* node);
-    
+    void analyzeCapsLockState(const CommandStatementNode* node);
+    void analyzeNumLockState(const CommandStatementNode* node);
+    void analyzeScrollLockState(const CommandStatementNode* node);
+
     void analyzeMouseMove(const CommandStatementNode* node);
     QRegularExpression onRegex{QString("^(1|True|On)$"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression offRegex{QString("^(0|False|Off)$"), QRegularExpression::CaseInsensitiveOption};
+    QRegularExpression sendEmbedRegex{QString(R"(\{Click\s*([^}]*)\})"),QRegularExpression::CaseInsensitiveOption};
+    QRegularExpression numberRegex{QString(R"(\d+)")};
+    QRegularExpression buttonRegex{QString(R"((?<![a-zA-Z])(right|R|middle|M|left|L)(?![a-zA-Z]))"), QRegularExpression::CaseInsensitiveOption};
+    QRegularExpression downUpRegex{QString(R"((?<![a-zA-Z])(down|D|Up|U)(?![a-zA-Z]))"), QRegularExpression::CaseInsensitiveOption};
+    QRegularExpression relativeRegex{QString(R"((?<![a-zA-Z])(rel|relative)(?![a-zA-Z]))"), QRegularExpression::CaseInsensitiveOption};
+
     void analyzeLockState(const CommandStatementNode* node, const QString& keyName, bool (KeyboardMouse::*getStateFunc)());
+    void extractClickParameters(const QString& statement);
+    QRegularExpression braceKeyRegex{QString(R"(\{([^}]+)\})"), QRegularExpression::CaseInsensitiveOption};
+    QRegularExpression controlKeyRegex{QString(R"(([!^+#])((?:\{[^}]+\}|[^{])+))")};
+    void parserClickParam(const QString& command);
 };
 
 #endif // SEMANTIC_ANALYZER_H

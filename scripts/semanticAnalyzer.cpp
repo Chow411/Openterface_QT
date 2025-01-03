@@ -344,7 +344,12 @@ void SemanticAnalyzer::analyzeMouseMove(const CommandStatementNode* node) {
 void SemanticAnalyzer::parserClickParam(const QString& command){
     // match the number param
     QStringList numTmp;
-    
+
+    QRegularExpressionMatch relativeMatch = relativeRegex.match(command);
+    if(relativeMatch.hasMatch()){
+        QString relative = relativeMatch.captured(0);
+        qCDebug(log_script) << "Matched relative:" << relative;
+    }
     QRegularExpressionMatchIterator numMatchs = numberRegex.globalMatch(command);
     while(numMatchs.hasNext()){
         QRegularExpressionMatch nummatch = numMatchs.next();
@@ -359,13 +364,9 @@ void SemanticAnalyzer::parserClickParam(const QString& command){
     }
     QRegularExpressionMatch downUpMatch = downUpRegex.match(command);
     if(downUpMatch.hasMatch()){
-        QString downOrUp = buttonMatch.captured(0);
+        QString downOrUp = downUpMatch.captured(0);
         qCDebug(log_script) << "Matched downOrUp:" << downOrUp;
     }
-    QRegularExpressionMatch relativeMatch = relativeRegex.match(command);
-    if(relativeMatch.hasMatch()){
-        QString relative = relativeMatch.captured(0);
-        qCDebug(log_script) << "Matched relative:" << relative;
-    }
+    
 
 }

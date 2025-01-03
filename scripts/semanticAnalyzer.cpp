@@ -362,7 +362,7 @@ void SemanticAnalyzer::parserClickParam(const QString& command){
         QString downOrUp = buttonMatch.captured(0);
         qCDebug(log_script) << "Matched downOrUp:" << downOrUp;
     }
-    QRegularExpressionMatch relativeMatch = relativepRegex.match(command);
+    QRegularExpressionMatch relativeMatch = relativeRegex.match(command);
     if(relativeMatch.hasMatch()){
         QString relative = relativeMatch.captured(0);
         qCDebug(log_script) << "Matched relative:" << relative;

@@ -210,6 +210,8 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
                 general[keyIndex++] = keydata.value(keys[keyPos]);
                 keyPos++;
             }
+            keyPacket pack(general, control);
+            keyboardMouse->addKeyPacket(pack);
             pos = controlMatch.capturedEnd();
         } else {
             // Check for braced keys
@@ -218,8 +220,13 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
             if (braceMatch.hasMatch() && braceMatch.capturedStart() == pos) {
                 
                 QString keyName = braceMatch.captured(1);
-                if (keydata.value(keyName)){general[0] = keydata.value(keyName);} 
-                else { 
+                if (keydata.value(keyName)){
+                    general[0] = keydata.value(keyName);
+                    keyPacket pack(general, control);
+                    keyboardMouse->addKeyPacket(pack);
+                } 
+                else {
+                    
                     clickMatch = sendEmbedRegex.match(keyName);
                     keyName.remove("Click");
                     qDebug(log_script) << "key: " << keyName;
@@ -235,11 +242,13 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
                     general[0] = keydata.value(tmpKeys[pos]);
                     pos++;
                 }
+                keyPacket pack(general, control);
+                keyboardMouse->addKeyPacket(pack);
             }
         }
 
-        keyPacket pack(general, control);
-        keyboardMouse->addKeyPacket(pack);
+        // keyPacket pack(general, control);
+        // keyboardMouse->addKeyPacket(pack);
     }
 
     keyboardMouse->keyboardSend();
@@ -344,7 +353,7 @@ void SemanticAnalyzer::analyzeMouseMove(const CommandStatementNode* node) {
 void SemanticAnalyzer::parserClickParam(const QString& command){
     // match the number param
     QStringList numTmp;
-
+    
     QRegularExpressionMatch relativeMatch = relativeRegex.match(command);
     if(relativeMatch.hasMatch()){
         QString relative = relativeMatch.captured(0);

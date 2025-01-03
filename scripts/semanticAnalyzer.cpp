@@ -169,11 +169,13 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
 
     // Combine all tokens into a single string, excluding quotes
     QString tmpKeys;
+    bool append = false;
     for (const auto& token : options) {
-        if (token != "\"") {
-            tmpKeys.append(QString::fromStdString(token));
-        }
+        if (token =="\"")append = true;
+        if (append) tmpKeys.append(QString::fromStdString(token));
     }
+
+    tmpKeys.replace(QRegularExpression("^\"|\"$"), "");
 
     qDebug(log_script) << "Processing keys:" << tmpKeys;
 
@@ -212,9 +214,18 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
         } else {
             // Check for braced keys
             QRegularExpressionMatch braceMatch = braceKeyRegex.match(tmpKeys, pos);
+            QRegularExpressionMatch clickMatch;
             if (braceMatch.hasMatch() && braceMatch.capturedStart() == pos) {
+                
                 QString keyName = braceMatch.captured(1);
-                general[0] = keydata.value(keyName);
+                if (keydata.value(keyName)){general[0] = keydata.value(keyName);} 
+                else { 
+                    clickMatch = sendEmbedRegex.match(keyName);
+                    keyName.remove("Click");
+                    qDebug(log_script) << "key: " << keyName;
+                    parserClickParam(keyName);
+                }
+                
                 pos = braceMatch.capturedEnd();
             } else {
                 // Handle single character
@@ -328,4 +339,33 @@ void SemanticAnalyzer::analyzeMouseMove(const CommandStatementNode* node) {
     
     // Parse coordinates and speed from options
     QPoint coords = parseCoordinates(options);
+}
+
+void SemanticAnalyzer::parserClickParam(const QString& command){
+    // match the number param
+    QStringList numTmp;
+    
+    QRegularExpressionMatchIterator numMatchs = numberRegex.globalMatch(command);
+    while(numMatchs.hasNext()){
+        QRegularExpressionMatch nummatch = numMatchs.next();
+        numTmp.append(nummatch.captured(0));
+    }
+    qCDebug(log_script) << "Matched numbers:" << numTmp;
+    // check the "" content
+    QRegularExpressionMatch buttonMatch = buttonRegex.match(command);
+    if(buttonMatch.hasMatch()){
+        QString button = buttonMatch.captured(0);
+        qCDebug(log_script) << "Matched button:" << button;
+    }
+    QRegularExpressionMatch downUpMatch = downUpRegex.match(command);
+    if(downUpMatch.hasMatch()){
+        QString downOrUp = buttonMatch.captured(0);
+        qCDebug(log_script) << "Matched downOrUp:" << downOrUp;
+    }
+    QRegularExpressionMatch relativeMatch = relativepRegex.match(command);
+    if(relativeMatch.hasMatch()){
+        QString relative = relativeMatch.captured(0);
+        qCDebug(log_script) << "Matched relative:" << relative;
+    }
+
 }

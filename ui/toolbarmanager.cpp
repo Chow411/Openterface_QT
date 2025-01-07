@@ -87,6 +87,18 @@ void ToolbarManager::setupToolbar()
     toolbar->setFloatable(false);
     toolbar->setMovable(false);
 
+    // Add Ctrl+Alt+Del button first
+    QPushButton *ctrlAltDelButton = new QPushButton("Ctrl+Alt+Del", toolbar);
+    ctrlAltDelButton->setStyleSheet(commonButtonStyle);
+    ctrlAltDelButton->setToolTip("Send Ctrl+Alt+Del keystroke.");
+    connect(ctrlAltDelButton, &QPushButton::clicked, this, &ToolbarManager::onCtrlAltDelClicked);
+    toolbar->addWidget(ctrlAltDelButton);
+
+    // Add a spacer
+    QWidget *spacer = new QWidget();
+    spacer->setFixedWidth(10);
+    toolbar->addWidget(spacer);
+
     // Function keys
     for (int i = 1; i <= 12; i++) {
         QString buttonText = QString("F%1").arg(i);
@@ -96,9 +108,9 @@ void ToolbarManager::setupToolbar()
     }
 
     // Add a spacer
-    QWidget *spacer = new QWidget();
-    spacer->setFixedWidth(10);
-    toolbar->addWidget(spacer);
+    QWidget *spacer2 = new QWidget();
+    spacer2->setFixedWidth(10);
+    toolbar->addWidget(spacer2);
 
     // Special keys
     for (const auto &keyPair : specialKeys) {
@@ -110,13 +122,6 @@ void ToolbarManager::setupToolbar()
         connect(button, &QPushButton::clicked, this, &ToolbarManager::onSpecialKeyClicked);
         toolbar->addWidget(button);
     }
-
-    // Existing special buttons
-    QPushButton *ctrlAltDelButton = new QPushButton("Ctrl+Alt+Del", toolbar);
-    ctrlAltDelButton->setStyleSheet(commonButtonStyle);
-    ctrlAltDelButton->setToolTip("Send Ctrl+Alt+Del keystroke.");
-    connect(ctrlAltDelButton, &QPushButton::clicked, this, &ToolbarManager::onCtrlAltDelClicked);
-    toolbar->addWidget(ctrlAltDelButton);
     
     // Repeating keystroke combo box
     QComboBox *repeatingKeystrokeComboBox = new QComboBox(toolbar);

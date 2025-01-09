@@ -1211,6 +1211,8 @@ void MainWindow::onToolbarVisibilityChanged(bool visible) {
     QString iconPath = isVisible ? ":/images/keyboard-down.svg" : ":/images/keyboard-up.svg";
     ui->virtualKeyboardButton->setIcon(QIcon(iconPath));  // Create QIcon from the path
 
+    
+
     // Use QTimer to delay the video pane repositioning
     QTimer::singleShot(0, this, &MainWindow::animateVideoPane);
     
@@ -1228,6 +1230,30 @@ void MainWindow::animateVideoPane() {
         setUpdatesEnabled(true);
         blockSignals(false);
         return;
+    }
+
+    // Get toolbar visibility and window state
+    bool isToolbarVisible = toolbarManager->getToolbar()->isVisible();
+    bool isMaximized = windowState() & Qt::WindowMaximized;
+
+    // Calculate content height based on toolbar visibility
+    int contentHeight = this->height() - ui->statusbar->height() - ui->menubar->height();
+    int contentWidth;
+    double aspect_ratio = static_cast<double>(video_width) / video_height;
+    if (isToolbarVisible) {
+        contentHeight -= toolbarManager->getToolbar()->height();
+        contentWidth = static_cast<int>(contentHeight * aspect_ratio);
+        qCDebug(log_ui_mainwindow) << "toolbarHeigth" << toolbarManager->getToolbar()->height() << "content height" <<contentHeight << "content width" << contentWidth;
+    }else{
+        contentHeight = this->height() - ui->statusbar->height() - ui->menubar->height();
+        contentWidth = static_cast<int>(contentHeight * aspect_ratio);
+    }
+
+    // If window is not maximized and toolbar is invisible, resize the panes
+    if (!isMaximized) {
+        videoPane->setMinimumSize(contentWidth, contentHeight);
+        videoPane->resize(contentWidth, contentHeight);
+        scrollArea->resize(contentWidth, contentHeight);
     }
 
     if (this->width() > videoPane->width()) {

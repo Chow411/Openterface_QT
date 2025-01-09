@@ -145,7 +145,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     ui->setupUi(this);
     m_statusBarManager = new StatusBarManager(ui->statusbar, this);
     taskmanager = TaskManager::instance();
-
+    
 
     QWidget *centralWidget = new QWidget(this);
     centralWidget->setLayout(stackedLayout);
@@ -283,6 +283,10 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     ScriptTool *scriptTool = new ScriptTool(this);
     connect(scriptTool, &ScriptTool::syntaxTreeReady, this, &MainWindow::handleSyntaxTree);
     setTooltip();
+
+    // Add this connection after toolbarManager is created
+    connect(toolbarManager, &ToolbarManager::toolbarVisibilityChanged,
+            this, &MainWindow::onToolbarVisibilityChanged);
 }
 
 void MainWindow::setTooltip(){
@@ -382,18 +386,31 @@ void MainWindow::resizeEvent(QResizeEvent *event) {
 
     isResizing = true;
 
-    QScreen *screen = this->screen();
-    QRect availableGeometry = screen->availableGeometry();
+    
+    
     qCDebug(log_ui_mainwindow) << "Handle window resize event.";
     QMainWindow::resizeEvent(event);  // Call base class implementation
+
+    // Check if the window is maximized
+    if (this->windowState() & Qt::WindowMaximized) {
+        // Handle maximized state
+        qCDebug(log_ui_mainwindow) << "Window is maximized.";
+        // You can update the window icon here if needed
+    } else {
+        // Handle normal state
+        qCDebug(log_ui_mainwindow) << "Window is normal.";
+        // You can update the window icon here if needed
+    }
 
     // Define the desired aspect ratio
     qreal aspect_ratio = static_cast<qreal>(video_width) / video_height;
 
+
+    QScreen *currentScreen = this->screen();
+    QRect availableGeometry = currentScreen->availableGeometry();
     // Get the available screen width and height
     int availableWidth = availableGeometry.width();
     int availableHeight = availableGeometry.height();
-
     // Get the current window size
     int currentWidth = this->width();
     int currentHeight = this->height();
@@ -407,25 +424,30 @@ void MainWindow::resizeEvent(QResizeEvent *event) {
     int maxContentHeight = availableHeight - titleBarHeight - menuBarHeight - statusBarHeight;
 
     // Check if the current width or height exceeds the available screen size
-    if (currentWidth > availableWidth || currentHeight > availableHeight) {
+    qCDebug(log_ui_mainwindow) << "current height: " << currentHeight << "available height: " << availableHeight;
+    qCDebug(log_ui_mainwindow) << "current width: " << currentWidth << "available width: " << currentWidth;
+    if (currentWidth >= availableWidth || currentHeight >= availableHeight) {
         // Calculate the new size while maintaining the aspect ratio
-        int videoWidth;
-        int videoHeight;
+        int videoHeight = maxContentHeight;
+        int videoWidth = static_cast<int>(videoHeight * aspect_ratio);
         if (currentWidth >= availableWidth) {
             currentWidth = availableWidth;
             videoWidth = currentWidth;
             videoHeight = static_cast<int>(currentWidth / aspect_ratio);
         }
-        if (currentHeight >= availableHeight) {
+        if (currentHeight >= availableHeight || videoHeight >= maxContentHeight) {
             // Use the maximum content height and adjust the window height accordingly
             videoHeight = maxContentHeight;
-            currentHeight = maxContentHeight + menuBarHeight + statusBarHeight + 6;
+            // currentHeight = maxContentHeight + menuBarHeight + statusBarHeight + 6;
+            currentHeight = static_cast<int>(availableWidth / aspect_ratio) - menuBarHeight - statusBarHeight;
             qCDebug(log_ui_mainwindow) << "video height: " << videoHeight << "mainwindow height: " << currentHeight;
             videoWidth = static_cast<int>(videoHeight * aspect_ratio);
         }
 
         // Set the new size of the window
         qCDebug(log_ui_mainwindow) << "Resize to " << currentWidth << "x" << currentHeight;
+        qCDebug(log_ui_mainwindow) << "available height: " << availableHeight << "video height: " << videoHeight;
+        qCDebug(log_ui_mainwindow) << "video height: "<< videoHeight <<"video width: " << videoWidth;
         resize(currentWidth, currentHeight);
 
         // Calculate the horizontal offset to center the videoPane
@@ -436,11 +458,13 @@ void MainWindow::resizeEvent(QResizeEvent *event) {
         videoPane->resize(videoWidth, videoHeight);
 
         // Move the videoPane to the center horizontally
-        videoPane->move(horizontalOffset, videoPane->y());
-
+        
         // Resize the scrollArea to match the videoPane size
         scrollArea->resize(videoWidth, videoHeight);
+        videoPane->move(horizontalOffset, videoPane->y());
         scrollArea->move(horizontalOffset, videoPane->y());
+        GlobalVar::instance().setWinWidth(currentWidth);
+        GlobalVar::instance().setWinHeight(currentHeight);
     } else {
         // If the window size is within the available screen size, use the original logic
         qCDebug(log_ui_mainwindow) << "Aspect ratio:" << aspect_ratio << ", Width:" << video_width << "Height:" << video_height;
@@ -457,14 +481,15 @@ void MainWindow::resizeEvent(QResizeEvent *event) {
         videoPane->setMinimumSize(this->width(), contentHeight);
         videoPane->resize(this->width(), contentHeight);
         scrollArea->resize(this->width(), contentHeight);
+        GlobalVar::instance().setWinWidth(this->width());
+        GlobalVar::instance().setWinHeight(this->height());
     }
 
     // Update global variables with the new window size
-    GlobalVar::instance().setWinWidth(this->width());
-    GlobalVar::instance().setWinHeight(this->height());
+    
 
     isResizing = false;
-}
+} // end resize event function
 
 
 void MainWindow::moveEvent(QMoveEvent *event) {
@@ -677,13 +702,7 @@ void MainWindow::onActionScreensaver()
 
 void MainWindow::onToggleVirtualKeyboard()
 {
-    bool isVisible = toolbarManager->getToolbar()->isVisible();
-    toolbarManager->getToolbar()->setVisible(!isVisible);
-
-    // Toggle the icon
-    QString iconPath = isVisible ? ":/images/keyboard-down.svg" : ":/images/keyboard-up.svg";
-    QIcon icon(iconPath);
-    ui->virtualKeyboardButton->setIcon(icon);
+    toolbarManager->toggleToolbar();    
 }
 
 void MainWindow::popupMessage(QString message)
@@ -1100,9 +1119,11 @@ void MainWindow::onVideoSettingsChanged(int width, int height) {
     resize(newWidth, newHeight);
 
     // Optionally, you might want to center the window on the screen
-    QRect screenGeometry = QApplication::primaryScreen()->geometry();
-    int x = (screenGeometry.width() - newWidth) / 2;
-    int y = (screenGeometry.height() - newHeight) / 2;
+    QScreen *screen = this->screen();
+    QRect availableGeometry = screen->availableGeometry();
+    // QRect screenGeometry = QApplication::primaryScreen()->geometry();
+    int x = (availableGeometry.width() - newWidth) / 2;
+    int y = (availableGeometry.height() - newHeight) / 2;
     move(x, y);
 }
 
@@ -1176,5 +1197,66 @@ bool MainWindow::CheckDeviceAccess(uint16_t vid, uint16_t pid) {
 
     libusb_exit(context);
     
+}
+
+void MainWindow::onToolbarVisibilityChanged(bool visible) {
+    // Prevent repaints during animation
+    setUpdatesEnabled(false);
+    
+    // Block signals during update to prevent recursive calls
+    blockSignals(true);
+    
+    // Update icon
+    bool isVisible = toolbarManager->getToolbar()->isVisible();
+    QString iconPath = isVisible ? ":/images/keyboard-down.svg" : ":/images/keyboard-up.svg";
+    ui->virtualKeyboardButton->setIcon(QIcon(iconPath));  // Create QIcon from the path
+
+    // Use QTimer to delay the video pane repositioning
+    QTimer::singleShot(0, this, &MainWindow::animateVideoPane);
+    
+}
+
+void MainWindow::centerVideoPane(){
+    if (this->width() > videoPane->width()){
+        int horizontalOffset = (this->width() - videoPane->width()) / 2;
+        scrollArea->move(horizontalOffset, scrollArea->y());
+    }
+}
+
+void MainWindow::animateVideoPane() {
+    if (!videoPane || !scrollArea) {
+        setUpdatesEnabled(true);
+        blockSignals(false);
+        return;
+    }
+
+    if (this->width() > videoPane->width()) {
+        // Calculate new position
+        int horizontalOffset = (this->width() - videoPane->width()) / 2;
+        
+        // Also animate the scrollArea
+        QPropertyAnimation *scrollAnimation = new QPropertyAnimation(scrollArea, "pos");
+        scrollAnimation->setDuration(150);
+        scrollAnimation->setStartValue(scrollArea->pos());
+        scrollAnimation->setEndValue(QPoint(horizontalOffset, scrollArea->y()));
+        scrollAnimation->setEasingCurve(QEasingCurve::OutCubic);
+
+        // Create animation group
+        QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
+        group->addAnimation(scrollAnimation);
+        
+        // Cleanup after animation
+        connect(group, &QParallelAnimationGroup::finished, this, [this]() {
+            setUpdatesEnabled(true);
+            blockSignals(false);
+            update();
+        });
+        
+        group->start(QAbstractAnimation::DeleteWhenStopped);
+    } else {
+        setUpdatesEnabled(true);
+        blockSignals(false);
+        update();
+    }
 }
 

@@ -123,7 +123,7 @@ void SemanticAnalyzer::analyzeLockState(const CommandStatementNode* node, const 
             general[0] = keydata.value(keyName);
             keyPacket pack(general);
             keyboardMouse->addKeyPacket(pack);
-            keyboardMouse->keyboardSend();
+            keyboardMouse->dataSend();
         }
     }
     if (offRegex.match(tmpKeys).hasMatch()){
@@ -133,7 +133,7 @@ void SemanticAnalyzer::analyzeLockState(const CommandStatementNode* node, const 
             general[0] = keydata.value(keyName);
             keyPacket pack(general);
             keyboardMouse->addKeyPacket(pack);
-            keyboardMouse->keyboardSend();
+            keyboardMouse->dataSend();
         }
     }
 }
@@ -251,7 +251,7 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
         // keyboardMouse->addKeyPacket(pack);
     }
 
-    keyboardMouse->keyboardSend();
+    keyboardMouse->dataSend();
 }
 
 void SemanticAnalyzer::analyzeClickStatement(const CommandStatementNode* node) {
@@ -353,10 +353,13 @@ void SemanticAnalyzer::analyzeMouseMove(const CommandStatementNode* node) {
 void SemanticAnalyzer::parserClickParam(const QString& command){
     // match the number param
     QStringList numTmp;
-    
+    bool relative = false;
+    QString button;
+    QString downOrUp;
     QRegularExpressionMatch relativeMatch = relativeRegex.match(command);
     if(relativeMatch.hasMatch()){
-        QString relative = relativeMatch.captured(0);
+        // QString relative = relativeMatch.captured(0);
+        relative = true;
         qCDebug(log_script) << "Matched relative:" << relative;
     }
     QRegularExpressionMatchIterator numMatchs = numberRegex.globalMatch(command);
@@ -368,14 +371,14 @@ void SemanticAnalyzer::parserClickParam(const QString& command){
     // check the "" content
     QRegularExpressionMatch buttonMatch = buttonRegex.match(command);
     if(buttonMatch.hasMatch()){
-        QString button = buttonMatch.captured(0);
+        button = buttonMatch.captured(0);
         qCDebug(log_script) << "Matched button:" << button;
     }
     QRegularExpressionMatch downUpMatch = downUpRegex.match(command);
     if(downUpMatch.hasMatch()){
-        QString downOrUp = downUpMatch.captured(0);
+        downOrUp = downUpMatch.captured(0);
         qCDebug(log_script) << "Matched downOrUp:" << downOrUp;
     }
     
-
+    
 }

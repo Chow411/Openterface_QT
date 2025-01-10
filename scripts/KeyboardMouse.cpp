@@ -75,7 +75,12 @@ void KeyboardMouse::mouseSend(){
     QByteArray tmpMouseData = keyData.front().MousetoQByteArray();
     qDebug() << "Mouse Data: " << tmpMouseData;
     data.append(tmpMouseData);
-
+    uint8_t checksum = 0;
+    for (int i = 0; i < data.size(); ++i) {
+        checksum += static_cast<uint8_t>(data.at(i));
+    }
+    data.append(static_cast<char>(checksum));
+    qDebug() << "merged data: " << data;
     emit SerialPortManager::getInstance().sendCommandAsync(data, false);
     keyData.pop();
         // emit SerialPortManager::getInstance().sendCommandAsync(release, false);

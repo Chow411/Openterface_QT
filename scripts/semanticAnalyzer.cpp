@@ -226,7 +226,6 @@ void SemanticAnalyzer::analyzeSendStatement(const CommandStatementNode* node) {
                     keyboardMouse->addKeyPacket(pack);
                 } 
                 else {
-                    
                     clickMatch = sendEmbedRegex.match(keyName);
                     keyName.remove("Click");
                     qDebug(log_script) << "key: " << keyName;
@@ -358,7 +357,6 @@ void SemanticAnalyzer::parserClickParam(const QString& command){
     QString downOrUp;
     QRegularExpressionMatch relativeMatch = relativeRegex.match(command);
     if(relativeMatch.hasMatch()){
-        // QString relative = relativeMatch.captured(0);
         relative = true;
         qCDebug(log_script) << "Matched relative:" << relative;
     }
@@ -368,6 +366,7 @@ void SemanticAnalyzer::parserClickParam(const QString& command){
         numTmp.append(nummatch.captured(0));
     }
     qCDebug(log_script) << "Matched numbers:" << numTmp;
+    
     // check the "" content
     QRegularExpressionMatch buttonMatch = buttonRegex.match(command);
     if(buttonMatch.hasMatch()){
@@ -380,5 +379,56 @@ void SemanticAnalyzer::parserClickParam(const QString& command){
         qCDebug(log_script) << "Matched downOrUp:" << downOrUp;
     }
     
+    // Convert numbers to integers
+    std::vector<int> numData;
+    for (const QString & num : numTmp){
+        bool ok;
+        int value = num.toInt(&ok);
+        if (ok){
+            numData.push_back(value);
+        }
+    }
+
+    // Prepare mouse data
+    uint8_t mouseMode = relative ? 0x01 : 0x02; // 0x01 for relative, 0x02 for absolute
+    uint8_t mouseButton = 0x00;
     
+    // Set mouse button based on parsed button string
+    if (button.toLower().startsWith('r')) {
+        mouseButton = 0x02; // Right button
+    } else if (button.toLower().startsWith('m')) {
+        mouseButton = 0x04; // Middle button
+    } else {
+        mouseButton = 0x01; // Left button (default)
+    }
+
+    // Create coordinate structure
+    Coordinate coord;
+    if (numData.size() >= 2) {
+        if (relative) {
+            // Relative coordinates are single bytes
+            coord.rel.x = static_cast<uint8_t>(numData[0] & 0xFF);
+            coord.rel.y = static_cast<uint8_t>(numData[1] & 0xFF);
+            
+        } else {
+            // Absolute coordinates are 2 bytes each
+            coord.abs.x[0] = static_cast<uint8_t>((numData[0] >> 8) & 0xFF);
+            coord.abs.x[1] = static_cast<uint8_t>(numData[0] & 0xFF);
+            coord.abs.y[0] = static_cast<uint8_t>((numData[1] >> 8) & 0xFF);
+            coord.abs.y[1] = static_cast<uint8_t>(numData[1] & 0xFF);
+        }
+    }
+    
+    if (relative) {
+        qCDebug(log_script) << "relative coordinates - x:" << (int)coord.rel.x << "y:" << (int)coord.rel.y;
+    } else {
+        int absX = (coord.abs.x[0] << 8) | coord.abs.x[1];
+        int absY = (coord.abs.y[0] << 8) | coord.abs.y[1];
+        qCDebug(log_script) << "absolute coordinates - x:" << absX << "y:" << absY;
+    }
+
+    qCDebug(log_script) << "mouse mode" << mouseMode << "mouse button" << mouseButton;
+    // Create and add the key packet
+    keyPacket pack(mouseMode, mouseButton, 0x00, coord); // Last param 0x00 is mouseRollWheel
+    keyboardMouse->addKeyPacket(pack);
 }

@@ -43,38 +43,43 @@ void KeyboardMouse::addKeyPacket(const keyPacket& packet) {
     keyData.push(packet);
 }
 
-// void KeyboardMouse::dataSend(){
-    
-// }
+
+void KeyboardMouse::dataSend(){
+    while(!keyData.empty()){
+        if(keyData.front().keyboardSendOrNot) keyboardSend();
+        if(keyData.front().mouseSendOrNot) mouseSend();
+        if(keyData.front().keyboardMouseSendOrNot) keyboardMouseSend();
+    }
+}
 
 void KeyboardMouse::keyboardSend(){
     QByteArray data = CMD_SEND_KB_GENERAL_DATA;
     QByteArray release = CMD_SEND_KB_GENERAL_DATA;
-    while(!keyData.empty()){
-        QByteArray tmpKeyData = keyData.front().KeytoQByteArray();
-        qDebug() << "Data: " << tmpKeyData;
-        data.replace(data.size() - 8, 8, tmpKeyData);   // replace the last 8 byte data
-        emit SerialPortManager::getInstance().sendCommandAsync(data, false);
-        keyData.pop();
-        emit SerialPortManager::getInstance().sendCommandAsync(release, false);
-    }
+    // while(!keyData.empty()){
+    QByteArray tmpKeyData = keyData.front().KeytoQByteArray();
+    qDebug() << "Data: " << tmpKeyData;
+    data.replace(data.size() - 8, 8, tmpKeyData);   // replace the last 8 byte data
+    emit SerialPortManager::getInstance().sendCommandAsync(data, false);
+    keyData.pop();
+    emit SerialPortManager::getInstance().sendCommandAsync(release, false);
+    // }
 }
 
 void KeyboardMouse::mouseSend(){
     QByteArray data;
 
-    while(!keyData.empty()){
-        if (keyData.front().mouseMode == 0x02) data.append(MOUSE_ABS_ACTION_PREFIX);
-        else data.append(MOUSE_REL_ACTION_PREFIX);
+    // while(!keyData.empty()){
+    if (keyData.front().mouseMode == 0x02) data.append(MOUSE_ABS_ACTION_PREFIX);
+    else data.append(MOUSE_REL_ACTION_PREFIX);
 
-        QByteArray tmpMouseData = keyData.front().MousetoQByteArray();
-        qDebug() << "Mouse Data: " << tmpMouseData;
-        data.append(tmpMouseData);
+    QByteArray tmpMouseData = keyData.front().MousetoQByteArray();
+    qDebug() << "Mouse Data: " << tmpMouseData;
+    data.append(tmpMouseData);
 
-        emit SerialPortManager::getInstance().sendCommandAsync(data, false);
-        keyData.pop();
+    emit SerialPortManager::getInstance().sendCommandAsync(data, false);
+    keyData.pop();
         // emit SerialPortManager::getInstance().sendCommandAsync(release, false);
-    }
+    // }
 }
 
 void KeyboardMouse::keyboardMouseSend(){

@@ -33,6 +33,12 @@
 #include <QString>
 #include <QRegularExpression>
 
+struct MouseParams{
+    uint8_t mode;
+    uint8_t mouseButton;
+    uint8_t wheelDelta;
+    Coordinate coord;
+};
 
 class SemanticAnalyzer {
 public:
@@ -68,7 +74,7 @@ private:
     void extractClickParameters(const QString& statement);
     QRegularExpression braceKeyRegex{QString(R"(\{([^}]+)\})"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression controlKeyRegex{QString(R"(([!^+#])((?:\{[^}]+\}|[^{])+))")};
-    void parserClickParam(const QString& command);
+    MouseParams parserClickParam(const QString& command);
 };
 
 #endif // SEMANTIC_ANALYZER_H

@@ -64,7 +64,7 @@ struct keyPacket {
     uint8_t mouseMode = 0x00;
     uint8_t mouseButton = 0x00;
     uint8_t mouseRollWheel = 0x00;
-    Coordinate mouseCoord;
+    union Coordinate mouseCoord;
 
     bool mouseSendOrNot = false;
     bool keyboardSendOrNot = false;
@@ -95,7 +95,7 @@ struct keyPacket {
 
     QByteArray MousetoQByteArray() const {
         QByteArray byteArray;
-        byteArray.append(mouseMode);
+        // byteArray.append(mouseMode);
         byteArray.append(mouseButton);
 
         if (mouseMode == 0x02) { // ABS
@@ -139,7 +139,7 @@ public:
 private:
     std::queue<keyPacket> keyData;
     int mouseSpeed;
-
+    uint8_t calculateChecksum(const QByteArray &data);
 };
 
 const QMap<QString, uint8_t> controldata = {

@@ -77,6 +77,7 @@ uint8_t KeyboardMouse::calculateChecksum(const QByteArray &data){
 void KeyboardMouse::mouseSend(){
     QByteArray data;
     QByteArray release;
+    uint8_t clickCount = keyData.front().mouseClickCount;
     // while(!keyData.empty()){
     if (keyData.front().mouseMode == 0x02) {
         data.append(MOUSE_ABS_ACTION_PREFIX);
@@ -98,8 +99,12 @@ void KeyboardMouse::mouseSend(){
     release.append(static_cast<char>(calculateChecksum(release)));
     qDebug() << "merged data: " << data.toHex();
     qDebug() << "merged release: " << release.toHex();
-    emit SerialPortManager::getInstance().sendCommandAsync(data, false);
-    emit SerialPortManager::getInstance().sendCommandAsync(release, false);
+    for (int i = 0; i<clickCount; i++){
+        emit SerialPortManager::getInstance().sendCommandAsync(data, false);
+        emit SerialPortManager::getInstance().sendCommandAsync(release, false);
+        QThread::msleep(clickInterval);
+    }
+    
     keyData.pop();
         // emit SerialPortManager::getInstance().sendCommandAsync(release, false);
     // }
@@ -141,7 +146,7 @@ void KeyboardMouse::keyboardMouseSend(){
 
     // Send release data for both devices
     emit SerialPortManager::getInstance().sendCommandAsync(mouseRelease, false);
-    QThread::msleep(100);
+    QThread::msleep(keyInterval);
     emit SerialPortManager::getInstance().sendCommandAsync(keyboardRelease, false);
     
 

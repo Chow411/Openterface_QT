@@ -64,6 +64,7 @@ struct keyPacket {
     uint8_t mouseMode = 0x00;
     uint8_t mouseButton = 0x00;
     uint8_t mouseRollWheel = 0x00;
+    uint8_t mouseClickCount = 1;
     union Coordinate mouseCoord;
 
     bool mouseSendOrNot = false;
@@ -139,6 +140,8 @@ public:
 private:
     std::queue<keyPacket> keyData;
     int mouseSpeed;
+    int clickInterval = 50;
+    int keyInterval = 40;
     uint8_t calculateChecksum(const QByteArray &data);
 };
 

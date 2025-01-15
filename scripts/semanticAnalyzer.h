@@ -41,7 +41,7 @@ public:
 
 public:
     signals:
-        void captureImg();
+        void captureImg(const QString& path = "");
 
 private:
     MouseManager* mouseManager;
@@ -59,6 +59,7 @@ private:
     void analyzeScrollLockState(const CommandStatementNode* node);
     void analyzeMouseMove(const CommandStatementNode* node);
     void analyzeLockState(const CommandStatementNode* node, const QString& keyName, bool (KeyboardMouse::*getStateFunc)());
+    void analyzeFullScreenCapture(const CommandStatementNode* node);
     void extractClickParameters(const QString& statement);
     void parserClickParam(const QString& command);
 

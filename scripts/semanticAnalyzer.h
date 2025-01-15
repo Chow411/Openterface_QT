@@ -67,7 +67,7 @@ private:
     void analyzeLockState(const CommandStatementNode* node, const QString& keyName, bool (KeyboardMouse::*getStateFunc)());
     void analyzeFullScreenCapture(const CommandStatementNode* node);
     void extractClickParameters(const QString& statement);
-    void parserClickParam(const QString& command);
+
 
     QRegularExpression onRegex{QString("^(1|True|On)$"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression offRegex{QString("^(0|False|Off)$"), QRegularExpression::CaseInsensitiveOption};

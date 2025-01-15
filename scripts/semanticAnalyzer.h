@@ -25,6 +25,7 @@
 #define SEMANTIC_ANALYZER_H
 
 #include "target/MouseManager.h"
+// #include "target/KeyboardManager.h"
 #include "KeyboardMouse.h"
 #include <memory>
 #include <QPoint>
@@ -32,6 +33,12 @@
 #include <QRegularExpression>
 #include <QObject>
 
+struct MouseParams{
+    uint8_t mode;
+    uint8_t mouseButton;
+    uint8_t wheelDelta;
+    Coordinate coord;
+};
 class SemanticAnalyzer : public QObject {
     Q_OBJECT
 
@@ -61,8 +68,8 @@ private:
     void analyzeLockState(const CommandStatementNode* node, const QString& keyName, bool (KeyboardMouse::*getStateFunc)());
     void analyzeFullScreenCapture(const CommandStatementNode* node);
     void extractClickParameters(const QString& statement);
-    void parserClickParam(const QString& command);
-    void analyzeAreaCapture(const CommandStatementNode* node);
+
+
     QRegularExpression onRegex{QString("^(1|True|On)$"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression offRegex{QString("^(0|False|Off)$"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression sendEmbedRegex{QString(R"(\{Click\s*([^}]*)\})"),QRegularExpression::CaseInsensitiveOption};
@@ -72,7 +79,7 @@ private:
     QRegularExpression relativeRegex{QString(R"((?<![a-zA-Z])(rel|relative)(?![a-zA-Z]))"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression braceKeyRegex{QString(R"(\{([^}]+)\})"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression controlKeyRegex{QString(R"(([!^+#])((?:\{[^}]+\}|[^{])+))")};
-    QRegularExpression filePathRegex{QString(R"(^(.*[\\/])([^\\/]+)(?:\.([^\\/.]+))?$)")};
+    MouseParams parserClickParam(const QString& command);
 };
 
 #endif // SEMANTIC_ANALYZER_H

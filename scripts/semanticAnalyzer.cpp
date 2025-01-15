@@ -31,12 +31,11 @@
 
 Q_LOGGING_CATEGORY(log_script, "opf.scripts")
 
-SemanticAnalyzer::SemanticAnalyzer(MouseManager* mouseManager, KeyboardMouse* keyboardMouse)
-    : mouseManager(mouseManager), keyboardMouse(keyboardMouse) {
+SemanticAnalyzer::SemanticAnalyzer(MouseManager* mouseManager, KeyboardMouse* keyboardMouse, QObject* parent)
+    : QObject(parent), mouseManager(mouseManager), keyboardMouse(keyboardMouse) {
     if (!mouseManager) {
         qDebug(log_script) << "MouseManager is not initialized!";
     }
-
 }
 
 void SemanticAnalyzer::analyze(const ASTNode* node) {
@@ -100,6 +99,10 @@ void SemanticAnalyzer::analyzeCommandStetement(const CommandStatementNode* node)
     }
     if(commandName == "SetScrollLockState"){
         analyzeLockState(node, "ScrollLcok", &KeyboardMouse::getScrollLockState_);
+    }
+    if(commandName == "FullScreenCapture"){
+        qCDebug(log_script) << "capture camera now";
+        emit captureImg();
     }
 }
 

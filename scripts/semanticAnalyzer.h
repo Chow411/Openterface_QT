@@ -62,7 +62,7 @@ private:
     void analyzeFullScreenCapture(const CommandStatementNode* node);
     void extractClickParameters(const QString& statement);
     void parserClickParam(const QString& command);
-
+    void analyzeAreaCapture(const CommandStatementNode* node);
     QRegularExpression onRegex{QString("^(1|True|On)$"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression offRegex{QString("^(0|False|Off)$"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression sendEmbedRegex{QString(R"(\{Click\s*([^}]*)\})"),QRegularExpression::CaseInsensitiveOption};
@@ -72,6 +72,7 @@ private:
     QRegularExpression relativeRegex{QString(R"((?<![a-zA-Z])(rel|relative)(?![a-zA-Z]))"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression braceKeyRegex{QString(R"(\{([^}]+)\})"), QRegularExpression::CaseInsensitiveOption};
     QRegularExpression controlKeyRegex{QString(R"(([!^+#])((?:\{[^}]+\}|[^{])+))")};
+    QRegularExpression filePathRegex{QString(R"(^(.*[\\/])([^\\/]+)(?:\.([^\\/.]+))?$)")};
 };
 
 #endif // SEMANTIC_ANALYZER_H

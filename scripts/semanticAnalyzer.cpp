@@ -103,7 +103,12 @@ void SemanticAnalyzer::analyzeCommandStetement(const CommandStatementNode* node)
     if(commandName == "FullScreenCapture"){
         analyzeFullScreenCapture(node);
     }
+    if (commandName == "AreaCapture"){
+
+    }
 }
+
+
 
 void SemanticAnalyzer::analyzeFullScreenCapture(const CommandStatementNode* node){
     const auto& options = node->getOptions();
@@ -396,3 +401,11 @@ void SemanticAnalyzer::parserClickParam(const QString& command){
     
 
 }
+
+void SemanticAnalyzer::analyzeAreaCapture(const CommandStatementNode* node){
+    const auto& options = node->getOptions();
+    if (options.empty()){
+        qCDebug(log_script) << "Please enter parameters.";
+        return;
+    }
+ }

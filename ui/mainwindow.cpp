@@ -281,7 +281,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     mouseManager = std::make_unique<MouseManager>();
     keyboardMouse = std::make_unique<KeyboardMouse>();
     semanticAnalyzer = std::make_unique<SemanticAnalyzer>(mouseManager.get(), keyboardMouse.get());
-
+    connect(semanticAnalyzer.get(), SemanticAnalyzer::captureImg, this, &MainWindow::takeImage);
     ScriptTool *scriptTool = new ScriptTool(this);
     connect(scriptTool, &ScriptTool::syntaxTreeReady, this, &MainWindow::handleSyntaxTree);
     setTooltip();
@@ -298,6 +298,7 @@ void MainWindow::setTooltip(){
     ui->virtualKeyboardButton->setToolTip("Function key and composite key");
     ui->pasteButton->setToolTip("Paste text to target");
     ui->screensaverButton->setToolTip("Mouse dance");
+    ui->captureButton->setToolTip("Full screen capture");
 }
 
 void MainWindow::onZoomIn()

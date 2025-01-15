@@ -245,7 +245,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     connect(ui->ZoomOutButton, &QPushButton::clicked, this, &MainWindow::onZoomOut);
     connect(ui->ZoomReductionButton, &QPushButton::clicked, this, &MainWindow::onZoomReduction);
     
-    connect(ui->captureButton, &QPushButton::clicked, this, &MainWindow::takeImage);
+    connect(ui->captureButton, &QPushButton::clicked, this, &MainWindow::takeImageDefault);
     scrollArea->ensureWidgetVisible(videoPane);
 
     // Set the window title with the version number
@@ -879,9 +879,13 @@ void MainWindow::setMuted(bool /*muted*/)
     // Your implementation here
 }
 
-void MainWindow::takeImage()
+void MainWindow::takeImageDefault(){
+    takeImage("");
+}
+
+void MainWindow::takeImage(const QString& path)
 {
-    m_cameraManager->takeImage();
+    m_cameraManager->takeImage(path);
 }
 
 void MainWindow::displayCaptureError(int id, const QImageCapture::Error error,

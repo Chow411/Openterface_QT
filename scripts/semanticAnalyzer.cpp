@@ -101,9 +101,23 @@ void SemanticAnalyzer::analyzeCommandStetement(const CommandStatementNode* node)
         analyzeLockState(node, "ScrollLcok", &KeyboardMouse::getScrollLockState_);
     }
     if(commandName == "FullScreenCapture"){
-        qCDebug(log_script) << "capture camera now";
-        emit captureImg();
+        analyzeFullScreenCapture(node);
     }
+}
+
+void SemanticAnalyzer::analyzeFullScreenCapture(const CommandStatementNode* node){
+    const auto& options = node->getOptions();
+    QString path;
+    if (options.empty()){
+        qCDebug(log_script) << "No path given";
+        QString path = "";
+        emit captureImg(path);
+        return;
+    }
+    for (const auto& token : options){
+        if (token != "\"") path.append(QString::fromStdString(token));
+    }
+    emit captureImg(path);
 }
 
 void SemanticAnalyzer::analyzeLockState(const CommandStatementNode* node, const QString& keyName, bool (KeyboardMouse::*getStateFunc)()){

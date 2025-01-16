@@ -104,11 +104,19 @@ void SemanticAnalyzer::analyzeCommandStetement(const CommandStatementNode* node)
     if(commandName == "FullScreenCapture"){
         analyzeFullScreenCapture(node);
     }
+    if(commandName == "AreaScreenCapture"){
+        analyzeAreaScreenCapture(node);
+    }
+}
+
+void SemanticAnalyzer::analyzeAreaScreenCapture(const CommandStatementNode* node){
+    
 }
 
 void SemanticAnalyzer::analyzeFullScreenCapture(const CommandStatementNode* node){
     const auto& options = node->getOptions();
     QString path;
+    QString tmpTxt;
     if (options.empty()){
         qCDebug(log_script) << "No path given";
         QString path = "";
@@ -116,9 +124,19 @@ void SemanticAnalyzer::analyzeFullScreenCapture(const CommandStatementNode* node
         return;
     }
     for (const auto& token : options){
-        if (token != "\"") path.append(QString::fromStdString(token));
+        if (token != "\"") tmpTxt.append(QString::fromStdString(token));
     }
+    path = extractFilePath(tmpTxt);
     emit captureImg(path);
+}
+
+QString SemanticAnalyzer::extractFilePath(const QString& originText){
+    QRegularExpression regex(R"(([a-zA-Z]:[\\\/][^\s]+|\/[^\s]+))");
+    QRegularExpressionMatch match = regex.match(originText);
+    if (match.hasMatch()){
+        return match.captured(0);
+    }
+    return QString();
 }
 
 void SemanticAnalyzer::analyzeLockState(const CommandStatementNode* node, const QString& keyName, bool (KeyboardMouse::*getStateFunc)()){

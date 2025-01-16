@@ -30,6 +30,9 @@
     - **Zoom Out**
     - **Restore Original Size**
 
+##  Audio playing from target
+- The audio from the target device is directly transmitted to the host as an audio input, allowing users to adjust the volume either on the target device or the host.
+
 ## Variable Video Resolution and Frame Rate
 - The software supports variable video resolution and frame rate settings, allowing users to customize their video output for optimal performance.
 - **Resolution Options [Frame Rate]**: 

@@ -46,9 +46,23 @@ void KeyboardMouse::addKeyPacket(const keyPacket& packet) {
 
 void KeyboardMouse::dataSend(){
     while(!keyData.empty()){
-        if(keyData.front().keyboardSendOrNot) keyboardSend();
-        if(keyData.front().mouseSendOrNot) mouseSend();
-        if(keyData.front().keyboardMouseSendOrNot) keyboardMouseSend();
+        qDebug() << keyData.size();
+        qDebug() << "Sending data for key packet: " 
+            << keyData.front().keyboardSendOrNot
+            << keyData.front().mouseSendOrNot
+            << keyData.front().keyboardMouseSendOrNot;
+        if(keyData.front().keyboardSendOrNot) {
+            qDebug() << "Sending keyboard data.";
+            keyboardSend();
+        }
+        if(keyData.front().mouseSendOrNot) {
+            qDebug() << "Sending mouse data.";
+            mouseSend();
+        }
+        if(keyData.front().keyboardMouseSendOrNot) {
+            qDebug() << "Sending keyboard and mouse data.";
+            keyboardMouseSend();
+        }
     }
 }
 

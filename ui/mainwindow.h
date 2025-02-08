@@ -78,6 +78,7 @@
 #include <libusb-1.0/libusb.h>
 #include <QMessageBox>
 
+
 Q_DECLARE_LOGGING_CATEGORY(log_ui_mainwindow)
 
 QT_BEGIN_NAMESPACE
@@ -289,5 +290,7 @@ private:
 
     void centerVideoPane();
     void checkInitSize();
+    void fullScreen();
+    bool isFullScreenMode();
 };
 #endif // MAINWINDOW_H

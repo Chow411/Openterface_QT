@@ -296,8 +296,31 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     // Add this connection after toolbarManager is created
     connect(toolbarManager, &ToolbarManager::toolbarVisibilityChanged,
             this, &MainWindow::onToolbarVisibilityChanged);
+    // qCDebug(log_ui_mainwindow) << "full screen...";
+    // fullScreen();
+    // qCDebug(log_ui_mainwindow) << "full finished";
 }
 
+bool MainWindow::isFullScreenMode() {
+    return this->isFullScreen();
+}
+
+void MainWindow::fullScreen(){
+    qreal aspect_ratio = static_cast<qreal>(video_width) / video_height;
+    if(!isFullScreenMode()){
+        
+        int videoHeight = videoPane->height();
+        videoHeight += this->frameGeometry().height() - this->geometry().height();
+        int videoWidth = videoHeight * aspect_ratio;
+        
+        videoPane->setMinimumSize(videoWidth, videoHeight);
+        videoPane->resize(videoWidth, videoHeight);
+        scrollArea->resize(videoWidth, videoHeight);
+        this->showFullScreen();
+    }else{
+        this->showNormal();
+    }
+}
 
 void MainWindow::setTooltip(){
     ui->ZoomInButton->setToolTip("Zoom in");

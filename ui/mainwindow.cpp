@@ -145,6 +145,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     
     qCDebug(log_ui_mainwindow) << "Init camera...";
     
+    
     ui->setupUi(this);
     m_statusBarManager = new StatusBarManager(ui->statusbar, this);
     taskmanager = TaskManager::instance();

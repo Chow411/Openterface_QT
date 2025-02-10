@@ -297,28 +297,29 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     connect(toolbarManager, &ToolbarManager::toolbarVisibilityChanged,
             this, &MainWindow::onToolbarVisibilityChanged);
     // qCDebug(log_ui_mainwindow) << "full screen...";
+    connect(ui->fullScreenButton, &QPushButton::clicked, this, &MainWindow::fullScreen);
     // fullScreen();
     // qCDebug(log_ui_mainwindow) << "full finished";
 }
 
 bool MainWindow::isFullScreenMode() {
-    return this->isFullScreen();
+    return fullScreenState;
 }
 
 void MainWindow::fullScreen(){
-    qreal aspect_ratio = static_cast<qreal>(video_width) / video_height;
+    static QRect oldGeometry;
+    
     if(!isFullScreenMode()){
-        
-        int videoHeight = videoPane->height();
-        videoHeight += this->frameGeometry().height() - this->geometry().height();
-        int videoWidth = videoHeight * aspect_ratio;
-        
-        videoPane->setMinimumSize(videoWidth, videoHeight);
-        videoPane->resize(videoWidth, videoHeight);
-        scrollArea->resize(videoWidth, videoHeight);
-        this->showFullScreen();
+        oldGeometry = this->geometry();
+        oldWindowState = this->windowState();
+        QRect screenGeometry = QApplication::primaryScreen()->availableGeometry();
+        this->setGeometry(screenGeometry);
+        this->setWindowState(this->windowState() & ~Qt::WindowMinimized | Qt::WindowActive);
+        fullScreenState = true;
     }else{
-        this->showNormal();
+        this->setGeometry(oldGeometry);
+        this->setWindowState(oldWindowState);
+        fullScreenState = false;
     }
 }
 
@@ -330,6 +331,7 @@ void MainWindow::setTooltip(){
     ui->pasteButton->setToolTip("Paste text to target");
     ui->screensaverButton->setToolTip("Mouse dance");
     ui->captureButton->setToolTip("Full screen capture");
+    ui->fullScreenButton->setToolTip("Full screen mode");
 }
 
 void MainWindow::onZoomIn()

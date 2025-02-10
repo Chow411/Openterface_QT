@@ -313,21 +313,24 @@ void MainWindow::fullScreen(){
     QRect screenGeometry = currentScreen->geometry();
     int videoAvailibleHeight = screenGeometry.height() - ui->menubar->height();
     int videoAvailibleWidth = videoAvailibleHeight * aspect_ratio;
-    int availibleWidth = screenGeometry.width();
 
-    static QRect oldGeometry;
     if(!isFullScreenMode()){
         this->showFullScreen();
         ui->statusbar->hide();
-        int horizontalOffset = (availibleWidth - videoAvailibleWidth) / 2;
+
+        // Resize the videoPane and scrollArea first
         videoPane->setMinimumSize(videoAvailibleWidth, videoAvailibleHeight);
         videoPane->resize(videoAvailibleWidth, videoAvailibleHeight);
         scrollArea->resize(videoAvailibleWidth, videoAvailibleHeight);
-        qCDebug(log_ui_mainwindow) << "offset: " << horizontalOffset;
-        // videoPane->move(horizontalOffset, videoPane->y());
-        scrollArea->move(horizontalOffset, scrollArea->y());
+
+        // Calculate the horizontal offset after resizing
+        int horizontalOffset = (screenGeometry.width() - videoAvailibleWidth) / 2;
+
+        // Move the videoPane and scrollArea to the center
+        videoPane->move(horizontalOffset, 0);
+        scrollArea->move(horizontalOffset, 0);
         fullScreenState = true;
-    }else{
+    } else {
         this->showNormal();
         ui->statusbar->show();
         fullScreenState = false;

@@ -294,5 +294,6 @@ private:
     bool isFullScreenMode();
     bool fullScreenState = false;
     Qt::WindowStates oldWindowState;
+    void startServer();
 };
 #endif // MAINWINDOW_H

@@ -146,12 +146,11 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     qCDebug(log_ui_mainwindow) << "Init camera...";
     
     
+    
     ui->setupUi(this);
     m_statusBarManager = new StatusBarManager(ui->statusbar, this);
     taskmanager = TaskManager::instance();
-    tcpServer = new TcpServer(this);
-    tcpServer->startServer(12345);
-
+    
     QWidget *centralWidget = new QWidget(this);
     centralWidget->setLayout(stackedLayout);
     centralWidget->setMouseTracking(true);
@@ -292,7 +291,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     ScriptTool *scriptTool = new ScriptTool(this);
     connect(scriptTool, &ScriptTool::syntaxTreeReady, this, &MainWindow::handleSyntaxTree);
     setTooltip();
-    
+
     // Add this connection after toolbarManager is created
     connect(toolbarManager, &ToolbarManager::toolbarVisibilityChanged,
             this, &MainWindow::onToolbarVisibilityChanged);

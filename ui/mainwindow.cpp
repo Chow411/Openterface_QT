@@ -314,7 +314,7 @@ void MainWindow::fullScreen(){
     int videoAvailibleWidth = videoAvailibleHeight * aspect_ratio;
     int horizontalOffset = (screenGeometry.width() - videoAvailibleWidth) / 2;
     if(!isFullScreenMode()){
-        
+         
         ui->statusbar->hide();
         // Calculate the horizontal offset after resizing
         

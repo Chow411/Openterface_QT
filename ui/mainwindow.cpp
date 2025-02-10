@@ -303,22 +303,33 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
 }
 
 bool MainWindow::isFullScreenMode() {
-    return fullScreenState;
+    // return fullScreenState;
+    return this->isFullScreen();
 }
 
 void MainWindow::fullScreen(){
+    qreal aspect_ratio = static_cast<qreal>(video_width) / video_height;
+    QScreen *currentScreen = this->screen();
+    QRect screenGeometry = currentScreen->geometry();
+    int videoAvailibleHeight = screenGeometry.height() - ui->menubar->height();
+    int videoAvailibleWidth = videoAvailibleHeight * aspect_ratio;
+    int availibleWidth = screenGeometry.width();
+
     static QRect oldGeometry;
-    
     if(!isFullScreenMode()){
-        oldGeometry = this->geometry();
-        oldWindowState = this->windowState();
-        QRect screenGeometry = QApplication::primaryScreen()->availableGeometry();
-        this->setGeometry(screenGeometry);
-        this->setWindowState(this->windowState() & ~Qt::WindowMinimized | Qt::WindowActive);
+        this->showFullScreen();
+        ui->statusbar->hide();
+        int horizontalOffset = (availibleWidth - videoAvailibleWidth) / 2;
+        videoPane->setMinimumSize(videoAvailibleWidth, videoAvailibleHeight);
+        videoPane->resize(videoAvailibleWidth, videoAvailibleHeight);
+        scrollArea->resize(videoAvailibleWidth, videoAvailibleHeight);
+        qCDebug(log_ui_mainwindow) << "offset: " << horizontalOffset;
+        // videoPane->move(horizontalOffset, videoPane->y());
+        scrollArea->move(horizontalOffset, scrollArea->y());
         fullScreenState = true;
     }else{
-        this->setGeometry(oldGeometry);
-        this->setWindowState(oldWindowState);
+        this->showNormal();
+        ui->statusbar->show();
         fullScreenState = false;
     }
 }
@@ -429,7 +440,7 @@ void MainWindow::checkInitSize(){
 void MainWindow::resizeEvent(QResizeEvent *event) {
     static bool isResizing = false;
 
-    if (isResizing) {
+    if (isResizing || isFullScreenMode()) {
         return;
     }
 
@@ -1293,7 +1304,10 @@ void MainWindow::animateVideoPane() {
     bool isMaximized = windowState() & Qt::WindowMaximized;
 
     // Calculate content height based on toolbar visibility
-    int contentHeight = this->height() - ui->statusbar->height() - ui->menubar->height();
+    int contentHeight;
+    if (!isFullScreenMode()) contentHeight = this->height() - ui->statusbar->height() - ui->menubar->height();
+    else contentHeight = this->height() - ui->menubar->height();
+
     int contentWidth;
     double aspect_ratio = static_cast<double>(video_width) / video_height;
     if (isToolbarVisible) {
@@ -1301,7 +1315,8 @@ void MainWindow::animateVideoPane() {
         contentWidth = static_cast<int>(contentHeight * aspect_ratio);
         qCDebug(log_ui_mainwindow) << "toolbarHeigth" << toolbarManager->getToolbar()->height() << "content height" <<contentHeight << "content width" << contentWidth;
     }else{
-        contentHeight = this->height() - ui->statusbar->height() - ui->menubar->height();
+        if (!isFullScreenMode()) contentHeight = this->height() - ui->statusbar->height() - ui->menubar->height();
+        else contentHeight = this->height() - ui->menubar->height();
         contentWidth = static_cast<int>(contentHeight * aspect_ratio);
     }
 

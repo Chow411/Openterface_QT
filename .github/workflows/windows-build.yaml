@@ -115,16 +115,21 @@ jobs:
           curl -L -o jom.zip "http://download.qt.io/official_releases/jom/jom.zip"
           7z x jom.zip -ojom
 
-      - name: Create build directory
-        run: mkdir ${{ runner.temp }}\build
+      # - name: Create build directory
+      #   run: mkdir ${{ runner.temp }}\build
 
       - name: Set up Visual Studio shell
         uses: egor-tensin/vs-shell@v2
         with:
           arch: x64
 
+      - name: Create build directories
+        run: |
+          mkdir ${{ runner.temp }}\build_no_tcp
+          mkdir ${{ runner.temp }}\build_with_tcp
+
       - name: Build without TCP server support
-        working-directory: ${{ runner.temp }}\build
+        working-directory: ${{ runner.temp }}\build_no_tcp
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           
@@ -158,7 +163,7 @@ jobs:
           copy C:\Windows\System32\msvcp140.dll .
 
       - name: Build with TCP Server support
-        working-directory: ${{ runner.temp }}\build
+        working-directory: ${{ runner.temp }}\build_with_tcp
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           
@@ -192,30 +197,25 @@ jobs:
           copy C:\Windows\System32\msvcp140.dll .
 
 
-      - name: Move directory
-        working-directory: ${{ runner.temp }}\build
+      - name: Move directories
         run: |
-          move /Y package ${{ env.SOURCE_DIR }}
+          move /Y ${{ runner.temp }}\build_no_tcp\package ${{ env.SOURCE_DIR }}\package_no_tcp
+          move /Y ${{ runner.temp }}\build_with_tcp\package ${{ env.SOURCE_DIR }}\package_with_tcp
         shell: cmd
 
       - name: Compile .ISS to .EXE Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer.iss
-          options: /O+ /DWorkingDir="${{ runner.temp }}\build" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}"
+          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_with_tcp" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=Setup_WithTCP
 
-      - name: Save build artifact (No TCP)
+      - name: Save build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
-          path: ${{ env.SOURCE_DIR }}\Output\setup.exe
-          if-no-files-found: error
-
-      - name: Save build artifact (With TCP)
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT }}
-          path: ${{ env.SOURCE_DIR }}\Output\setup_with_tcp.exe
+          path: |
+            ${{ env.SOURCE_DIR }}\Output\Setup_NoTCP.exe
+            ${{ env.SOURCE_DIR }}\Output\Setup_WithTCP.exe
           if-no-files-found: error
 
       - name: Commit and push version update

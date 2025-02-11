@@ -133,7 +133,7 @@ jobs:
           mkdir ${{ runner.temp }}\build_no_tcp
           mkdir ${{ runner.temp }}\build_with_tcp
 
-      - name: Build without TCP server support
+      - name: Build offline version
         working-directory: ${{ runner.temp }}\build_no_tcp
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
@@ -159,6 +159,7 @@ jobs:
           copy release\openterfaceQT.exe package
           copy ${{ env.SOURCE_DIR }}\LICENSE package
           copy ${{ env.SOURCE_DIR }}\driver\windows\v3.9\* package\driver
+          copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 package
           
           echo "Running windeployqt..."
           cd package
@@ -167,7 +168,7 @@ jobs:
           copy C:\Windows\System32\vccorlib140.dll .
           copy C:\Windows\System32\msvcp140.dll .
 
-      - name: Build with TCP Server support
+      - name: Build online version
         working-directory: ${{ runner.temp }}\build_with_tcp
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
@@ -175,7 +176,7 @@ jobs:
           echo "Building with qmake..."
           set PATH=${{ runner.temp }}\\Qt\\${{ env.QT_VERSION }}\\msvc2019_64\\bin;%PATH%
           qmake -v
-          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro DEFINES+=HAS_TCPSERVER TARGET=openterfaceQT_TCPServer
+          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro DEFINES+=ONLINE_VERSION TARGET=openterfaceQT_TCPServer
           if errorlevel 1 exit /b 1
           
           echo "Building with jom..."
@@ -190,10 +191,11 @@ jobs:
           echo "Creating package directory..."
           mkdir package
           mkdir package\driver
+          
           copy release\openterfaceQT.exe package
           copy ${{ env.SOURCE_DIR }}\LICENSE package
           copy ${{ env.SOURCE_DIR }}\driver\windows\v3.9\* package\driver
-          
+          copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 package
           echo "Running windeployqt..."
           cd package
           windeployqt --qmldir ${{ env.SOURCE_DIR }} openterfaceQT.exe --compiler-runtime --multimedia
@@ -248,7 +250,7 @@ jobs:
         id: convert_version
         run: |
           $version = "${{ matrix.version }}"
-          $scriptPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath ".\capitalize-version.ps1"
+          $scriptPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "capitalize-version.ps1"
           Write-Output "Script path: $scriptPath"
           if (Test-Path $scriptPath) {
             $capitalizedVersion = & $scriptPath -version $version

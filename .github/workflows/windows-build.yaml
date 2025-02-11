@@ -204,11 +204,18 @@ jobs:
           path: installer.iss
           options: /O+ /DWorkingDir="${{ runner.temp }}\build" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}"
 
-      - name: Save build artifact
+      - name: Save build artifact (No TCP)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
           path: ${{ env.SOURCE_DIR }}\Output\setup.exe
+          if-no-files-found: error
+
+      - name: Save build artifact (With TCP)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT }}
+          path: ${{ env.SOURCE_DIR }}\Output\setup_with_tcp.exe
           if-no-files-found: error
 
       - name: Commit and push version update

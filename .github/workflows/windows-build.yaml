@@ -250,7 +250,7 @@ jobs:
         id: convert_version
         run: |
           $version = "${{ matrix.version }}"
-          $scriptPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "capitalize-version.ps1"
+          $scriptPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "package\capitalize-version.ps1"
           Write-Output "Script path: $scriptPath"
           if (Test-Path $scriptPath) {
             $capitalizedVersion = & $scriptPath -version $version

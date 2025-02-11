@@ -248,7 +248,7 @@ jobs:
         id: convert_version
         run: |
           $version = "${{ matrix.version }}"
-          $capitalizedVersion = & "./capitalize-version.ps1" -version $version
+          $capitalizedVersion = & ".\capitalize-version.ps1" -version $version
           Write-Output "::set-output name=capitalizedVersion::$capitalizedVersion"
         shell: pwsh
 

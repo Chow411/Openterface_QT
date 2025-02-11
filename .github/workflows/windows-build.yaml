@@ -197,18 +197,16 @@ jobs:
           copy C:\Windows\System32\msvcp140.dll .
 
 
-      - name: Move directories
-        run: |
-          move /Y ${{ runner.temp }}\build_no_tcp\package ${{ env.SOURCE_DIR }}\package_no_tcp
-          move /Y ${{ runner.temp }}\build_with_tcp\package ${{ env.SOURCE_DIR }}\package_with_tcp
+      # - name: Move directory
+      #   run: |
+      #     move /Y ${{ runner.temp }}\build_no_tcp\package ${{ env.SOURCE_DIR }}\package_no_tcp
+      #     move /Y ${{ runner.temp }}\build_with_tcp\package ${{ env.SOURCE_DIR }}\package_with_tcp
+      #   shell: cmd
+
+      - name: Move directory
+        run:
+          move /Y ${{ runner.temp }}\build_no_tcp\package ${{ env.SOURCE_DIR }}
         shell: cmd
-
-      - name: Create & List package directory contents
-        run: |
-          mkdir package
-          copy ${{ env.SOURCE_DIR }}\LICENSE package
-          dir package
-
 
       - name: Compile .ISS to .EXE Installer (No TCP)
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
@@ -216,11 +214,17 @@ jobs:
           path: installer.iss
           options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_no_tcp" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=Setup_NoTCP
 
+      - name: Move directory
+        run:
+          move /Y ${{ runner.temp }}\build_no_tcp\package ${{ env.SOURCE_DIR }}
+        shell: cmd
+
       - name: Compile .ISS to .EXE Installer (With TCP)
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer.iss
           options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_with_tcp" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=Setup_WithTCP
+
       - name: Save build artifacts
         uses: actions/upload-artifact@v4
         with:

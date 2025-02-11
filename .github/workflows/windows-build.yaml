@@ -214,6 +214,14 @@ jobs:
           path: installer.iss
           options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_no_tcp" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=Setup_OfflineVersion
 
+      - name: Clear target package directory contents before moving
+        run: |
+          if exist "${{ env.SOURCE_DIR }}\package" (
+            del /q "${{ env.SOURCE_DIR }}\package\*"
+            for /d %%x in ("${{ env.SOURCE_DIR }}\package\*") do @rd /s /q "%%x"
+          )
+        shell: cmd
+
       - name: Move directory internet capable
         run:
           move /Y ${{ runner.temp }}\build_with_tcp\package ${{ env.SOURCE_DIR }}

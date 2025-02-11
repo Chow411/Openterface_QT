@@ -157,7 +157,8 @@ jobs:
           copy ${{ env.SOURCE_DIR }}\LICENSE package
           copy ${{ env.SOURCE_DIR }}\driver\windows\v3.9\* package\driver
           copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 package
-          
+          dir release
+
           echo "Running windeployqt..."
           cd package
           windeployqt --qmldir ${{ env.SOURCE_DIR }} openterfaceQT_OfflineVersion.exe --compiler-runtime --multimedia
@@ -193,6 +194,8 @@ jobs:
           copy ${{ env.SOURCE_DIR }}\LICENSE package
           copy ${{ env.SOURCE_DIR }}\driver\windows\v3.9\* package\driver
           copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 package
+          dir release
+
           echo "Running windeployqt..."
           cd package
           windeployqt --qmldir ${{ env.SOURCE_DIR }} openterfaceQT_OnlineVersion.exe --compiler-runtime --multimedia

@@ -148,6 +148,8 @@ jobs:
           if not exist release\openterfaceQT.exe (
             echo "Error: Failed to build openterfaceQT.exe"
             exit 1
+          )else(
+            echo "Debug: successful to build openterfaceQT.exe"
           )
           
           echo "Creating package directory..."
@@ -183,6 +185,8 @@ jobs:
           if not exist release\openterfaceQT.exe (
             echo "Error: Failed to build openterfaceQT.exe"
             exit 1
+          )else(
+            echo "Debug: successful to build openterfaceQT.exe"
           )
           
           echo "Creating package directory..."

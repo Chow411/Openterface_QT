@@ -138,11 +138,11 @@ jobs:
           echo "Building with qmake..."
           set PATH=${{ runner.temp }}\\Qt\\${{ env.QT_VERSION }}\\msvc2019_64\\bin;%PATH%
           qmake -v
-          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro TARGET=openterfaceQT_OfflineVersion
+          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro TARGET=openterfaceQT_OfflineVersion || (echo "qmake failed" && exit 1)
           if errorlevel 1 exit /b 1
           
           echo "Building with jom..."
-          ${{ runner.temp }}\jom\jom -j2
+          ${{ runner.temp }}\jom\jom -j2 || (echo "jom build failed" && exit 1)
           if errorlevel 1 exit /b 1
           
           if not exist release\openterfaceQT_OfflineVersion.exe (
@@ -174,11 +174,11 @@ jobs:
           echo "Building with qmake..."
           set PATH=${{ runner.temp }}\\Qt\\${{ env.QT_VERSION }}\\msvc2019_64\\bin;%PATH%
           qmake -v
-          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro DEFINES+=ONLINE_VERSION TARGET=openterfaceQT_OnlineVersion
+          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro DEFINES+=ONLINE_VERSION TARGET=openterfaceQT_OnlineVersion || (echo "qmake failed" && exit 1)
           if errorlevel 1 exit /b 1
           
           echo "Building with jom..."
-          ${{ runner.temp }}\jom\jom -j2
+          ${{ runner.temp }}\jom\jom -j2 || (echo "jom build failed" && exit 1)
           if errorlevel 1 exit /b 1
           
           if not exist release\openterfaceQT_OnlineVersion.exe (

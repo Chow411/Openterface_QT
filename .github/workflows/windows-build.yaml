@@ -244,6 +244,16 @@ jobs:
       #       ${{ env.SOURCE_DIR }}\Output\setup_offline.exe
       #       ${{ env.SOURCE_DIR }}\Output\setup_online.exe
       #     if-no-files-found: error
+      - name: Convert version to capitalized format using lookup table
+        id: convert_version
+        run: |
+          $lookup = @{
+            offline = "Offline"
+            online = "online"
+          }
+          $version = "${{ matrix.version }}"
+          echo "::set-output name=capitalizedVersion::$($lookup[$version])"
+        shell: pwsh
 
       - name: Save build artifacts
         uses: actions/upload-artifact@v4

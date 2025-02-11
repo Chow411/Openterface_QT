@@ -204,7 +204,11 @@ jobs:
         shell: cmd
 
       - name: List package directory contents
-        run: dir package
+        run: |
+          mkdir package
+          copy ${{ env.SOURCE_DIR }}\LICENSE package
+          dir package
+
 
       - name: Compile .ISS to .EXE Installer (No TCP)
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2

@@ -248,8 +248,15 @@ jobs:
         id: convert_version
         run: |
           $version = "${{ matrix.version }}"
-          $capitalizedVersion = & ".\capitalize-version.ps1" -version $version
-          Write-Output "::set-output name=capitalizedVersion::$capitalizedVersion"
+          $scriptPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath ".\capitalize-version.ps1"
+          Write-Output "Script path: $scriptPath"
+          if (Test-Path $scriptPath) {
+            $capitalizedVersion = & $scriptPath -version $version
+            Write-Output "::set-output name=capitalizedVersion::$capitalizedVersion"
+          } else {
+            Write-Error "Script not found at path: $scriptPath"
+            exit 1
+          }
         shell: pwsh
 
       - name: Save build artifacts

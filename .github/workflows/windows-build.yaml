@@ -203,7 +203,7 @@ jobs:
           move /Y ${{ runner.temp }}\build_with_tcp\package ${{ env.SOURCE_DIR }}\package_with_tcp
         shell: cmd
 
-      - name: List package directory contents
+      - name: Create & List package directory contents
         run: |
           mkdir package
           copy ${{ env.SOURCE_DIR }}\LICENSE package

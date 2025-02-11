@@ -217,14 +217,12 @@ jobs:
       - name: Clear target package directory contents before moving
         run: |
           if exist "${{ env.SOURCE_DIR }}\package" (
-            del /q "${{ env.SOURCE_DIR }}\package\*"
-            for /d %%x in ("${{ env.SOURCE_DIR }}\package\*") do @rd /s /q "%%x"
+            rmdir /s /q "${{ env.SOURCE_DIR }}\package"
           )
         shell: cmd
 
       - name: Move directory internet capable
-        run:
-          move /Y ${{ runner.temp }}\build_with_tcp\package ${{ env.SOURCE_DIR }}
+        run: move /Y "${{ runner.temp }}\build_with_tcp\package" "${{ env.SOURCE_DIR }}"
         shell: cmd
 
       - name: Compile .ISS to .EXE Installer (With TCP)

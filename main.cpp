@@ -21,7 +21,9 @@
 */
 
 #include "ui/mainwindow.h"
+#include "ui/loghandler.h"
 #include "global.h"
+#include "target/KeyboardLayouts.h"
 #include <QCoreApplication>
 
 #include <iostream>
@@ -32,6 +34,7 @@
 #include <QThread>
 #include <QLoggingCategory>
 #include <QStyleFactory>
+#include <QDir>
 
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -105,6 +108,23 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationVersion(APP_VERSION);
     qDebug() << "Show window now";
     app.setWindowIcon(QIcon("://images/icon_32.png"));
+    
+    // Create config directory if it doesn't exist
+    QString configPath = QCoreApplication::applicationDirPath() + "/config/keyboards";
+    QDir configDir(configPath);
+    if (!configDir.exists()) {
+        QDir().mkpath(configDir.path());
+    }
+    
+    // load the settings
+    qDebug() << "Loading settings";
+    GlobalSetting::instance().loadLogSettings();
+    GlobalSetting::instance().loadVideoSettings();
+    // onVideoSettingsChanged(GlobalVar::instance().getCaptureWidth(), GlobalVar::instance().getCaptureHeight());
+    LogHandler::instance().enableLogStore();
+
+    // Load keyboard layouts from the build directory
+    KeyboardLayoutManager::getInstance().loadLayouts(configPath);
     
     MainWindow window;
     window.show();

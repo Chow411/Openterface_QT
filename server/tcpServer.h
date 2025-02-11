@@ -30,4 +30,5 @@ private:
     void captureFullScreen();
 };
 
+
 #endif // TCPSERVER_H

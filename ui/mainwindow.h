@@ -46,7 +46,10 @@
 #include "ui/TaskManager.h"
 #include "../scripts/semanticAnalyzer.h"
 #include "../scripts/AST.h"
+
+#ifdef HAS_TCPSERVER
 #include "server/tcpServer.h"
+#endif
 
 #include <QAudioInput>
 #include <QAudioOutput>
@@ -78,6 +81,7 @@
 #include <libusb-1.0/libusb.h>
 #include <QMessageBox>
 
+
 Q_DECLARE_LOGGING_CATEGORY(log_ui_mainwindow)
 
 QT_BEGIN_NAMESPACE
@@ -104,6 +108,8 @@ public:
 
 public slots:
     void handleSyntaxTree(std::shared_ptr<ASTNode> syntaxTree);
+    void changeKeyboardLayout(const QString& layout);
+    void initializeKeyboardLayouts();
 
 private slots:
     void initCamera();
@@ -216,6 +222,7 @@ private:
     Ui::MainWindow *ui;
     AudioManager *m_audioManager;
     VideoPane *videoPane;
+    double systemScaleFactor;
     QColor iconColor;
     QScrollArea *scrollArea;
 
@@ -226,7 +233,7 @@ private:
     QLabel *keyLabel;
     QToolBar *toolbar;
     ToolbarManager *toolbarManager; // Moved up in the declaration orde r
-    TcpServer *tcpServer;
+    
 
 
     QMediaDevices m_source;
@@ -285,5 +292,16 @@ private:
     void animateVideoPane();
 
     void centerVideoPane();
+    void checkInitSize();
+    void fullScreen();
+    bool isFullScreenMode();
+    bool fullScreenState = false;
+    Qt::WindowStates oldWindowState;
+
+#ifdef HAS_TCPSERVER
+    void startServer();
+    TcpServer *tcpServer;
+#endif
+
 };
 #endif // MAINWINDOW_H

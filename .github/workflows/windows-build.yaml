@@ -244,15 +244,12 @@ jobs:
       #       ${{ env.SOURCE_DIR }}\Output\setup_offline.exe
       #       ${{ env.SOURCE_DIR }}\Output\setup_online.exe
       #     if-no-files-found: error
-      - name: Convert version to capitalized format using lookup table
+      - name: Convert version to capitalized format using script
         id: convert_version
         run: |
-          $lookup = @{
-            offline = "Offline"
-            online = "online"
-          }
           $version = "${{ matrix.version }}"
-          echo "::set-output name=capitalizedVersion::$($lookup[$version])"
+          $capitalizedVersion = & "./capitalize-version.ps1" -version $version
+          Write-Output "::set-output name=capitalizedVersion::$capitalizedVersion"
         shell: pwsh
 
       - name: Save build artifacts
@@ -260,7 +257,7 @@ jobs:
         with:
           name: ${{ env.ARTIFACT }}
           path: |
-            ${{ env.SOURCE_DIR }}\Output\Setup_${{ matrix.version | capitalize }}Version.exe
+            ${{ env.SOURCE_DIR }}\Output\Setup_${{ steps.convert_version.outputs.capitalizedVersion }}Version.exe
           if-no-files-found: error
 
       - name: Commit and push version update

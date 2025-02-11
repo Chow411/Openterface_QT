@@ -203,6 +203,9 @@ jobs:
           move /Y ${{ runner.temp }}\build_with_tcp\package ${{ env.SOURCE_DIR }}\package_with_tcp
         shell: cmd
 
+      - name: List package directory contents
+        run: dir package
+
       - name: Compile .ISS to .EXE Installer (No TCP)
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:

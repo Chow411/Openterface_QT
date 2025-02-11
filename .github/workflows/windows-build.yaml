@@ -203,7 +203,7 @@ jobs:
       #     move /Y ${{ runner.temp }}\build_with_tcp\package ${{ env.SOURCE_DIR }}\package_with_tcp
       #   shell: cmd
 
-      - name: Move directory
+      - name: Move directory offline
         run:
           move /Y ${{ runner.temp }}\build_no_tcp\package ${{ env.SOURCE_DIR }}
         shell: cmd
@@ -212,9 +212,9 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer.iss
-          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_no_tcp" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=Setup_NoTCP
+          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_no_tcp" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=Setup_OfflineVersion
 
-      - name: Move directory
+      - name: Move directory internet capable
         run:
           move /Y ${{ runner.temp }}\build_with_tcp\package ${{ env.SOURCE_DIR }}
         shell: cmd
@@ -223,15 +223,15 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer.iss
-          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_with_tcp" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=Setup_WithTCP
+          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_with_tcp" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=Setup_InternetCapable
 
       - name: Save build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
           path: |
-            ${{ env.SOURCE_DIR }}\Output\Setup_NoTCP.exe
-            ${{ env.SOURCE_DIR }}\Output\Setup_WithTCP.exe
+            ${{ env.SOURCE_DIR }}\Output\Setup_OfflineVersion.exe
+            ${{ env.SOURCE_DIR }}\Output\Setup_InternetCapable.exe
           if-no-files-found: error
 
       - name: Commit and push version update

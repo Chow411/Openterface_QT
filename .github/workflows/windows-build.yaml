@@ -211,7 +211,6 @@ jobs:
           name: ${{ env.ARTIFACT }}
           path: |
             ${{ env.SOURCE_DIR }}\Output\setup_${{ steps.convert_version.outputs.capitalizedVersion }}.exe
-          archive: none
           if-no-files-found: error
         
 

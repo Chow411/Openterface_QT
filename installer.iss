@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Openterface Mini-KVM"
-#define MyAppExeName "openterfaceQT.exe"
+; #define MyAppExeName "openterfaceQT.exe"
 
 #pragma message "AppVersion: " + MyAppVersion
 #pragma message "MyAppPublisher: " + MyAppPublisher

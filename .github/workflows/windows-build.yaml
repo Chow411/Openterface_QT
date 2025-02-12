@@ -159,7 +159,7 @@ jobs:
           copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 ${{ env.PACKAGE_DIR }}
           
           cd ${{ env.PACKAGE_DIR }}
-          dir
+          dir ${{ env.PACKAGE_DIR }}
           echo "show the package dir."
           windeployqt --qmldir ${{ env.SOURCE_DIR }} ${{ env.EXE_NAME }} --compiler-runtime --multimedia
           copy C:\Windows\System32\concrt140.dll .

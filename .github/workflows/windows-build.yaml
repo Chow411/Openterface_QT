@@ -1,4 +1,3 @@
----
 name: Windows Build and Release
 
 on:
@@ -37,7 +36,7 @@ defaults:
 env:
   ARTIFACT: "${{ vars.MY_APP_EXE_NAME }}"
   SOURCE_DIR: ${{ github.workspace }}
-  QT_VERSION: 6.5.3 
+  QT_VERSION: 6.5.3
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   QT_CACHE_KEY: qt-6.5.3-windows
   JOM_CACHE_KEY: jom-1.1.3-windows
@@ -53,6 +52,9 @@ jobs:
         version: [offline, online]
     env:
       ARTIFACT: "${{ vars.MY_APP_EXE_NAME }}-${{ matrix.version }}"
+      BUILD_DIR: "${{ runner.temp }}\build_${{ matrix.version }}"
+      PACKAGE_DIR: "package_${{ matrix.version }}"
+      EXE_NAME: "openterfaceQT_${{ matrix.version }}Version.exe"
     steps:
       - uses: actions/checkout@v2
         with:
@@ -125,130 +127,58 @@ jobs:
         with:
           arch: x64
 
-      - name: Create build directories
-        run: |
-          mkdir ${{ runner.temp }}\build_offline_version
-          mkdir ${{ runner.temp }}\build_online_version
+      - name: Create build directory
+        run: mkdir ${{ env.BUILD_DIR }}
 
-      - name: Build offline version
-        working-directory: ${{ runner.temp }}\build_offline_version
+      - name: Build ${{ matrix.version }} version
+        working-directory: ${{ env.BUILD_DIR }}
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           
-          echo "Building with qmake..."
           set PATH=${{ runner.temp }}\\Qt\\${{ env.QT_VERSION }}\\msvc2019_64\\bin;%PATH%
-          qmake -v
-          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro 
-          if errorlevel 1 exit /b 1
           
-          echo "Building with jom..."
-          ${{ runner.temp }}\jom\jom -j2
-          if errorlevel 1 exit /b 1
-          
-          if not exist release\openterfaceQT.exe (
-            echo "Error: Failed to build openterfaceQT.exe"
-            exit 1
+          if "${{ matrix.version }}" == "online" (
+            set DEFINE_FLAG=DEFINES+=ONLINE_VERSION
+          ) else (
+            set DEFINE_FLAG=
           )
           
-          echo "Creating package_offline directory..."
-          mkdir package_offline
-          mkdir package_offline\driver
-          copy release\openterfaceQT.exe package_offline\openterfaceQT_OfflineVersion.exe
-          copy ${{ env.SOURCE_DIR }}\LICENSE package_offline
-          copy ${{ env.SOURCE_DIR }}\driver\windows\v3.9\* package_offline\driver
-          copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 package_offline
+          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro %DEFINE_FLAG%
+          ${{ runner.temp }}\jom\jom -j2
           
-          echo "Running windeployqt..."
-          cd package_offline
-          windeployqt --qmldir ${{ env.SOURCE_DIR }} openterfaceQT_OfflineVersion.exe --compiler-runtime --multimedia
-          copy C:\Windows\System32\concrt140.dll . 
+          mkdir ${{ env.PACKAGE_DIR }}
+          copy release\openterfaceQT.exe ${{ env.PACKAGE_DIR }}\${{ env.EXE_NAME }}
+          copy ${{ env.SOURCE_DIR }}\LICENSE ${{ env.PACKAGE_DIR }}
+          copy ${{ env.SOURCE_DIR }}\driver\windows\v3.9\* ${{ env.PACKAGE_DIR }}\driver
+          copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 ${{ env.PACKAGE_DIR }}
+          
+          cd ${{ env.PACKAGE_DIR }}
+          windeployqt --qmldir ${{ env.SOURCE_DIR }} ${{ env.EXE_NAME }} --compiler-runtime --multimedia
+          copy C:\Windows\System32\concrt140.dll .
           copy C:\Windows\System32\vccorlib140.dll .
           copy C:\Windows\System32\msvcp140.dll .
 
-      - name: Build online version
-        working-directory: ${{ runner.temp }}\build_online_version
-        run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          
-          echo "Building with qmake..."
-          set PATH=${{ runner.temp }}\\Qt\\${{ env.QT_VERSION }}\\msvc2019_64\\bin;%PATH%
-          qmake -v
-          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro DEFINES+=ONLINE_VERSION
-          if errorlevel 1 exit /b 1
-          
-          echo "Building with jom..."
-          ${{ runner.temp }}\jom\jom -j2
-          if errorlevel 1 exit /b 1
-          
-          if not exist release\openterfaceQT.exe (
-            echo "Error: Failed to build openterfaceQT.exe"
-            exit 1
-          )
-          
-          echo "Creating package_online directory..."
-          mkdir package_online
-          mkdir package_online\driver
-          
-          copy release\openterfaceQT.exe package_online\openterfaceQT_OnlineVersion.exe
-          copy ${{ env.SOURCE_DIR }}\LICENSE package_online
-          copy ${{ env.SOURCE_DIR }}\driver\windows\v3.9\* package_online\driver
-          copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 package_online
-          echo "Running windeployqt..."
-          cd package_online
-          windeployqt --qmldir ${{ env.SOURCE_DIR }} openterfaceQT_OnlineVersion.exe --compiler-runtime --multimedia
-          copy C:\Windows\System32\concrt140.dll . 
-          copy C:\Windows\System32\vccorlib140.dll .
-          copy C:\Windows\System32\msvcp140.dll .
-
-      - name: Move directory offline
-        run:
-          move /Y ${{ runner.temp }}\build_offline_version\package_offline ${{ env.SOURCE_DIR }}
+      - name: Move build artifacts
+        run: move /Y ${{ env.BUILD_DIR }}\${{ env.PACKAGE_DIR }} ${{ env.SOURCE_DIR }}
         shell: cmd
 
-      - name: Compile .ISS to .EXE Installer (offline version)
+      - name: Compile .ISS to .EXE Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer.iss
-          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_offline_version" 
+          options: |
+            /O+ 
+            /DWorkingDir="${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}" 
             /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" 
-            /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" 
-            /DMyAppURL="${{ vars.MY_APP_URL }}" 
-            /DOutputDir="${{ env.SOURCE_DIR }}\Output" 
-            /DOutputBaseFileName=setup_offline 
-            /DMyAppExeName=openterfaceQT_OfflineVersion.exe
-            /DSourcePackage=package_offline
-
-      # - name: Clear target package directory contents before moving
-      #   run: |
-      #     if exist "${{ env.SOURCE_DIR }}\package" (
-      #       rmdir /s /q "${{ env.SOURCE_DIR }}\package"
-      #     )
-      #   shell: cmd
-
-      - name: Move directory internet capable
-        run: |
-          move /Y "${{ runner.temp }}\build_online_version\package_online" "${{ env.SOURCE_DIR }}"
-          
-        shell: cmd
-
-      - name: Compile .ISS to .EXE Installer (online version)
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-        with:
-          path: installer.iss
-          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_online_version" 
-            /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" 
-            /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" 
-            /DMyAppURL="${{ vars.MY_APP_URL }}" 
-            /DOutputDir="${{ env.SOURCE_DIR }}\Output" 
-            /DOutputBaseFileName=setup_online 
-            /DMyAppExeName=openterfaceQT_OnlineVersion.exe
-            /DSourcePackage=package_online
+            /DOutputBaseFileName=setup_${{ matrix.version }} 
+            /DMyAppExeName=${{ env.EXE_NAME }}
+            /DSourcePackage=${{ env.PACKAGE_DIR }}
 
       - name: Convert version to capitalized format using script
         id: convert_version
         run: |
           $version = "${{ matrix.version }}"
-          $scriptPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "package_online\capitalize-version.ps1"
+          $scriptPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "${{ env.PACKAGE_DIR }}\capitalize-version.ps1"
           Write-Output "Script path: $scriptPath"
           if (Test-Path $scriptPath) {
             $capitalizedVersion = & $scriptPath -version $version
@@ -277,7 +207,7 @@ jobs:
           git push https://${{ env.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+
   release:
     needs: build
     if: github.event.inputs.create_release == 'true'

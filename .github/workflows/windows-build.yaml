@@ -209,7 +209,13 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer.iss
-          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_offline_version" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=setup_offline /DMyAppExeName=openterfaceQT_OfflineVersion.exe
+          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_offline_version" 
+            /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" 
+            /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" 
+            /DMyAppURL="${{ vars.MY_APP_URL }}" 
+            /DOutputDir="${{ env.SOURCE_DIR }}\Output" 
+            /DOutputBaseFileName=setup_offline 
+            /DMyAppExeName=openterfaceQT_OfflineVersion.exe
 
       - name: Clear target package directory contents before moving
         run: |
@@ -226,7 +232,13 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer.iss
-          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_online_version" /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=setup_online /DMyAppExeName=openterfaceQT_OnlineVersion.exe
+          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\package_online_version" 
+            /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" 
+            /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" 
+            /DMyAppURL="${{ vars.MY_APP_URL }}" 
+            /DOutputDir="${{ env.SOURCE_DIR }}\Output" 
+            /DOutputBaseFileName=setup_online 
+            /DMyAppExeName=openterfaceQT_OnlineVersion.exe
 
       - name: Convert version to capitalized format using script
         id: convert_version

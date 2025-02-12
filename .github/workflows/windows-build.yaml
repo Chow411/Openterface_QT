@@ -191,7 +191,7 @@ jobs:
           Write-Output "Script path: $scriptPath"
           if (Test-Path $scriptPath) {
             $capitalizedVersion = & $scriptPath -version $version
-            echo "::set-output name=capitalizedVersion::$capitalizedVersion"
+            echo "{name}={capitalizedVersion::$capitalizedVersion}" >> $GITHUB_OUTPUT
           } else {
             Write-Error "Script not found at path: $scriptPath"
             exit 1

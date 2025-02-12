@@ -145,10 +145,13 @@ jobs:
           ) else (
             set DEFINE_FLAG=
           )
-          
+
+          echo "Building with qmake..."
           qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro %DEFINE_FLAG%
-          ${{ runner.temp }}\jom\jom -j2
+          if errorlevel 1 exit /b 1
           
+          dir
+          echo "dir test***************************************"
           mkdir ${{ env.PACKAGE_DIR }}
           copy release\openterfaceQT.exe ${{ env.PACKAGE_DIR }}\${{ env.EXE_NAME }}
           copy ${{ env.SOURCE_DIR }}\LICENSE ${{ env.PACKAGE_DIR }}
@@ -156,6 +159,8 @@ jobs:
           copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 ${{ env.PACKAGE_DIR }}
           
           cd ${{ env.PACKAGE_DIR }}
+          dir
+          echo "show the package dir."
           windeployqt --qmldir ${{ env.SOURCE_DIR }} ${{ env.EXE_NAME }} --compiler-runtime --multimedia
           copy C:\Windows\System32\concrt140.dll .
           copy C:\Windows\System32\vccorlib140.dll .

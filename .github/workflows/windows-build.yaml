@@ -52,7 +52,6 @@ jobs:
         version: [offline, online]
     env:
       ARTIFACT: "${{ vars.MY_APP_EXE_NAME }}-${{ matrix.version }}"
-      BUILD_DIR: "${{ runner.temp }}\build_${{ matrix.version }}"
       PACKAGE_DIR: "package_${{ matrix.version }}"
       EXE_NAME: "openterfaceQT_${{ matrix.version }}Version.exe"
     steps:
@@ -128,10 +127,14 @@ jobs:
           arch: x64
 
       - name: Create build directory
-        run: mkdir ${{ env.BUILD_DIR }}
+        run: |
+          $buildDir = ${{ runner.temp }}\build_${{ matrix.version }}"
+          
+          mkdir $buildDir
+
 
       - name: Build ${{ matrix.version }} version
-        working-directory: ${{ env.BUILD_DIR }}
+        working-directory: $buildDir
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           
@@ -159,7 +162,7 @@ jobs:
           copy C:\Windows\System32\msvcp140.dll .
 
       - name: Move build artifacts
-        run: move /Y ${{ env.BUILD_DIR }}\${{ env.PACKAGE_DIR }} ${{ env.SOURCE_DIR }}
+        run: move /Y $buildDir\${{ env.PACKAGE_DIR }} ${{ env.SOURCE_DIR }}
         shell: cmd
 
       - name: Compile .ISS to .EXE Installer

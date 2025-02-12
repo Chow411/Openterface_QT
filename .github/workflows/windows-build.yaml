@@ -185,6 +185,7 @@ jobs:
             /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" 
             /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" 
             /DMyAppURL="${{ vars.MY_APP_URL }}" 
+            /DOutputDir="${{ env.SOURCE_DIR }}\Output" 
             /DOutputBaseFileName=setup_${{ matrix.version }} 
             /DMyAppExeName=${{ env.EXE_NAME }}
             /DSourcePackage=${{ env.PACKAGE_DIR }}

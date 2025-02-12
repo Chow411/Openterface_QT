@@ -21,7 +21,7 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 AppCopyright=Copyright © All rights reserved. 2024 TechxArtisan Limited
-LicenseFile=package\LICENSE
+LicenseFile={#SourcePackage}\LICENSE
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 VersionInfoVersion={#MyAppVersion}
@@ -45,10 +45,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "package\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "package\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "package\driver\CH341SER.INF"; DestDir: {app}\driver;
-Source: "package\driver\CH341S64.SYS"; DestDir: {app}\driver;
+Source: "{#SourcePackage}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourcePackage}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourcePackage}\driver\CH341SER.INF"; DestDir: {app}\driver;
+Source: "{#SourcePackage}\driver\CH341S64.SYS"; DestDir: {app}\driver;
 
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 

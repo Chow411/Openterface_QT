@@ -149,6 +149,10 @@ jobs:
           echo "Building with qmake..."
           qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro %DEFINE_FLAG%
           if errorlevel 1 exit /b 1
+
+          echo "Building with jom..."
+          ${{ runner.temp }}\jom\jom -j2
+          if errorlevel 1 exit /b 1
           
           dir release
           echo "dir release***************************************"

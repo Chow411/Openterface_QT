@@ -180,7 +180,7 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer.iss
-          options: |
+          options: 
             /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}" 
             /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" 
             /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" 

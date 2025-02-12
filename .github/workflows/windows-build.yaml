@@ -208,8 +208,7 @@ jobs:
         
 
       - name: Commit and push version update
-        if: matrix.type == 'offline'
-        elif: success() && (github.event.inputs.increase_version == 'true' || github.event.inputs.increase_major == 'true' || github.event.inputs.increase_minor == 'true')
+        if: success() && (github.event.inputs.increase_version == 'true' || github.event.inputs.increase_major == 'true' || github.event.inputs.increase_minor == 'true') && matrix.version == 'online'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"

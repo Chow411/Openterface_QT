@@ -322,6 +322,6 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: setup.exe
-          asset_name: setup.exe
+          asset_path: setup_${{ steps.convert_version.outputs.capitalizedVersion }}.exe
+          asset_name: setup_${{ steps.convert_version.outputs.capitalizedVersion }}.exe
           asset_content_type: application/octet-stream

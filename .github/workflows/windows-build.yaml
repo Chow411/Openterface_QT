@@ -248,7 +248,7 @@ jobs:
         with:
           name: ${{ env.ARTIFACT }}
           path: |
-            ${{ env.SOURCE_DIR }}\Output\Setup_${{ steps.convert_version.outputs.capitalizedVersion }}Version.exe
+            ${{ env.SOURCE_DIR }}\Output\setup_${{ steps.convert_version.outputs.capitalizedVersion }}.exe
           if-no-files-found: error
 
       - name: Commit and push version update

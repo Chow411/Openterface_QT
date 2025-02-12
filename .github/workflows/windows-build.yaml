@@ -147,8 +147,8 @@ jobs:
           echo "\n dir:"
           dir
 
-          if not exist release\${{ env.EXE_NAME }} (
-            echo "Error: Failed to build ${{ env.EXE_NAME }}"
+          if not exist release\openterfaceQT.exe (
+            echo "Error: Failed to build openterfaceQT.exe 
             exit 1
           )
           

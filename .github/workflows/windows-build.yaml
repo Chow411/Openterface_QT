@@ -150,9 +150,11 @@ jobs:
           qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro %DEFINE_FLAG%
           if errorlevel 1 exit /b 1
           
-          dir
-          echo "dir test***************************************"
+          dir release
+          echo "dir release***************************************"
           mkdir ${{ env.PACKAGE_DIR }}
+          mkdir ${{ env.PACKAGE_DIR }}\driver
+
           copy release\openterfaceQT.exe ${{ env.PACKAGE_DIR }}\${{ env.EXE_NAME }}
           copy ${{ env.SOURCE_DIR }}\LICENSE ${{ env.PACKAGE_DIR }}
           copy ${{ env.SOURCE_DIR }}\driver\windows\v3.9\* ${{ env.PACKAGE_DIR }}\driver
@@ -175,9 +177,10 @@ jobs:
         with:
           path: installer.iss
           options: |
-            /O+ 
-            /DWorkingDir="${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}" 
+            /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}" 
             /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" 
+            /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" 
+            /DMyAppURL="${{ vars.MY_APP_URL }}" 
             /DOutputBaseFileName=setup_${{ matrix.version }} 
             /DMyAppExeName=${{ env.EXE_NAME }}
             /DSourcePackage=${{ env.PACKAGE_DIR }}

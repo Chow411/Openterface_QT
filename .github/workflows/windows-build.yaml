@@ -191,12 +191,16 @@ jobs:
           Write-Output "Script path: $scriptPath"
           if (Test-Path $scriptPath) {
             $capitalizedVersion = & $scriptPath -version $version
-            echo "capitalizedVersion=$capitalizedVersion" >> $GITHUB_OUTPUT
+            echo "capitalizedVersion=$capitalizedVersion" >> "$GITHUB_OUTPUT"
           } else {
             Write-Error "Script not found at path: $scriptPath"
             exit 1
           }
         shell: pwsh
+
+      - name: read version
+        run:
+          echo "${{ steps.convert_version.outputs.capitalizedVersion }"
 
       - name: Save build artifacts
         uses: actions/upload-artifact@v4

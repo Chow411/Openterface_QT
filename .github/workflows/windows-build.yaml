@@ -148,7 +148,7 @@ jobs:
           dir
 
           if not exist release\openterfaceQT.exe (
-            echo "Error: Failed to build openterfaceQT.exe 
+            echo "Error: Failed to build openterfaceQT.exe
             exit 1
           )
           

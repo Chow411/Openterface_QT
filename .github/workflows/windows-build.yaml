@@ -182,7 +182,7 @@ jobs:
             /DOutputBaseFileName=setup_${{ matrix.version }} 
             /DMyAppExeName=${{ env.EXE_NAME }}
             /DSourcePackage=${{ env.PACKAGE_DIR }}
-
+      # Write-Output "::set-output name=capitalizedVersion::$capitalizedVersion"
       - name: Convert version to capitalized format using script
         id: convert_version
         run: |
@@ -191,7 +191,7 @@ jobs:
           Write-Output "Script path: $scriptPath"
           if (Test-Path $scriptPath) {
             $capitalizedVersion = & $scriptPath -version $version
-            Write-Output "::set-output name=capitalizedVersion::$capitalizedVersion"
+            echo "::set-output name=capitalizedVersion::$capitalizedVersion"
           } else {
             Write-Error "Script not found at path: $scriptPath"
             exit 1

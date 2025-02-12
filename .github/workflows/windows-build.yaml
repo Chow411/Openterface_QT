@@ -141,7 +141,12 @@ jobs:
           echo "Building with mingw32-make..."
           mingw32-make -j2
           if errorlevel 1 exit /b 1
-          
+
+          echo "\n release dir:"
+          dir release
+          echo "\n dir:"
+          dir
+
           if not exist release\${{ env.EXE_NAME }} (
             echo "Error: Failed to build ${{ env.EXE_NAME }}"
             exit 1

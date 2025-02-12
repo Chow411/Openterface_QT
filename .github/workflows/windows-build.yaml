@@ -129,7 +129,6 @@ jobs:
       - name: Create build directory
         run: |
           $buildDir = ${{ runner.temp }}\build_${{ matrix.version }}"
-          
           mkdir $buildDir
 
 
@@ -154,8 +153,7 @@ jobs:
           ${{ runner.temp }}\jom\jom -j2
           if errorlevel 1 exit /b 1
           
-          dir release
-          echo "dir release***************************************"
+          
           mkdir ${{ env.PACKAGE_DIR }}
           mkdir ${{ env.PACKAGE_DIR }}\driver
 
@@ -165,8 +163,6 @@ jobs:
           copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 ${{ env.PACKAGE_DIR }}
           
           cd ${{ env.PACKAGE_DIR }}
-          dir ${{ env.PACKAGE_DIR }}
-          echo "show the package dir."
           windeployqt --qmldir ${{ env.SOURCE_DIR }} ${{ env.EXE_NAME }} --compiler-runtime --multimedia
           copy C:\Windows\System32\concrt140.dll .
           copy C:\Windows\System32\vccorlib140.dll .

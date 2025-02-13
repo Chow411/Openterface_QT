@@ -194,6 +194,7 @@ jobs:
             echo "capitalizedVersion<<EOF" >> $GITHUB_OUTPUT
             echo "$capitalizedVersion" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
+            echo "${{ steps.convert_version.outputs.capitalizedVersion }}"
           } else {
             Write-Error "Script not found at path: $scriptPath"
             exit 1

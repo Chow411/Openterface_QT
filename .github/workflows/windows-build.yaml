@@ -191,10 +191,10 @@ jobs:
           Write-Output "Script path: $scriptPath"
           if (Test-Path $scriptPath) {
             $capitalizedVersion = & $scriptPath -version $version
-            echo "capitalizedVersion<<EOF" >> $GITHUB_OUTPUT
-            echo "$capitalizedVersion" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            echo "${{ steps.convert_version.outputs.capitalizedVersion }}"
+            Write-Output "capitalizedVersion<<EOF" >> $GITHUB_OUTPUT
+            Write-Output "$capitalizedVersion" >> $GITHUB_OUTPUT
+            Write-Output "EOF" >> $GITHUB_OUTPUT
+            Write-Output "${{ steps.convert_version.outputs.capitalizedVersion }}"
           } else {
             Write-Error "Script not found at path: $scriptPath"
             exit 1

@@ -281,10 +281,10 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     // Add this connection after toolbarManager is created
     connect(toolbarManager, &ToolbarManager::toolbarVisibilityChanged,
             this, &MainWindow::onToolbarVisibilityChanged);
-    // qCDebug(log_ui_mainwindow) << "full screen...";
+
     connect(ui->fullScreenButton, &QPushButton::clicked, this, &MainWindow::fullScreen);
-    // fullScreen();
-    // qCDebug(log_ui_mainwindow) << "full finished";
+    
+
 }
 
 #ifdef ONLINE_VERSION
@@ -300,34 +300,35 @@ bool MainWindow::isFullScreenMode() {
     return this->isFullScreen();
 }
 
-void MainWindow::fullScreen(){
+void MainWindow::videoSizeChange(){
     qreal aspect_ratio = static_cast<qreal>(video_width) / video_height;
     QScreen *currentScreen = this->screen();
     QRect screenGeometry = currentScreen->geometry();
-    int videoAvailibleHeight = screenGeometry.height() - ui->menubar->height();
+    int videoAvailibleHeight;
+    if (ui->menubar->isVisible()){
+        videoAvailibleHeight = screenGeometry.height() - ui->menubar->height();
+    }else{
+        videoAvailibleHeight = screenGeometry.height();
+    }
     int videoAvailibleWidth = videoAvailibleHeight * aspect_ratio;
     int horizontalOffset = (screenGeometry.width() - videoAvailibleWidth) / 2;
+
+    videoPane->setMinimumSize(videoAvailibleWidth, videoAvailibleHeight);
+    videoPane->resize(videoAvailibleWidth, videoAvailibleHeight);
+    scrollArea->resize(videoAvailibleWidth, videoAvailibleHeight);
+    videoPane->move(horizontalOffset, videoPane->y());
+    scrollArea->move(horizontalOffset, videoPane->y());
+}
+
+void MainWindow::fullScreen(){
     if(!isFullScreenMode()){
-         
+
         ui->statusbar->hide();
-        // Calculate the horizontal offset after resizing
-        
-        // Resize the videoPane and scrollArea first
-        videoPane->setMinimumSize(videoAvailibleWidth, videoAvailibleHeight);
-        videoPane->resize(videoAvailibleWidth, videoAvailibleHeight);
-        scrollArea->resize(videoAvailibleWidth, videoAvailibleHeight);
-        qCDebug(log_ui_mainwindow) << "Resize to Width " << videoAvailibleWidth << "\tHeight: " << videoAvailibleHeight;
-        // Move the videoPane and scrollArea to the center
-        fullScreenState = true;
         this->showFullScreen();
-        qCDebug(log_ui_mainwindow) << "offset: " << horizontalOffset;
-        videoPane->move(horizontalOffset, videoPane->y());
-        scrollArea->move(horizontalOffset, videoPane->y());
+        videoSizeChange();
     } else {
         this->showNormal();
         ui->statusbar->show();
-        fullScreenState = false;
-        
     }
 }
 

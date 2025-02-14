@@ -233,8 +233,6 @@ private:
     QLabel *keyLabel;
     QToolBar *toolbar;
     ToolbarManager *toolbarManager; // Moved up in the declaration orde r
-    
-
 
     QMediaDevices m_source;
     QScopedPointer<QImageCapture> m_imageCapture;
@@ -297,6 +295,7 @@ private:
     bool isFullScreenMode();
     bool fullScreenState = false;
     Qt::WindowStates oldWindowState;
+    void videoSizeChange();
 
 #ifdef ONLINE_VERSION
     void startServer();

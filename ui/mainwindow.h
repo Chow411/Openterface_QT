@@ -293,7 +293,6 @@ private:
     void checkInitSize();
     void fullScreen();
     bool isFullScreenMode();
-    bool fullScreenState = false;
     Qt::WindowStates oldWindowState;
     void videoSizeChange();
 

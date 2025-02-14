@@ -300,7 +300,7 @@ bool MainWindow::isFullScreenMode() {
     return this->isFullScreen();
 }
 
-void MainWindow::videoSizeChange(){
+void MainWindow::videoSizeChange(){ // when full screen use
     qreal aspect_ratio = static_cast<qreal>(video_width) / video_height;
     QScreen *currentScreen = this->screen();
     QRect screenGeometry = currentScreen->geometry();

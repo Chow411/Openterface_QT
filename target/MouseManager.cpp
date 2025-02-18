@@ -54,6 +54,7 @@ void MouseManager::handleAbsoluteMouseAction(int x, int y, int mouse_event, int 
 
     // send the data to serial
     SerialPortManager::getInstance().sendCommandAsync(data, false);
+    QThread::usleep(mouseCommandDelay * 1000);
 
     QString mouseEventStr;
     if(mouse_event == Qt::LeftButton){
@@ -82,7 +83,8 @@ void MouseManager::handleRelativeMouseAction(int dx, int dy, int mouse_event, in
 
     // send the data to serial
     SerialPortManager::getInstance().sendCommandAsync(data, false);
-
+    QThread::usleep(mouseCommandDelay * 1000);
+    
     QString mouseEventStr;
     if(mouse_event == Qt::LeftButton){
         mouseEventStr = "L";

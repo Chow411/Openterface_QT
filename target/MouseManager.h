@@ -144,6 +144,7 @@ private:
 
     uint8_t mapScrollWheel(int delta);
     MouseMoverThread* mouseMoverThread = nullptr;
+    uint8_t mouseCommandDelay = 10;
 };
 
 #endif // MOUSEMANAGER_H

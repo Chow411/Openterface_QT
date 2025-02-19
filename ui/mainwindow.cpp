@@ -1274,12 +1274,9 @@ void MainWindow::onToolbarVisibilityChanged(bool visible) {
     blockSignals(true);
     
     // Update icon
-    bool isVisible = toolbarManager->getToolbar()->isVisible();
-    QString iconPath = isVisible ? ":/images/keyboard-down.svg" : ":/images/keyboard-up.svg";
+    QString iconPath = visible ? ":/images/keyboard-down.svg" : ":/images/keyboard-up.svg";
     ui->virtualKeyboardButton->setIcon(QIcon(iconPath));  // Create QIcon from the path
-
     
-
     // Use QTimer to delay the video pane repositioning
     QTimer::singleShot(0, this, &MainWindow::animateVideoPane);
     

@@ -120,11 +120,13 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
                             toolbarManager(new ToolbarManager(this)),
                             toggleSwitch(new ToggleSwitch(this)),
                             m_cameraManager(new CameraManager(this)),
-                            m_versionInfoManager(new VersionInfoManager(this))
+                            m_versionInfoManager(new VersionInfoManager(this)),
+                            keyboardFilter(new KeyboardFilter(this))
                             // cameraAdjust(new CameraAdjust(this))
 {
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-
+    bool success = keyboardFilter->installKeyHook();
+    if (success) qCDebug(log_ui_mainwindow) << "Successfuly install key hook for capture os key";
 
     qCDebug(log_ui_mainwindow) << "Init camera...";
     
@@ -287,6 +289,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     connect(ui->keyboardLayoutComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onKeyboardLayoutCombobox_Changed(int)));
     // fullScreen();
     // qCDebug(log_ui_mainwindow) << "full finished";
+
 }
 
 #ifdef ONLINE_VERSION
@@ -1263,7 +1266,7 @@ bool MainWindow::CheckDeviceAccess(uint16_t vid, uint16_t pid) {
     
 
     libusb_exit(context);
-    
+    keyboardFilter->uninstallKeyHook();
 }
 
 void MainWindow::onToolbarVisibilityChanged(bool visible) {

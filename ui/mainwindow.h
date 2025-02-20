@@ -46,6 +46,7 @@
 #include "ui/TaskManager.h"
 #include "../scripts/semanticAnalyzer.h"
 #include "../scripts/AST.h"
+#include "../target/KeyboardFilter.h"
 
 #ifdef ONLINE_VERSION
 
@@ -300,7 +301,8 @@ private:
     bool isFullScreenMode();
     bool fullScreenState = false;
     Qt::WindowStates oldWindowState;
-    
+    KeyboardFilter *keyboardFilter;
+
 #ifdef ONLINE_VERSION
     void startServer();
     TcpServer *tcpServer;

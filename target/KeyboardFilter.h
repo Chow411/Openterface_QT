@@ -5,6 +5,8 @@
 #include <windows.h>
 #endif
 #include <QObject>
+#include <QDebug>
+#include <QKeyEvent>
 
 class KeyboardFilter : public QObject
 {
@@ -13,9 +15,14 @@ class KeyboardFilter : public QObject
 public:
     explicit KeyboardFilter(QObject *parent = nullptr);
     ~KeyboardFilter();
+    bool installKeyHook();
+    bool uninstallKeyHook();
+    bool isKeyHookRunning();
+
 
 private:
-    HHOOK m_hHook;
+    HHOOK m_keyHook = Q_NULLPTR;
+    static LRESULT CALLBACK keyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam);
 };
 
 

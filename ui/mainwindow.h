@@ -197,7 +197,6 @@ protected:
 private slots:
     void onRepeatingKeystrokeChanged(int index);
 
-    void onFunctionKeyPressed(int key);
     void onCtrlAltDelPressed();
     
     void onBaudrateMenuTriggered(QAction* action);
@@ -207,6 +206,7 @@ private slots:
     void onZoomIn();
     void onZoomOut();
     void onZoomReduction();
+    void onKeyboardLayoutCombobox_Changed(int index);
     
 private slots:
     void checkMousePosition();
@@ -297,7 +297,7 @@ private:
     bool isFullScreenMode();
     bool fullScreenState = false;
     Qt::WindowStates oldWindowState;
-
+    
 #ifdef ONLINE_VERSION
     void startServer();
     TcpServer *tcpServer;

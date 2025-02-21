@@ -129,14 +129,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     qCDebug(log_ui_mainwindow) << "Init camera...";
     
     ui->setupUi(this);
-    #ifdef ONLINE_VERSION
-        qCDebug(log_ui_mainwindow) << "Test actionTCPServer true...";
-        ui->actionTCPServer->setVisible(true);
-        connect(ui->actionTCPServer, &QAction::triggered, this, &MainWindow::startServer);
-    #else
-        qCDebug(log_ui_mainwindow) << "Test actionTCPServer false...";
-        ui->actionTCPServer->setVisible(false);
-    #endif
+    
 
     initializeKeyboardLayouts();
 
@@ -223,6 +216,15 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     connect(m_cameraManager, &CameraManager::imageCaptured, this, &MainWindow::processCapturedImage);                                         
     connect(m_cameraManager, &CameraManager::resolutionsUpdated, this, &MainWindow::onResolutionsUpdated);
 
+    #ifdef ONLINE_VERSION
+        qCDebug(log_ui_mainwindow) << "Test actionTCPServer true...";
+        ui->actionTCPServer->setVisible(true);
+        connect(ui->actionTCPServer, &QAction::triggered, this, &MainWindow::startServer);
+    #else
+        qCDebug(log_ui_mainwindow) << "Test actionTCPServer false...";
+        ui->actionTCPServer->setVisible(false);
+    #endif
+
     qDebug() << "Init camera...";
     checkInitSize();
     initCamera();
@@ -294,6 +296,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
         tcpServer = new TcpServer(this);
         tcpServer->startServer(12345);
         qCDebug(log_ui_mainwindow) << "TCP Server start at port 12345";
+        connect(m_cameraManager, &CameraManager::lastImagePath, tcpServer, &TcpServer::handleImgPath);
     }
 #endif
 

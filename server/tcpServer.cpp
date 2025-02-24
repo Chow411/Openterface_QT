@@ -46,6 +46,8 @@ ActionCommand TcpServer::parseCommand(const QByteArray& data){
 
     if (command == "lastimage"){
         return CmdGetLastImage;
+    }else{
+        scriptStatement = QString::fromUtf8(data);
     }
 }
 
@@ -83,6 +85,20 @@ void TcpServer::processCommand(ActionCommand cmd){
         break;
     
     default:
+        compileScript();
         break;
     }
+}
+
+void TcpServer::compileScript(){
+    if (scriptStatement.isEmpty()){
+        qCDebug(log_server_tcp) << "The statement is empty";
+        return;
+    }
+    lexer.setSource(scriptStatement.toStdString());
+    tokens = lexer.tokenize();
+
+    Parser parser(tokens);
+    std::shared_ptr<ASTNode> syntaxTree = parser.parse();
+    emit syntaxTreeReady(syntaxTree);
 }

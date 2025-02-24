@@ -297,6 +297,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
         tcpServer->startServer(12345);
         qCDebug(log_ui_mainwindow) << "TCP Server start at port 12345";
         connect(m_cameraManager, &CameraManager::lastImagePath, tcpServer, &TcpServer::handleImgPath);
+        connect(tcpServer, &TcpServer::syntaxTreeReady, this, &MainWindow::handleSyntaxTree);
     }
 #endif
 

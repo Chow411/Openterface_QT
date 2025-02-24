@@ -5,6 +5,8 @@
 #include <QTcpSocket>
 #include <QString>
 #include <QFile>
+#include "../scripts/Lexer.h"
+#include "../scripts/Parser.h"
 
 enum ActionCommand {
     CmdUnknow = -1,
@@ -25,8 +27,13 @@ public:
     explicit TcpServer(QObject *parent = nullptr);
     void startServer(quint16 port);
 
+signals:
+    void syntaxTreeReady(std::shared_ptr<ASTNode> syntaxTree);
+
 public slots:
     void handleImgPath(const QString& imagePath);
+
+
 
 private slots:
     void onNewConnection();
@@ -39,6 +46,10 @@ private:
     ActionCommand parseCommand(const QByteArray& data);
     void sendImageToClient();
     void processCommand(ActionCommand cmd);
+    Lexer lexer;
+    std::vector<Token> tokens;
+    QString scriptStatement;
+    void compileScript();
 };
 
 

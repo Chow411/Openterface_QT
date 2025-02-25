@@ -298,6 +298,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
         qCDebug(log_ui_mainwindow) << "TCP Server start at port 12345";
         connect(m_cameraManager, &CameraManager::lastImagePath, tcpServer, &TcpServer::handleImgPath);
         connect(tcpServer, &TcpServer::syntaxTreeReady, this, &MainWindow::handleSyntaxTree);
+        connect(this, &MainWindow::emitTCPCommandStatus, tcpServer, &TcpServer::recvTCPCommandStatus);
     }
 #endif
 
@@ -1218,12 +1219,14 @@ void MainWindow::showScriptTool()
 
 // run the sematic analyzer
 void MainWindow::handleSyntaxTree(std::shared_ptr<ASTNode> syntaxTree) {
-    // Handle the received syntaxTree here
-    qCDebug(log_ui_mainwindow) << "Received syntaxTree in MainWindow";
-    // Process the syntaxTree as needed
-    qCDebug(log_ui_mainwindow) << syntaxTree.get();
-    taskmanager->addTask([this, syntaxTree]() {
-        semanticAnalyzer->analyze(syntaxTree.get());
+    QPointer<QObject> senderObj = sender();
+    taskmanager->addTask([this, syntaxTree, senderObj]() {
+        if (!senderObj) return;
+        bool runStatus = semanticAnalyzer->analyze(syntaxTree.get());
+        if (senderObj == tcpServer) {
+            qCDebug(log_ui_mainwindow) << "run finish: " << runStatus;
+            emit emitTCPCommandStatus(runStatus);
+        }
     });
 } 
 

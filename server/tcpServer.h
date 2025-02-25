@@ -20,6 +20,12 @@ enum ActionCommand {
     CmdGetLastImage
 };
 
+enum ActionStatus{
+    Finish,
+    Running,
+    Fail
+};
+
 class TcpServer : public QTcpServer {
     Q_OBJECT
 
@@ -32,8 +38,7 @@ signals:
 
 public slots:
     void handleImgPath(const QString& imagePath);
-
-
+    void recvTCPCommandStatus(bool status);
 
 private slots:
     void onNewConnection();
@@ -50,6 +55,7 @@ private:
     std::vector<Token> tokens;
     QString scriptStatement;
     void compileScript();
+    ActionStatus actionStatus;
 };
 
 

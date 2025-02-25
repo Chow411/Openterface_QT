@@ -108,6 +108,9 @@ public:
     // Add this line to declare the destructor
     ~MainWindow() override;
 
+signals:
+    void emitTCPCommandStatus(bool status);
+
 public slots:
     void handleSyntaxTree(std::shared_ptr<ASTNode> syntaxTree);
     void changeKeyboardLayout(const QString& layout);

@@ -102,3 +102,12 @@ void TcpServer::compileScript(){
     std::shared_ptr<ASTNode> syntaxTree = parser.parse();
     emit syntaxTreeReady(syntaxTree);
 }
+
+void TcpServer::recvTCPCommandStatus(bool status){
+    qCDebug(log_server_tcp) << "The command status: " << status;
+    if (status) {
+        actionStatus = Finish;
+    }else{
+        actionStatus = Fail;
+    }
+}

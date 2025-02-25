@@ -1223,10 +1223,12 @@ void MainWindow::handleSyntaxTree(std::shared_ptr<ASTNode> syntaxTree) {
     taskmanager->addTask([this, syntaxTree, senderObj]() {
         if (!senderObj) return;
         bool runStatus = semanticAnalyzer->analyze(syntaxTree.get());
-        if (senderObj == tcpServer) {
-            qCDebug(log_ui_mainwindow) << "run finish: " << runStatus;
-            emit emitTCPCommandStatus(runStatus);
-        }
+        #ifdef ONLINE_VERSION
+            if (senderObj == tcpServer) {
+                qCDebug(log_ui_mainwindow) << "run finish: " << runStatus;
+                emit emitTCPCommandStatus(runStatus);
+            }
+        #endif
     });
 } 
 

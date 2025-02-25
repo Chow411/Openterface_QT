@@ -10,14 +10,9 @@
 
 enum ActionCommand {
     CmdUnknow = -1,
-    FullScreenCapture,
-    AreaScreenCapture,
-    Click,
-    Send,
-    SetCapsLockState,
-    SetNumLockState,
-    SetScrollLockState,
-    CmdGetLastImage
+    CmdGetLastImage,
+    CheckStatus,
+    ScriptCommand
 };
 
 enum ActionStatus{
@@ -46,7 +41,6 @@ private slots:
     
 private:
     QTcpSocket *currentClient;
-    void captureFullScreen();
     QString lastImgPath;
     ActionCommand parseCommand(const QByteArray& data);
     void sendImageToClient();
@@ -56,6 +50,7 @@ private:
     QString scriptStatement;
     void compileScript();
     ActionStatus actionStatus;
+    void correponseClientStauts();
 };
 
 

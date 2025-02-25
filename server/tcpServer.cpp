@@ -37,17 +37,16 @@ void TcpServer::handleImgPath(const QString& imagePath){
     qCDebug(log_server_tcp) << "img path updated: " << lastImgPath;
 }
 
-void TcpServer::captureFullScreen(){
-
-}
-
 ActionCommand TcpServer::parseCommand(const QByteArray& data){
     QString command = QString(data).trimmed().toLower();
 
     if (command == "lastimage"){
         return CmdGetLastImage;
+    }else if(command == "checkstatus") {
+        return CheckStatus;
     }else{
         scriptStatement = QString::fromUtf8(data);
+        return ScriptCommand;
     }
 }
 
@@ -83,7 +82,9 @@ void TcpServer::processCommand(ActionCommand cmd){
     case CmdGetLastImage:
         sendImageToClient();
         break;
-    
+    case CheckStatus:
+        correponseClientStauts();
+        break;
     default:
         compileScript();
         break;
@@ -92,6 +93,10 @@ void TcpServer::processCommand(ActionCommand cmd){
 
 void TcpServer::compileScript(){
     if (scriptStatement.isEmpty()){
+        qCDebug(log_server_tcp) << "The statement is empty";
+        return;
+    }
+    if(actionStatus == Running){
         qCDebug(log_server_tcp) << "The statement is empty";
         return;
     }
@@ -109,5 +114,29 @@ void TcpServer::recvTCPCommandStatus(bool status){
         actionStatus = Finish;
     }else{
         actionStatus = Fail;
+    }
+}
+
+void TcpServer::correponseClientStauts(){
+    QByteArray responseData;
+    switch(actionStatus){
+        case Finish:
+            responseData = "STATUS:FINISH";
+            break;
+        case Running:
+            responseData = "STATUS:RUNNING";
+            break;
+        case Fail:
+            responseData = "STATUS:FAIL";
+            break;
+        default:
+            responseData = "STATUS:UNKNOWN";
+            break;
+    }
+
+    if(currentClient && currentClient->state() == QAbstractSocket::ConnectedState) {
+        currentClient->write(responseData);
+        qCDebug(log_server_tcp) << "Sending status to client:" << responseData;
+        currentClient->flush();
     }
 }

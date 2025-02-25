@@ -1223,6 +1223,7 @@ void MainWindow::handleSyntaxTree(std::shared_ptr<ASTNode> syntaxTree) {
     taskmanager->addTask([this, syntaxTree, senderObj]() {
         if (!senderObj) return;
         bool runStatus = semanticAnalyzer->analyze(syntaxTree.get());
+        qCDebug(log_ui_mainwindow) << "Script run status: " << runStatus;
         #ifdef ONLINE_VERSION
             if (senderObj == tcpServer) {
                 qCDebug(log_ui_mainwindow) << "run finish: " << runStatus;

@@ -1,4 +1,4 @@
-#include "scripteditor.h"
+#include "scriptEditor.h"
 #include <QPainter>
 #include <QTextBlock>
 #include <QTextCursor>

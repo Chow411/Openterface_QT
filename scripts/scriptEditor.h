@@ -27,6 +27,8 @@ private:
     void updateLineNumberArea(const QRect &rect, int dy);
     void resizeEvent(QResizeEvent *event) override;
     void scrollContentsBy(int dx, int dy) override;  // Override to handle scrolling
+    void highlightLine(int lineNumber);
+    void resetHighlightLine(int lineNumber);
 };
 
 class LineNumberArea : public QWidget

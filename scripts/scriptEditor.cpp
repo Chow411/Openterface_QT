@@ -22,18 +22,15 @@ ScriptEditor::~ScriptEditor()
 
 void ScriptEditor::setText(const QString &text)
 {
-    setHtml(text);
+    setPlainText(text);  // Use setPlainText instead of setHtml
     updateLineNumberAreaWidth();
     lineNumberArea->update();
+    highlightLine(1);
 }
 
 int ScriptEditor::lineNumberAreaWidth()
 {
-    QString htmlContent = toHtml();
-    
-    int brCount = htmlContent.count("<br", Qt::CaseInsensitive);
-    
-    int lineCount = brCount + 1;
+    int lineCount = document()->blockCount();  // Get line count directly from QTextDocument
 
     int digits = 1;
     int max = qMax(1, lineCount);
@@ -102,4 +99,35 @@ void ScriptEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
             painter.drawText(0, top, lineNumberArea->width(), lineHeight, Qt::AlignRight, number);
         }
     }
+}
+
+void ScriptEditor::highlightLine(int lineNumber)
+{
+    QTextCursor cursor = this->textCursor();
+    QTextBlock block = document()->findBlockByNumber(lineNumber - 1);
+    if (!block.isValid()) return;
+
+    cursor.setPosition(block.position());
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+
+    QTextCharFormat format;
+    format.setBackground(Qt::yellow);
+
+    cursor.setCharFormat(format);
+}
+
+void ScriptEditor::resetHighlightLine(int lineNumber)
+{
+    QTextCursor cursor = this->textCursor();
+    QTextBlock block = document()->findBlockByNumber(lineNumber - 1);
+    if (!block.isValid()) return;
+
+    cursor.setPosition(block.position());
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+
+    QTextCharFormat currentFormat = cursor.charFormat();
+    currentFormat.clearBackground();
+    cursor.setCharFormat(currentFormat);
 }

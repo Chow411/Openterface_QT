@@ -68,7 +68,7 @@ private:
     QString fileContents;
     
     void processAST(ASTNode *node);
-    QString highlightTokens(const std::vector<Token>& tokens);
+    void highlightTokens(const std::vector<Token>& tokens);
 };
 
 #endif // SCRIPTTOOL_H

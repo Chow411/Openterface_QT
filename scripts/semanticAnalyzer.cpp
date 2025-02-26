@@ -61,6 +61,7 @@ bool SemanticAnalyzer::analyze(const ASTNode* node) {
         case ASTNodeType::CommandStatement:
             qDebug(log_script) << "Analyzing command statement.";
             analyzeCommandStetement(static_cast<const CommandStatementNode*>(node));
+            emit commandIncrease();
             break;
             
         default:

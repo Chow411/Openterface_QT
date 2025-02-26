@@ -51,7 +51,8 @@ public:
 signals:
     void captureImg(const QString& path = "");
     void captureAreaImg(const QString& path = "", const QRect& captureArea = QRect());
-    
+    void commandIncrease();
+
 private:
     MouseManager* mouseManager;
     KeyboardMouse* keyboardMouse;

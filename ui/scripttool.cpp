@@ -52,7 +52,7 @@ ScriptTool::ScriptTool(QWidget *parent)
     saveButton = new QPushButton(tr("Save Script"), this);
     saveButton->setEnabled(false);
 
-    scriptEdit = new QTextEdit(this);
+    scriptEdit = new ScriptEditor(this);
     scriptEdit->setReadOnly(true);
     scriptEdit->setFont(QFont("Courier", 10));
     scriptEdit->setLineWrapMode(QTextEdit::NoWrap);

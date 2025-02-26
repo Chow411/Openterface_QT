@@ -37,6 +37,7 @@
 #include "../scripts/Parser.h"
 #include "../scripts/semanticAnalyzer.h"
 #include "../target/MouseManager.h"
+#include "../scripts/scriptEditor.h"
 
 class ScriptTool : public QDialog
 {
@@ -60,7 +61,7 @@ private:
     QPushButton *runButton;
     QPushButton *saveButton;
     QPushButton *cancelButton;
-    QTextEdit *scriptEdit;
+    ScriptEditor *scriptEdit;
     QFile currentFile;
     Lexer lexer;
     std::vector<Token> tokens;

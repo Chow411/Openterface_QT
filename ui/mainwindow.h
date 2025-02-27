@@ -303,7 +303,7 @@ private:
     bool isFullScreenMode();
     bool fullScreenState = false;
     Qt::WindowStates oldWindowState;
-    
+    ScriptTool *scriptTool;
 #ifdef ONLINE_VERSION
     void startServer();
     TcpServer *tcpServer;

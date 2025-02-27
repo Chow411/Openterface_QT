@@ -116,7 +116,9 @@ void ScriptTool::selectFile()
             // scriptEdit->setText(styledText);
             scriptEdit->clear();
             scriptEdit->setReadOnly(false);
+            // scriptEdit->setText(fileContents);
             highlightTokens(tokens);
+            qCDebug(log_script) << "Content after highlightTokens:" << scriptEdit->toPlainText();
             saveButton->setEnabled(true);
         } else {
             QMessageBox::warning(this, tr("Error"), tr("Could not open file for reading."));
@@ -170,9 +172,10 @@ void ScriptTool::saveScript()
 }
 
 void ScriptTool::highlightTokens(const std::vector<Token>& tokens) {
+    scriptEdit->clear();
     QTextCursor cursor = scriptEdit->textCursor(); 
     cursor.beginEditBlock();
-
+    
     for (const auto& token : tokens) {
         QString tokenText = QString::fromStdString(token.value);
         QTextCharFormat format;
@@ -221,14 +224,17 @@ void ScriptTool::highlightTokens(const std::vector<Token>& tokens) {
 
 void ScriptTool::handleCommandIncrement(){
     // TODO: Implement command increment
-    
+    if (lastHighlightedLine != -1) scriptEdit->resetHighlightLine(lastHighlightedLine);
+
     scriptEdit->highlightLine(commandLine);
+    lastHighlightedLine = commandLine;
     qCDebug(log_script) << "Command incremented" << commandLine;
     commandLine += 1;
-    // if (commandLine > 1) scriptEdit->resetHighlightLine(commandLine);
 }
 
 void ScriptTool::resetCommmandLine(bool status){
     qCDebug(log_script) << "Command reset" << "script status: " << status;
+    scriptEdit->resetHighlightLine(lastHighlightedLine);
     commandLine = 1;
+    int lastHighlightedLine = -1;
 }

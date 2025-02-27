@@ -53,7 +53,7 @@ signals:
 public slots:
     void handleCommandIncrement();
     void resetCommmandLine(bool status);
-    
+
 private slots:
     void selectFile();
     void runScript();
@@ -71,7 +71,7 @@ private:
     std::vector<Token> tokens;
     QString fileContents;
     int commandLine;
-
+    int lastHighlightedLine = -1;
     void processAST(ASTNode *node);
     void highlightTokens(const std::vector<Token>& tokens);
 };

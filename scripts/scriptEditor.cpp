@@ -20,15 +20,6 @@ ScriptEditor::~ScriptEditor()
 {
 }
 
-void ScriptEditor::setText(const QString &text)
-{
-    setPlainText(text);  // Use setPlainText instead of setHtml
-    qDebug() << "ScriptEditor::setText" << "going to hightlight specified line number";
-    highlightLine(2);
-    updateLineNumberAreaWidth();
-    lineNumberArea->update();
-}
-
 int ScriptEditor::lineNumberAreaWidth()
 {
     int lineCount = document()->blockCount();  // Get line count directly from QTextDocument
@@ -80,56 +71,56 @@ void ScriptEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
     QPainter painter(lineNumberArea);
     
     QPalette palette = QGuiApplication::palette();
-    QColor bgColor = palette.color(QPalette::Window); 
+    QColor bgColor = palette.color(QPalette::Window);
     painter.fillRect(event->rect(), bgColor);
 
-    QString plainText = toPlainText();
-    QStringList lines = plainText.split('\n');
     int scrollOffset = verticalScrollBar()->value();
     int lineHeight = fontMetrics().height();
 
-    QColor textColor = palette.color(QPalette::WindowText);
-    painter.setPen(textColor);
-
-    for (int i = 0; i < lines.size(); ++i) {
-        int top = i * lineHeight - scrollOffset + 4;
-        int bottom = top + lineHeight;
-
-        if (top <= event->rect().bottom() && bottom >= event->rect().top()) {
-            QString number = QString::number(i + 1);
-            painter.drawText(0, top, lineNumberArea->width(), lineHeight, Qt::AlignRight, number);
+    // Calculate the first visible line based on scroll position
+    QTextBlock block = document()->begin();
+    int blockNumber = 0;
+    int top = 0 - scrollOffset + 4;  // Adjust for scroll position
+    
+    while (block.isValid() && top <= event->rect().bottom()) {
+        if (top + lineHeight >= event->rect().top()) {
+            QString number = QString::number(blockNumber + 1);
+            
+            // If it's the highlighted line, draw background color
+            if (blockNumber + 1 == highlightedLineNumber) {
+                painter.fillRect(0, top, lineNumberArea->width(), lineHeight, Qt::yellow);
+                painter.setPen(Qt::black);
+            } else {
+                painter.setPen(palette.color(QPalette::WindowText));
+            }
+            
+            painter.drawText(0, top, lineNumberArea->width(), lineHeight, 
+                           Qt::AlignRight, number);
         }
+
+        block = block.next();
+        top += lineHeight;
+        ++blockNumber;
     }
 }
-
 void ScriptEditor::highlightLine(int lineNumber)
 {
-    QTextCursor cursor = this->textCursor();
     QTextBlock block = document()->findBlockByNumber(lineNumber - 1);
     if (!block.isValid()) return;
 
+    highlightedLineNumber = lineNumber;  // Update highlighted line number
+    lineNumberArea->update();  // Trigger redraw
+
+    QTextCursor cursor = textCursor();
     cursor.setPosition(block.position());
-    cursor.movePosition(QTextCursor::StartOfBlock);
-    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-
-    QTextCharFormat format;
-    format.setBackground(Qt::yellow);
-
-    cursor.setCharFormat(format);
-    viewport()->update();
+    setTextCursor(cursor);
+    ensureCursorVisible();
 }
 
 void ScriptEditor::resetHighlightLine(int lineNumber)
 {
-    QTextCursor cursor = this->textCursor();
-    QTextBlock block = document()->findBlockByNumber(lineNumber - 1);
-    if (!block.isValid()) return;
-
-    cursor.setPosition(block.position());
-    cursor.movePosition(QTextCursor::StartOfBlock);
-    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-
-    QTextCharFormat currentFormat = cursor.charFormat();
-    currentFormat.clearBackground();
-    cursor.setCharFormat(currentFormat);
+    if (highlightedLineNumber == lineNumber) {
+        highlightedLineNumber = -1;  // Reset highlighted line
+        lineNumberArea->update();  // Trigger redraw
+    }
 }

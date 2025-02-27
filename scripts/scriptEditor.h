@@ -14,7 +14,6 @@ public:
     explicit ScriptEditor(QWidget *parent = nullptr);
     ~ScriptEditor();
 
-    void setText(const QString &text);          // To set HTML or plain text
     int lineNumberAreaWidth();                  // Public for LineNumberArea
     void lineNumberAreaPaintEvent(QPaintEvent *event);  // Public for LineNumberArea
     void highlightLine(int lineNumber);
@@ -25,11 +24,11 @@ private slots:
 
 private:
     LineNumberArea *lineNumberArea;
+    int highlightedLineNumber = -1;
 
     void updateLineNumberArea(const QRect &rect, int dy);
     void resizeEvent(QResizeEvent *event) override;
     void scrollContentsBy(int dx, int dy) override;  // Override to handle scrolling
-    
 };
 
 class LineNumberArea : public QWidget

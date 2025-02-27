@@ -17,6 +17,8 @@ public:
     void setText(const QString &text);          // To set HTML or plain text
     int lineNumberAreaWidth();                  // Public for LineNumberArea
     void lineNumberAreaPaintEvent(QPaintEvent *event);  // Public for LineNumberArea
+    void highlightLine(int lineNumber);
+    void resetHighlightLine(int lineNumber);
 
 private slots:
     void updateLineNumberAreaWidth();           // No parameter needed
@@ -27,8 +29,7 @@ private:
     void updateLineNumberArea(const QRect &rect, int dy);
     void resizeEvent(QResizeEvent *event) override;
     void scrollContentsBy(int dx, int dy) override;  // Override to handle scrolling
-    void highlightLine(int lineNumber);
-    void resetHighlightLine(int lineNumber);
+    
 };
 
 class LineNumberArea : public QWidget

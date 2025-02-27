@@ -44,7 +44,7 @@ bool SemanticAnalyzer::analyze(const ASTNode* node) {
         qDebug(log_script) << "Received null node in analyze method.";
         return false;
     }
-    
+
     bool analysisSuccess = true;
     switch (node->getType()) {
         case ASTNodeType::StatementList:

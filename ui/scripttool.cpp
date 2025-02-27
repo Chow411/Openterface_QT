@@ -82,7 +82,7 @@ ScriptTool::ScriptTool(QWidget *parent)
     connect(runButton, &QPushButton::clicked, this, &ScriptTool::runScript);
     connect(saveButton, &QPushButton::clicked, this, &ScriptTool::saveScript);
     connect(cancelButton, &QPushButton::clicked, this, &ScriptTool::close);
-
+    commandLine = 1;
 }
 
 ScriptTool::~ScriptTool()
@@ -217,4 +217,18 @@ void ScriptTool::highlightTokens(const std::vector<Token>& tokens) {
     cursor.endEditBlock(); 
     scriptEdit->setTextCursor(cursor); 
     scriptEdit->ensureCursorVisible();
+}
+
+void ScriptTool::handleCommandIncrement(){
+    // TODO: Implement command increment
+    
+    scriptEdit->highlightLine(commandLine);
+    qCDebug(log_script) << "Command incremented" << commandLine;
+    commandLine += 1;
+    // if (commandLine > 1) scriptEdit->resetHighlightLine(commandLine);
+}
+
+void ScriptTool::resetCommmandLine(bool status){
+    qCDebug(log_script) << "Command reset" << "script status: " << status;
+    commandLine = 1;
 }

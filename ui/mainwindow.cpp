@@ -278,6 +278,8 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     connect(semanticAnalyzer.get(), &SemanticAnalyzer::captureAreaImg, this, &MainWindow::takeAreaImage);
     ScriptTool *scriptTool = new ScriptTool(this);
     connect(scriptTool, &ScriptTool::syntaxTreeReady, this, &MainWindow::handleSyntaxTree);
+    connect(this, &MainWindow::emitScriptStatus, scriptTool, &ScriptTool::resetCommmandLine);
+    connect(semanticAnalyzer.get(), &SemanticAnalyzer::commandIncrease, scriptTool, &ScriptTool::handleCommandIncrement);
     setTooltip();
 
     // Add this connection after toolbarManager is created
@@ -289,6 +291,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     connect(ui->keyboardLayoutComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onKeyboardLayoutCombobox_Changed(int)));
     // fullScreen();
     // qCDebug(log_ui_mainwindow) << "full finished";
+    
 }
 
 #ifdef ONLINE_VERSION
@@ -1224,6 +1227,7 @@ void MainWindow::handleSyntaxTree(std::shared_ptr<ASTNode> syntaxTree) {
         if (!senderObj) return;
         bool runStatus = semanticAnalyzer->analyze(syntaxTree.get());
         qCDebug(log_ui_mainwindow) << "Script run status: " << runStatus;
+        emit emitScriptStatus(runStatus);
         #ifdef ONLINE_VERSION
             if (senderObj == tcpServer) {
                 qCDebug(log_ui_mainwindow) << "run finish: " << runStatus;

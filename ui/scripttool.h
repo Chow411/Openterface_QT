@@ -50,11 +50,15 @@ public:
 signals:
     void syntaxTreeReady(std::shared_ptr<ASTNode> syntaxTree);
 
+public slots:
+    void handleCommandIncrement();
+    void resetCommmandLine(bool status);
+    
 private slots:
     void selectFile();
     void runScript();
     void saveScript();
-
+    
 private:
     QLineEdit *filePathEdit;
     QPushButton *selectButton;
@@ -66,7 +70,8 @@ private:
     Lexer lexer;
     std::vector<Token> tokens;
     QString fileContents;
-    
+    int commandLine;
+
     void processAST(ASTNode *node);
     void highlightTokens(const std::vector<Token>& tokens);
 };

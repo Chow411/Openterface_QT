@@ -23,9 +23,10 @@ ScriptEditor::~ScriptEditor()
 void ScriptEditor::setText(const QString &text)
 {
     setPlainText(text);  // Use setPlainText instead of setHtml
+    qDebug() << "ScriptEditor::setText" << "going to hightlight specified line number";
+    highlightLine(2);
     updateLineNumberAreaWidth();
     lineNumberArea->update();
-    highlightLine(1);
 }
 
 int ScriptEditor::lineNumberAreaWidth()
@@ -115,6 +116,7 @@ void ScriptEditor::highlightLine(int lineNumber)
     format.setBackground(Qt::yellow);
 
     cursor.setCharFormat(format);
+    viewport()->update();
 }
 
 void ScriptEditor::resetHighlightLine(int lineNumber)

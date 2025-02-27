@@ -110,6 +110,7 @@ public:
 
 signals:
     void emitTCPCommandStatus(bool status);
+    void emitScriptStatus(bool status);
 
 public slots:
     void handleSyntaxTree(std::shared_ptr<ASTNode> syntaxTree);

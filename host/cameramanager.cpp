@@ -84,21 +84,47 @@ void CameraManager::stopCamera()
 void CameraManager::onImageCaptured(int id, const QImage& img){
     Q_UNUSED(id);
     
+    switch (m_captureMode) {
+    case CaptureMode::takeImage:
+        saveFullImage(id, img);
+        break;
+    case CaptureMode::takeAreaImage:
+        saveRegionImage(id, img, copyRect);
+        break;
+    case CaptureMode::decodeImage:
+        qrCodeDecoded(id, img);
+        break;
+    default:
+        qCWarning(log_ui_camera) << "Unknown capture mode";
+        break;
+    }
+}
+
+void CameraManager::qrCodeDecoded(int id, const QImage& img)
+{
+    Q_UNUSED(id);
+    qCDebug(log_ui_camera) << "QR code decoded";
+}
+
+void CameraManager::saveFullImage(int id, const QImage& img) {
+    Q_UNUSED(id);
+    
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
     QString picturesPath = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
     QString customFolderPath;
+    
     if (picturesPath.isEmpty()) {
         picturesPath = QDir::currentPath();
     }
-    if(filePath==""){
+    if (filePath == "") {
         customFolderPath = picturesPath + "/" + "openterfaceCaptureImg";
-    }else{
+    } else {
         customFolderPath = filePath + "/";
         customFolderPath = customFolderPath.trimmed();
     }
     
     QDir dir(customFolderPath);
-    if (!dir.exists() && filePath=="") {
+    if (!dir.exists() && filePath == "") {
         qCDebug(log_ui_camera) << "Directory do not exist";
         if (!dir.mkpath(".")) {
             qCDebug(log_ui_camera) << "Failed to create directory: " << customFolderPath;
@@ -107,19 +133,71 @@ void CameraManager::onImageCaptured(int id, const QImage& img){
     }
     
     QString saveName = customFolderPath + "/" + timestamp + ".png";
-
-    QImage coayImage = img.copy(copyRect);
-    if(coayImage.save(saveName)){
-        qCDebug(log_ui_camera) << "succefully save img to : " << saveName;
+    
+    if (img.save(saveName)) {
+        qCDebug(log_ui_camera) << "successfully save full img to: " << saveName;
         emit lastImagePath(saveName);
-    }else{
-        qCDebug(log_ui_camera) << "fail save img to : " << saveName;
+    } else {
+        qCDebug(log_ui_camera) << "failed to save full img to: " << saveName;
     }
+}
+
+void CameraManager::saveRegionImage(int id, const QImage& img, const QRect& region) {
+    Q_UNUSED(id);
+    
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString picturesPath = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
+    QString customFolderPath;
+    
+    if (picturesPath.isEmpty()) {
+        picturesPath = QDir::currentPath();
+    }
+    if (filePath == "") {
+        customFolderPath = picturesPath + "/" + "openterfaceCaptureImg";
+    } else {
+        customFolderPath = filePath + "/";
+        customFolderPath = customFolderPath.trimmed();
+    }
+    
+    QDir dir(customFolderPath);
+    if (!dir.exists() && filePath == "") {
+        qCDebug(log_ui_camera) << "Directory do not exist";
+        if (!dir.mkpath(".")) {
+            qCDebug(log_ui_camera) << "Failed to create directory: " << customFolderPath;
+            return;
+        }
+    }
+    
+    QString saveName = customFolderPath + "/" + timestamp + ".png";
+    
+    QImage regionImage = img.copy(region);
+    if (regionImage.save(saveName)) {
+        qCDebug(log_ui_camera) << "successfully save region img to: " << saveName;
+        emit lastImagePath(saveName);
+    } else {
+        qCDebug(log_ui_camera) << "failed to save region img to: " << saveName;
+    }
+    
     copyRect = QRect(0, 0, m_video_width, m_video_height);
+}
+
+void CameraManager::imageQrDecode(){
+    m_captureMode = CaptureMode::decodeImage;
+    if (m_imageCapture && m_camera && m_camera->isActive()) {
+        if (m_imageCapture->isReadyForCapture()) {
+            m_imageCapture->capture();
+            qCDebug(log_ui_camera) << "decode .....................";
+        } else {
+            qCWarning(log_ui_camera) << "Image capture is not ready";
+        }
+    } else {
+        qCWarning(log_ui_camera) << "Camera or image capture is not ready";
+    }
 }
 
 void CameraManager::takeImage(const QString& file)
 {
+    m_captureMode = CaptureMode::takeImage;
     if (m_imageCapture && m_camera && m_camera->isActive()) {
         if (m_imageCapture->isReadyForCapture()) {
             filePath = file;
@@ -134,6 +212,7 @@ void CameraManager::takeImage(const QString& file)
 }
 
 void CameraManager::takeAreaImage(const QString& file, const QRect& captureArea){
+    m_captureMode = CaptureMode::takeAreaImage;
     if (m_imageCapture && m_camera && m_camera->isActive()) {
         if (m_imageCapture->isReadyForCapture()) {
             filePath = file;

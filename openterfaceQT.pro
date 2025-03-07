@@ -53,7 +53,8 @@ SOURCES += main.cpp \
     target/KeyboardLayouts.cpp \
     regex/RegularExpression.cpp \
     server/tcpServer.cpp \
-    scripts/scriptEditor.cpp
+    scripts/scriptEditor.cpp \
+    video/QrCodeDecoder.cpp
 
 HEADERS  += \
     global.h \
@@ -101,8 +102,8 @@ HEADERS  += \
     server/tcpServer.h \
     regex/RegularExpression.h \
     target/KeyboardLayouts.h \
-    scripts/scriptEditor.h
-
+    scripts/scriptEditor.h \
+    video/QrCodeDecoder.h
 
 
 FORMS    += \
@@ -158,3 +159,5 @@ RC_FILE = openterfaceQT.rc
 DEPENDPATH += $$PWD/''
 
 #DEFINES += ONLINE_VERSION
+INCLUDEPATH += $$PWD/zxing/include/
+LIBS += -L$$PWD/zxing/lib -llibZxing

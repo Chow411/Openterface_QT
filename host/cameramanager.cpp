@@ -103,7 +103,8 @@ void CameraManager::onImageCaptured(int id, const QImage& img){
 void CameraManager::qrCodeDecoded(int id, const QImage& img)
 {
     Q_UNUSED(id);
-    qCDebug(log_ui_camera) << "QR code decoded";
+    QString detectString = QRCodeDecoder::getInstance().decodeQRCode(img);
+    qCDebug(log_ui_camera) << "QR code decoded" << detectString;
 }
 
 void CameraManager::saveFullImage(int id, const QImage& img) {

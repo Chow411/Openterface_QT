@@ -276,7 +276,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     semanticAnalyzer = std::make_unique<SemanticAnalyzer>(mouseManager.get(), keyboardMouse.get());
     connect(semanticAnalyzer.get(), &SemanticAnalyzer::captureImg, this, &MainWindow::takeImage);
     connect(semanticAnalyzer.get(), &SemanticAnalyzer::captureAreaImg, this, &MainWindow::takeAreaImage);
-    
+    connect(ui->qrCodeDecoderButton, &QPushButton::clicked, this, &MainWindow::imageQrDecode);
     scriptTool = new ScriptTool(this);
     // connect(scriptTool, &ScriptTool::syntaxTreeReady, this, &MainWindow::handleSyntaxTree);
     connect(this, &MainWindow::emitScriptStatus, scriptTool, &ScriptTool::resetCommmandLine);

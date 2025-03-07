@@ -15,7 +15,6 @@ public:
 private:
     explicit QRCodeDecoder(QObject *parent = nullptr);
     ~QRCodeDecoder();
-    QImage prepareImage(const QImage &inputImage);
 
     static const int FIXED_WIDTH = 530;
     static const int FIXED_HEIGHT = 360;

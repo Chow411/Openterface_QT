@@ -103,7 +103,8 @@ HEADERS  += \
     regex/RegularExpression.h \
     target/KeyboardLayouts.h \
     scripts/scriptEditor.h \
-    video/QrCodeDecoder.h
+    video/QrCodeDecoder.h \
+    video/ZXingQtReader.h 
 
 
 FORMS    += \

@@ -953,6 +953,7 @@ void MainWindow::takeImage(const QString& path)
 }
 
 void MainWindow::imageQrDecode(){
+    qCDebug(log_ui_mainwindow) << "mainwindow image qr decode";
     m_cameraManager->imageQrDecode();
 }
 

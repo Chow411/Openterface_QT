@@ -17,6 +17,7 @@
     SOURCE_DIR: ${{ github.workspace }}
     QT_VERSION: 6.5.3 
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    ORGANIZATION_NAME: "TechxArtisan"
   
   jobs:
     build:

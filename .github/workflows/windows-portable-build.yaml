@@ -122,6 +122,9 @@
               exit 1
             )
           
+            echo "Stripping debug symbols from executable..."
+            strip -s release\openterfaceQT.exe || (echo "Failed to strip debug symbols" && exit 1)
+            
             echo "Creating portable package..."
             mkdir package
             copy release\openterfaceQT.exe package

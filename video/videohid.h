@@ -11,8 +11,14 @@
 #include <linux/hid.h>
 #endif
 
+class FirmwareWriter; // Forward declaration
+
 class VideoHid : public QObject
 {
+    Q_OBJECT
+    
+    friend class FirmwareWriter; // Add FirmwareWriter as friend
+    
 public:
     static VideoHid& getInstance()
     {
@@ -39,6 +45,9 @@ public:
 
     bool isHdmiConnected();
     std::string getFirmwareVersion();
+    std::string getLatestFirmwareVersion();
+
+    bool isLatestFirmware();
 
     void switchToHost();
     void switchToTarget();
@@ -48,11 +57,28 @@ public:
     
     // Add declarations for openHIDDevice and closeHIDDevice
     bool openHIDDevice();
-    void closeHIDDevice();
+
+
+    void loadFirmwareToEeprom();
+
+signals:
+    // Add new signals
+    void firmwareWriteProgress(int percent);
+    void firmwareWriteComplete(bool success);
+    void firmwareWriteChunkComplete(int writtenBytes);
 
 private:
     explicit VideoHid(QObject *parent = nullptr);
+    
+#ifdef _WIN32
+    HANDLE deviceHandle = INVALID_HANDLE_VALUE;
+#elif __linux__
+    int hidFd = -1;
+#endif
 
+    bool openHIDDeviceHandle();
+    void closeHIDDeviceHandle();
+    
     QTimer *timer;
 
     QString extractPortNumberFromPath(const QString& path);
@@ -63,20 +89,29 @@ private:
     
     StatusEventCallback* eventCallback = nullptr;
 
-    bool getFeatureReport(uint8_t* buffer, size_t bufferLength);
-    bool sendFeatureReport(uint8_t* buffer, size_t bufferLength);
+    bool getFeatureReport(uint8_t* buffer, size_t bufferLength, bool autoCloseHandle);
+    bool getFeatureReport(uint8_t* buffer, size_t bufferLength); 
+    bool sendFeatureReport(uint8_t* buffer, size_t bufferLength, bool autoCloseHandle);
+    bool sendFeatureReport(uint8_t* buffer, size_t bufferLength); 
+
+    bool writeChunk(quint16 address, const QByteArray &data);
+    bool writeEeprom(quint16 address, const QByteArray &data);
+    uint16_t written_size = 0;
 
 #ifdef _WIN32
     std::wstring m_cachedDevicePath;
     std::wstring getHIDDevicePath();
-    bool sendFeatureReportWindows(uint8_t* reportBuffer, DWORD bufferSize);
-    bool getFeatureReportWindows(uint8_t* reportBuffer, DWORD bufferSize);
+    bool sendFeatureReportWindows(uint8_t* reportBuffer, DWORD bufferSize, bool autoCloseHandle);
+    bool sendFeatureReportWindows(uint8_t* reportBuffer, DWORD bufferSize); // Overloaded method
+    bool getFeatureReportWindows(uint8_t* reportBuffer, DWORD bufferSize, bool autoCloseHandle);
+    bool getFeatureReportWindows(uint8_t* reportBuffer, DWORD bufferSize); // Overloaded method
 #elif __linux__
     QString m_cachedDevicePath;
     QString getHIDDevicePath();
-    bool sendFeatureReportLinux(uint8_t* reportBuffer, int bufferSize);
+    bool sendFeatureReportLinux(uint8_t* reportBuffer, int bufferSize, bool autoCloseHandle);
+    bool sendFeatureReportLinux(uint8_t* reportBuffer, int bufferSize); // Overloaded method
+    bool getFeatureReportLinux(uint8_t* reportBuffer, int bufferSize, bool autoCloseHandle);
     bool getFeatureReportLinux(uint8_t* reportBuffer, int bufferSize);
-    int hidFd = -1; // Add the file descriptor for Linux
 #endif
 
 };

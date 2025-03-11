@@ -49,6 +49,7 @@
 
 
 #ifdef ONLINE_VERSION
+#define SERVER_PORT 12345
 #include "server/tcpServer.h"
 #endif
 
@@ -174,6 +175,10 @@ private slots:
     void onTargetUsbConnected(const bool isConnected) override;
     
     bool CheckDeviceAccess(uint16_t vid, uint16_t pid);
+
+    void showEnvironmentSetupDialog();
+
+    void updateFirmware(); 
 
 protected:
     void closeEvent(QCloseEvent *event) override;

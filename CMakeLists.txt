@@ -29,8 +29,12 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(XRENDER REQUIRED xrender)
 
 # Set FFmpeg include and library directories
+if(NOT FFMPEG_INCLUDE_DIRS)
 set(FFMPEG_INCLUDE_DIRS "/usr/local/include")
+endif()
+if(NOT FFMPEG_LIBRARIES)
 set(FFMPEG_LIBRARIES "/usr/local/lib/libavformat.a;/usr/local/lib/libavcodec.a;/usr/local/lib/libavutil.a;/usr/local/lib/libswresample.a;/usr/local/lib/libswscale.a")
+endif()
 
 # Include FFmpeg directories
 include_directories(${FFMPEG_INCLUDE_DIRS})
@@ -52,6 +56,7 @@ qt_add_executable(openterfaceQT WIN32 MACOSX_BUNDLE
     scripts/Lexer.cpp scripts/Lexer.h
     scripts/Parser.cpp scripts/Parser.h
     scripts/semanticAnalyzer.cpp scripts/semanticAnalyzer.h
+    scripts/scriptEditor.cpp scripts/scriptEditor.h
     serial/SerialPortManager.cpp serial/SerialPortManager.h
     serial/ch9329.h
     server/tcpServer.cpp server/tcpServer.h
@@ -60,6 +65,7 @@ qt_add_executable(openterfaceQT WIN32 MACOSX_BUNDLE
     target/Keymapping.h
     target/MouseManager.cpp target/MouseManager.h
     target/mouseeventdto.cpp target/mouseeventdto.h
+    video/videohid.cpp video/videohid.h
     ui/TaskManager.cpp ui/TaskManager.h
     ui/audiopage.cpp ui/audiopage.h
     ui/cameraajust.cpp ui/cameraajust.h
@@ -84,7 +90,9 @@ qt_add_executable(openterfaceQT WIN32 MACOSX_BUNDLE
     ui/versioninfomanager.cpp ui/versioninfomanager.h
     ui/videopage.cpp ui/videopage.h
     ui/videopane.cpp ui/videopane.h
-    video/videohid.cpp video/videohid.h
+    ui/firmwareupdatedialog.cpp ui/firmwareupdatedialog.h
+    video/firmwarewriter.cpp video/firmwarewriter.h
+    video/ms2109.h
 )
 
 target_link_libraries(openterfaceQT PRIVATE
@@ -172,6 +180,19 @@ qt_add_resources(openterfaceQT "qmake_immediate"
         ${qmake_immediate_resource_files}
 )
 
+set(app_icons_resource_files
+    "images/icon_128.png"
+    "images/icon_64.png"
+    "images/icon_32.png"
+)
+
+qt_add_resources(openterfaceQT "app_icons"
+    PREFIX
+        "/icons"
+    FILES
+        ${app_icons_resource_files}
+)
+
 if((QT_VERSION_MAJOR GREATER 4))
     target_link_libraries(openterfaceQT PRIVATE
         Qt::Widgets
@@ -234,6 +255,7 @@ if(UNIX)
             ${drivers_resource_files}
     )
 endif()
+
 
 install(TARGETS openterfaceQT
     BUNDLE DESTINATION .

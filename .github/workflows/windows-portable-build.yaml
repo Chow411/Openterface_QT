@@ -93,7 +93,7 @@
               echo "Static build configuration already present in .pro file."
             )
             
-            echo "QMAKE_LFLAGS += -static -static-libgcc -static-libstdc++ -static-libwinpthread" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
+            echo "QMAKE_LFLAGS += -static -static-libgcc -static-libstdc++ -static-libgfortran" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
             echo "QMAKE_CXXFLAGS += -static -static-libgcc -static-libstdc++" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
             echo "QMAKE_LINK = g++ -Wl,-subsystem,windows" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
             echo "CONFIG += static staticlib" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"

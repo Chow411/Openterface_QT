@@ -278,6 +278,7 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
     semanticAnalyzer = std::make_unique<SemanticAnalyzer>(mouseManager.get(), keyboardMouse.get());
     connect(semanticAnalyzer.get(), &SemanticAnalyzer::captureImg, this, &MainWindow::takeImage);
     connect(semanticAnalyzer.get(), &SemanticAnalyzer::captureAreaImg, this, &MainWindow::takeAreaImage);
+    connect(ui->qrCodeDecoderButton, &QPushButton::clicked, this, &MainWindow::imageQrDecode);
     scriptTool = new ScriptTool(this);
     // connect(scriptTool, &ScriptTool::syntaxTreeReady, this, &MainWindow::handleSyntaxTree);
     connect(this, &MainWindow::emitScriptStatus, scriptTool, &ScriptTool::resetCommmandLine);
@@ -952,6 +953,11 @@ void MainWindow::takeImageDefault(){
 void MainWindow::takeImage(const QString& path)
 {
     m_cameraManager->takeImage(path);
+}
+
+void MainWindow::imageQrDecode(){
+    qCDebug(log_ui_mainwindow) << "mainwindow image qr decode";
+    m_cameraManager->imageQrDecode();
 }
 
 void MainWindow::takeAreaImage(const QString& path, const QRect& captureArea){

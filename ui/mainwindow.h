@@ -127,6 +127,7 @@ private slots:
 
     void takeImage(const QString& path = "");
     void takeAreaImage(const QString& path, const QRect& captureArea);
+    void imageQrDecode();
     void takeImageDefault();
     void displayCaptureError(int, QImageCapture::Error, const QString &errorString);
 

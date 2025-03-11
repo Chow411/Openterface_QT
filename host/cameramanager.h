@@ -11,6 +11,13 @@
 #include <QImageCapture>
 #include <QStandardPaths>
 #include <QRect>
+#include "video/QrCodeDecoder.h"
+
+enum class CaptureMode{
+    takeImage,
+    takeAreaImage,
+    decodeImage
+};
 
 class CameraManager : public QObject
 {
@@ -26,6 +33,7 @@ public:
     void stopCamera();
     void takeImage(const QString& file);
     void takeAreaImage(const QString& file, const QRect& captureArea);
+    void imageQrDecode();
     void startRecording();
     void stopRecording();
     QCamera* getCamera() const { return m_camera.get(); }
@@ -61,6 +69,11 @@ private:
     QString filePath;
     void setupConnections();
     QRect copyRect;
+    QRect decodeRect;
+    CaptureMode m_captureMode;
+    void saveFullImage(int id, const QImage& img);
+    void saveRegionImage(int id, const QImage& img, const QRect& region);
+    void qrCodeDecoded(int id, const QImage& img);
 };
 
 #endif // CAMERAMANAGER_H

@@ -145,6 +145,14 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="qrCodeDecoderButton">
+       <property name="icon">
+        <iconset resource="mainwindow.qrc">
+         <normaloff>:/images/qrCodeDetect.svg</normaloff>:/images/qrCodeDetect.svg</iconset>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="captureButton">
        <property name="icon">
         <iconset resource="mainwindow.qrc">

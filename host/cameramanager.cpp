@@ -6,7 +6,8 @@
 #include "global.h"
 #include "video/videohid.h"
 #include <QVideoWidget>
-
+#include <QGuiApplication>
+#include <QClipboard>
 
 
 Q_LOGGING_CATEGORY(log_ui_camera, "opf.ui.camera")
@@ -105,6 +106,9 @@ void CameraManager::qrCodeDecoded(int id, const QImage& img)
     Q_UNUSED(id);
     QString detectString = QRCodeDecoder::getInstance().decodeQRCode(img);
     qCDebug(log_ui_camera) << "QR code decoded" << detectString;
+
+    QClipboard *clipboard = QGuiApplication::clipboard();
+    clipboard->setText(detectString);
 }
 
 void CameraManager::saveFullImage(int id, const QImage& img) {

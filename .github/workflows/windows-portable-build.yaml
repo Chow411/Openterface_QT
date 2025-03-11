@@ -108,6 +108,7 @@
             echo "Checking Qt configuration..."
             C:\Qt6\bin\qmake -query
             set PATH=C:\Qt6\bin;C:\mingw64\bin;%PATH%
+            set INCLUDE=C:\Qt6\include;%INCLUDE%
             
             echo "Building with qmake..."
             

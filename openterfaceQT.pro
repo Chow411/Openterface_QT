@@ -164,6 +164,7 @@ DEPENDPATH += $$PWD/''
 
 #DEFINES += ONLINE_VERSION
 
+
 win32 {
     CONFIG += static staticlib
     QMAKE_LFLAGS += -static -static-libgcc -static-libstdc++ -static-libgfortran

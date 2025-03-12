@@ -39,9 +39,6 @@ KeyboardMouse::KeyboardMouse(QObject *parent) : QObject(parent)
     // Constructor implementation
 }
 
-void KeyboardMouse::addKeyPacket(const keyPacket& packet) {
-    keyData.push(packet);
-}
 
 
 void KeyboardMouse::dataSend(){
@@ -84,7 +81,7 @@ void KeyboardMouse::keyboardSend(){
     // }
 }
 
-uint8_t KeyboardMouse::calculateChecksum(const QByteArray &data){
+inline uint8_t KeyboardMouse::calculateChecksum(const QByteArray &data){
     quint32 sum = 0;
     for (auto byte : data) {
         sum += static_cast<unsigned char>(byte);
@@ -123,10 +120,6 @@ void KeyboardMouse::mouseSend(){
         emit SerialPortManager::getInstance().sendCommandAsync(release, false);
         QThread::msleep(clickInterval);
     }
-    
-    // keyData.pop();
-        // emit SerialPortManager::getInstance().sendCommandAsync(release, false);
-    // }
 }
 
 void KeyboardMouse::keyboardMouseSend(){
@@ -167,9 +160,6 @@ void KeyboardMouse::keyboardMouseSend(){
     emit SerialPortManager::getInstance().sendCommandAsync(mouseRelease, false);
     QThread::msleep(keyInterval);
     emit SerialPortManager::getInstance().sendCommandAsync(keyboardRelease, false);
-    
-
-    
 }
 
 void KeyboardMouse::setMouseSpeed(int speed){
@@ -178,20 +168,4 @@ void KeyboardMouse::setMouseSpeed(int speed){
 
 int KeyboardMouse::getMouseSpeed(){
     return mouseSpeed;
-}
-
-void KeyboardMouse::updateNumCapsScrollLockState(){
-    emit SerialPortManager::getInstance().sendCommandAsync(CMD_GET_INFO, false);
-}
-
-bool KeyboardMouse::getNumLockState_(){
-    return SerialPortManager::getInstance().getNumLockState();
-}
-
-bool KeyboardMouse::getCapsLockState_(){
-    return SerialPortManager::getInstance().getCapsLockState();
-}
-
-bool KeyboardMouse::getScrollLockState_(){
-    return SerialPortManager::getInstance().getScrollLockState();
 }

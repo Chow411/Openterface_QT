@@ -1,5 +1,5 @@
-#ifndef SCRIPTEDITOR_H
-#define SCRIPTEDITOR_H
+#ifndef SCRIPTS_SCRIPTEDITOR_H_
+#define SCRIPTS_SCRIPTEDITOR_H_
 
 #include <QTextEdit>
 #include <QWidget>
@@ -44,4 +44,4 @@ private:
     ScriptEditor *scriptEditor;
 };
 
-#endif // SCRIPTEDITOR_H
+#endif // SCRIPTS_SCRIPTEDITOR_H_

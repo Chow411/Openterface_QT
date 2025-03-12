@@ -21,8 +21,8 @@
 */ 
 
 
-#ifndef PARSER_H
-#define PARSER_H
+#ifndef SCRIPTS_PARSER_H_
+#define SCRIPTS_PARSER_H_
 
 #include <vector>
 #include "Token.h"
@@ -46,4 +46,4 @@ private:
     // Add more parsing methods as needed
 };
 
-#endif // PARSER_H
+#endif // SCRIPTS_PARSER_H_

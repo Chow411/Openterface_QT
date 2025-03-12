@@ -20,8 +20,8 @@
 * ========================================================================== *
 */ 
 
-#ifndef LEXER_H
-#define LEXER_H
+#ifndef SCRIPTS_LEXER_H_
+#define SCRIPTS_LEXER_H_
 
 #include <string>
 #include <vector>
@@ -45,4 +45,4 @@ private:
     Token symbol();
 };
 
-#endif // LEXER_H
+#endif // SCRIPTS_LEXER_H_

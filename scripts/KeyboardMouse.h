@@ -29,8 +29,8 @@
 * ========================================================================== *
 */
 
-#ifndef KEYBOARDMOUSE_H
-#define KEYBOARDMOUSE_H
+#ifndef SCRIPTS_KEYBOARDMOUSE_H_
+#define SCRIPTS_KEYBOARDMOUSE_H_
 #include <cstdint>
 #include <array>
 #include <queue>
@@ -124,15 +124,16 @@ class KeyboardMouse : public QObject
 public:
     explicit KeyboardMouse(QObject *parent = nullptr);
 
-    void addKeyPacket(const keyPacket& packet);
+    
     void dataSend();
     void keyboardSend();
     void mouseSend();
     void keyboardMouseSend();
-    void updateNumCapsScrollLockState();
-    bool getNumLockState_();
-    bool getCapsLockState_();
-    bool getScrollLockState_();
+    inline void addKeyPacket(const keyPacket& packet){ keyData.push(packet); };
+    inline void updateNumCapsScrollLockState(){ emit SerialPortManager::getInstance().sendCommandAsync(CMD_GET_INFO, false); };
+    inline bool getNumLockState_(){return SerialPortManager::getInstance().getNumLockState();};
+    inline bool getCapsLockState_(){return SerialPortManager::getInstance().getCapsLockState();};
+    inline bool getScrollLockState_(){return SerialPortManager::getInstance().getScrollLockState();};
     void setMouseSpeed(int speed);
     int getMouseSpeed();
 
@@ -142,7 +143,7 @@ private:
     int mouseSpeed;
     int clickInterval = 50;
     int keyInterval = 40;
-    uint8_t calculateChecksum(const QByteArray &data);
+    inline uint8_t calculateChecksum(const QByteArray &data);
 };
 
 const QMap<QString, uint8_t> controldata = {
@@ -302,4 +303,4 @@ const QMap<QString, uint8_t> keydata = {
 };
 
 
-#endif // KEYBOARDMOUSE_H
+#endif // SCRIPTS_KEYBOARDMOUSE_H_

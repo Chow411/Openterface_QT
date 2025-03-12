@@ -21,8 +21,8 @@
 */ 
 
 
-#ifndef TOKEN_H
-#define TOKEN_H
+#ifndef SCRIPTS_TOKEN_H_
+#define SCRIPTS_TOKEN_H_
 
 #include <string>
 #include <vector>
@@ -77,4 +77,4 @@ const std::set<std::string> mouse_keyboard = {
 };
 
 
-#endif // TOKEN_H
+#endif // SCRIPTS_TOKEN_H_

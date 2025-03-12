@@ -20,8 +20,8 @@
 * ========================================================================== *
 */ 
 
-#ifndef AST_H
-#define AST_H
+#ifndef SCRIPTS_AST_H_
+#define SCRIPTS_AST_H_
 
 #include <memory>
 #include <string>
@@ -84,4 +84,4 @@ public:
 
 // Add more specific node types as needed
 
-#endif // AST_H 
+#endif // SCRIPTS_AST_H_ 

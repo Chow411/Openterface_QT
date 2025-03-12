@@ -21,12 +21,11 @@
 */
 
 
-#ifndef SEMANTIC_ANALYZER_H
-#define SEMANTIC_ANALYZER_H
+#ifndef SCRIPTS_SEMANTIC_ANALYZER_H_
+#define SCRIPTS_SEMANTIC_ANALYZER_H_
 
 #include "target/MouseManager.h"
 #include "regex/RegularExpression.h"
-// #include "target/KeyboardManager.h"
 #include "KeyboardMouse.h"
 #include <memory>
 #include <QPoint>
@@ -74,4 +73,4 @@ private:
     MouseParams parserClickParam(const QString& command);
 };
 
-#endif // SEMANTIC_ANALYZER_H
+#endif // SCRIPTS_SEMANTIC_ANALYZER_H_

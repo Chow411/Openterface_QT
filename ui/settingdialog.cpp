@@ -55,18 +55,12 @@
 
 
 SettingDialog::SettingDialog(CameraManager *cameraManager, QWidget *parent)
-    : QDialog(parent)
-    , ui(new Ui::SettingDialog)
-    , m_cameraManager(cameraManager)
-    , settingTree(new QTreeWidget(this))
-    , stackedWidget(new QStackedWidget(this))
-    , logPage(new LogPage(this))
-    , audioPage(new AudioPage(this))
-    , videoPage(new VideoPage(cameraManager, this))
-    , hardwarePage(new HardwarePage(this))
-    , buttonWidget(new QWidget(this))
-
-{
+    : QDialog(parent), ui(new Ui::SettingDialog), m_cameraManager(cameraManager),
+      settingTree(new QTreeWidget(this)), stackedWidget(new QStackedWidget(this)),
+      logPage(new LogPage(this)), audioPage(new AudioPage(this)),
+      videoPage(new VideoPage(cameraManager, this)), hardwarePage(new HardwarePage(this)),
+      renderBackendPage(new RenderBackendPage(this)),
+      buttonWidget(new QWidget(this)) {
     ui->setupUi(this);
     createSettingTree();
     createPages();
@@ -74,47 +68,40 @@ SettingDialog::SettingDialog(CameraManager *cameraManager, QWidget *parent)
     createLayout();
 
     setWindowTitle(tr("Preferences"));
-    // loadLogSettings();
     logPage->initLogSettings();
     videoPage->initVideoSettings();
     hardwarePage->initHardwareSetting();
-    // Connect the tree widget's currentItemChanged signal to a slot
+
     connect(settingTree, &QTreeWidget::currentItemChanged, this, &SettingDialog::changePage);
 }
 
-SettingDialog::~SettingDialog()
-{
+SettingDialog::~SettingDialog() {
     delete ui;
 }
 
 void SettingDialog::createSettingTree() {
-    // qDebug() << "creating setting Tree";
     settingTree->setColumnCount(1);
-    // settingTree->setHeaderLabels(QStringList(tr("general")));
     settingTree->setHeaderHidden(true);
     settingTree->setSelectionMode(QAbstractItemView::SingleSelection);
-
     settingTree->setMaximumSize(QSize(120, 1000));
     settingTree->setRootIsDecorated(false);
 
-    // QStringList names = {"Log"};
-    QStringList names = {"General", "Video", "Audio", "Hardware"};
-    for (const QString &name : names) {     // add item to setting tree
+    QStringList names = {"General", "Video", "Audio", "Hardware", "Rendering"};
+    for (const QString &name : names) {
         QTreeWidgetItem *item = new QTreeWidgetItem(settingTree);
         item->setText(0, name);
     }
 }
 
-
 void SettingDialog::createPages() {
-    // Add pages to the stacked widget
     stackedWidget->addWidget(logPage);
     stackedWidget->addWidget(videoPage);
     stackedWidget->addWidget(audioPage);
     stackedWidget->addWidget(hardwarePage);
+    stackedWidget->addWidget(renderBackendPage);
 }
 
-void SettingDialog::createButtons(){
+void SettingDialog::createButtons() {
     QPushButton *okButton = new QPushButton("OK");
     QPushButton *applyButton = new QPushButton("Apply");
     QPushButton *cancelButton = new QPushButton("Cancel");
@@ -135,11 +122,10 @@ void SettingDialog::createButtons(){
 }
 
 void SettingDialog::createLayout() {
-    qDebug() << "createLayout";
     QHBoxLayout *selectLayout = new QHBoxLayout;
     selectLayout->addWidget(settingTree);
     selectLayout->addWidget(stackedWidget);
-    
+
     QVBoxLayout *mainLayout = new QVBoxLayout;
     mainLayout->addLayout(selectLayout);
     mainLayout->addWidget(buttonWidget);
@@ -148,15 +134,11 @@ void SettingDialog::createLayout() {
 }
 
 void SettingDialog::changePage(QTreeWidgetItem *current, QTreeWidgetItem *previous) {
-
     static bool isChanging = false;
-
-    if (isChanging)
-        return;
+    if (isChanging) return;
 
     isChanging = true;
-    if (!current)
-        current = previous;
+    if (!current) current = previous;
 
     QString itemText = current->text(0);
     qDebug() << "Selected item:" << itemText;
@@ -169,28 +151,29 @@ void SettingDialog::changePage(QTreeWidgetItem *current, QTreeWidgetItem *previo
         stackedWidget->setCurrentIndex(2);
     } else if (itemText == "Hardware") {
         stackedWidget->setCurrentIndex(3);
+    } else if (itemText == "Rendering") {
+        stackedWidget->setCurrentIndex(4);
     }
 
-    QTimer::singleShot(100, this, [this]() {
-        isChanging = false;
-    });
+    QTimer::singleShot(100, this, [this]() { isChanging = false; });
 }
 
-void SettingDialog::applyAccrodingPage(){
+void SettingDialog::applyAccrodingPage() {
     int currentPageIndex = stackedWidget->currentIndex();
-    switch (currentPageIndex)
-    {
-    // sequence Log Video Audio
-    case 0:
+    switch (currentPageIndex) {
+    case 0: // General
         logPage->applyLogsettings();
         break;
-    case 1:
+    case 1: // Video
         videoPage->applyVideoSettings();
         break;
-    case 2:
+    case 2: // Audio
         break;
-    case 3:
+    case 3: // Hardware
         hardwarePage->applyHardwareSetting();
+        break;
+    case 4: // Rendering
+        renderBackendPage->applySettings();
         break;
     default:
         break;
@@ -201,13 +184,9 @@ void SettingDialog::handleOkButton() {
     logPage->applyLogsettings();
     videoPage->applyVideoSettings();
     hardwarePage->applyHardwareSetting();
+    renderBackendPage->applySettings();
     accept();
 }
 
-HardwarePage* SettingDialog::getHardwarePage() {
-    return hardwarePage;
-}
-
-VideoPage* SettingDialog::getVideoPage() {
-    return videoPage;
-}
+HardwarePage* SettingDialog::getHardwarePage() { return hardwarePage; }
+VideoPage* SettingDialog::getVideoPage() { return videoPage; }

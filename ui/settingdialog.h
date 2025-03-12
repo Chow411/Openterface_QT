@@ -23,6 +23,14 @@
 #ifndef SETTINGDIALOG_H
 #define SETTINGDIALOG_H
 
+#include "host/cameramanager.h"
+#include "logpage.h"
+#include "hardwarepage.h"
+#include "ui/videopage.h"
+#include "ui/audiopage.h"
+#include "ui/renderbackendpage.h"
+
+
 #include <QDialog>
 #include <QCamera>
 #include <QMediaFormat>
@@ -37,11 +45,7 @@
 #include <QCheckBox>
 #include <QLineEdit>
 #include <QByteArray>
-#include "host/cameramanager.h"
-#include "logpage.h"
-#include "hardwarepage.h"
-#include "ui/videopage.h"
-#include "ui/audiopage.h"
+
 QT_BEGIN_NAMESPACE
 class QCameraFormat;
 class QComboBox;
@@ -74,6 +78,7 @@ private:
     QWidget *audioPage;
     VideoPage *videoPage;
     HardwarePage *hardwarePage;
+    RenderBackendPage *renderBackendPage;
 
     QWidget *buttonWidget;
 

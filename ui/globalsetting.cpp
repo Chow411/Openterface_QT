@@ -136,6 +136,15 @@ void GlobalSetting::setKeyboardLayout(QString keyboardLayout){
 void GlobalSetting::getKeyboardLayout(QString &keyboardLayout){
     keyboardLayout = m_settings.value("keyboard/keyboardLayout", "US QWERTY").toString();
 }
+
+void GlobalSetting::setRenderBackend(QSGRendererInterface::GraphicsApi backend){
+    m_settings.setValue("render/backend", backend);
+}
+
+void GlobalSetting::getRenderBackend(QSGRendererInterface::GraphicsApi &backend){
+    backend = m_settings.value("render/backend", QSGRendererInterface::OpenGL).value<QSGRendererInterface::GraphicsApi>();
+}
+
 /*
 * Convert QString to ByteArray
 */

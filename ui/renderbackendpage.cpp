@@ -74,16 +74,24 @@ void RenderBackendPage::checkSupportedBackends() {
     }
 }
 
-QSGRendererInterface::GraphicsApi RenderBackendPage::mapStringToGraphicsApi(const QString &backend) {
-    if (backend == "OpenGL") return QSGRendererInterface::OpenGL;
-    if (backend == "Direct3D11") return QSGRendererInterface::Direct3D11;
-    if (backend == "Vulkan") return QSGRendererInterface::Vulkan;
-    if (backend == "Null") return QSGRendererInterface::Null;
-    return QSGRendererInterface::Null; // Default fallback
+void RenderBackendPage::initRenderSettings() {
+    QSettings settings("Techxartisan", "Openterface");
+    QSGRendererInterface::GraphicsApi lastbackend = settings.value("render/backend", QSGRendererInterface::OpenGL).value<QSGRendererInterface::GraphicsApi>();
+    int index = renderBackendCombo->findData(lastbackend);
+    renderBackendCombo->setCurrentIndex(index);
 }
 
-void RenderBackendPage::applySettings() {
+void RenderBackendPage::applyRenderSettings() {
     // Left empty for you to fill in
+    QSettings settings("Techxartisan", "Openterface");
+    QSGRendererInterface::GraphicsApi lastbackend = settings.value("render/backend", QSGRendererInterface::OpenGL).value<QSGRendererInterface::GraphicsApi>();
+    QSGRendererInterface::GraphicsApi backend = renderBackendCombo->currentData().value<QSGRendererInterface::GraphicsApi>();
+    if (lastbackend != backend) {
+        settings.setValue("render/backend", backend);
+        QMessageBox::information(this, "Restart Required", "Please restart the application for the changes to take effect.");
+    }
+    qDebug() << "Applying rendering settings...";
+
 }
 
 void RenderBackendPage::onBackendChanged(int index) {

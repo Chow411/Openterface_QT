@@ -71,6 +71,7 @@ SettingDialog::SettingDialog(CameraManager *cameraManager, QWidget *parent)
     logPage->initLogSettings();
     videoPage->initVideoSettings();
     hardwarePage->initHardwareSetting();
+    renderBackendPage->initRenderSettings();
 
     connect(settingTree, &QTreeWidget::currentItemChanged, this, &SettingDialog::changePage);
 }
@@ -173,7 +174,7 @@ void SettingDialog::applyAccrodingPage() {
         hardwarePage->applyHardwareSetting();
         break;
     case 4: // Rendering
-        renderBackendPage->applySettings();
+        renderBackendPage->applyRenderSettings();
         break;
     default:
         break;
@@ -184,7 +185,7 @@ void SettingDialog::handleOkButton() {
     logPage->applyLogsettings();
     videoPage->applyVideoSettings();
     hardwarePage->applyHardwareSetting();
-    renderBackendPage->applySettings();
+    renderBackendPage->applyRenderSettings();
     accept();
 }
 

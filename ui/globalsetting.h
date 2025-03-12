@@ -29,6 +29,8 @@
 #include <QSize>
 #include <QLoggingCategory>
 #include <QByteArray>
+#include <QSGRendererInterface>
+
 class GlobalSetting : public QObject
 {
     Q_OBJECT
@@ -72,6 +74,10 @@ public:
     void setKeyboardLayout(QString keyboardLayout);
 
     void getKeyboardLayout(QString &keyboardLayout);
+
+    void setRenderBackend(QSGRendererInterface::GraphicsApi backend);
+
+    void getRenderBackend(QSGRendererInterface::GraphicsApi &backend);
 private:
     QSettings m_settings;
 };

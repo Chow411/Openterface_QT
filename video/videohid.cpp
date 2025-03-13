@@ -420,7 +420,7 @@ QString VideoHid::getHIDDevicePath() {
             
             while (!in.atEnd()) {
                 QString line = in.readLine();
-                qDebug() << "Line: " << line;
+                // qDebug() << "Line: " << line;
                 if (line.isEmpty()) {
                     break;
                 }

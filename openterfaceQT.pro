@@ -152,9 +152,10 @@ win32 {
 }
 
 unix {
-    INCLUDEPATH += /usr/include/
-    LIBS += -lusb-1.0 -lavcodec -lavutil
-
+    CONFIG += staticlib
+    LIBS += -L/usr/local/lib -l:libavutil.a
+    INCLUDEPATH += /usr/local/include /usr/include
+    LIBS += -lusb-1.0
     RESOURCES += driver/linux/drivers.qrc
 }
 

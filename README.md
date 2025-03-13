@@ -103,7 +103,6 @@ sudo apt-get install -y \
     qt6-multimedia-dev \
     qt6-serialport-dev \
     qt6-svg-dev \
-    qt6-declarative-dev \
     libusb-1.0-0-dev
 ```
 

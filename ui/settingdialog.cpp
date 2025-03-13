@@ -59,7 +59,9 @@ SettingDialog::SettingDialog(CameraManager *cameraManager, QWidget *parent)
       settingTree(new QTreeWidget(this)), stackedWidget(new QStackedWidget(this)),
       logPage(new LogPage(this)), audioPage(new AudioPage(this)),
       videoPage(new VideoPage(cameraManager, this)), hardwarePage(new HardwarePage(this)),
-      renderBackendPage(new RenderBackendPage(this)),
+      #ifdef Q_OS_LINUX
+        renderBackendPage(new RenderBackendPage(this)),
+      #endif
       buttonWidget(new QWidget(this)) {
     ui->setupUi(this);
     createSettingTree();
@@ -71,8 +73,9 @@ SettingDialog::SettingDialog(CameraManager *cameraManager, QWidget *parent)
     logPage->initLogSettings();
     videoPage->initVideoSettings();
     hardwarePage->initHardwareSetting();
-    renderBackendPage->initRenderSettings();
-
+    #ifdef Q_OS_LINUX
+        renderBackendPage->initRenderSettings();
+    #endif
     connect(settingTree, &QTreeWidget::currentItemChanged, this, &SettingDialog::changePage);
 }
 
@@ -99,7 +102,9 @@ void SettingDialog::createPages() {
     stackedWidget->addWidget(videoPage);
     stackedWidget->addWidget(audioPage);
     stackedWidget->addWidget(hardwarePage);
+    #ifdef Q_OS_LINUX
     stackedWidget->addWidget(renderBackendPage);
+    #endif
 }
 
 void SettingDialog::createButtons() {
@@ -173,9 +178,11 @@ void SettingDialog::applyAccrodingPage() {
     case 3: // Hardware
         hardwarePage->applyHardwareSetting();
         break;
-    case 4: // Rendering
-        renderBackendPage->applyRenderSettings();
-        break;
+    #ifdef Q_OS_LINUX
+        case 4: // Rendering
+            renderBackendPage->applyRenderSettings();
+            break;
+    #endif
     default:
         break;
     }
@@ -185,7 +192,9 @@ void SettingDialog::handleOkButton() {
     logPage->applyLogsettings();
     videoPage->applyVideoSettings();
     hardwarePage->applyHardwareSetting();
-    renderBackendPage->applyRenderSettings();
+    #ifdef Q_OS_LINUX
+        renderBackendPage->applyRenderSettings();
+    #endif
     accept();
 }
 

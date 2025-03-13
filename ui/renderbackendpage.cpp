@@ -3,31 +3,23 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QDebug>
-#include <QOpenGLContext>
-#include <QOperatingSystemVersion>
+#include <libavutil/hwcontext.h> // FFmpeg header
 
 RenderBackendPage::RenderBackendPage(QWidget *parent) : QWidget(parent) {
     setupUi();
-    checkSupportedBackends(); // Check supported backends and update UI
+    checkSupportedBackends(); // Check supported FFmpeg hardware acceleration backends and update UI
+    initRenderSettings();    // Initialize settings
 }
 
 void RenderBackendPage::setupUi() {
     QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->addWidget(new QLabel("Video Rendering Backend (Restart Required):", this));
+    layout->addWidget(new QLabel("FFmpeg Hardware Acceleration Backend (Restart Required):", this));
 
     renderBackendCombo = new QComboBox(this);
     layout->addWidget(renderBackendCombo);
 
-    supportLabel = new QLabel("Select a backend supported by your system.", this);
+    supportLabel = new QLabel("Select a hardware acceleration backend supported by your system.", this);
     layout->addWidget(supportLabel);
-
-    // Load previous settings
-    QSettings settings("MyApp", "RendererSettings");
-    QString lastBackend = settings.value("RenderingBackend", "opengl").toString();
-    int index = renderBackendCombo->findData(lastBackend);
-    if (index != -1) {
-        renderBackendCombo->setCurrentIndex(index);
-    }
 
     layout->addStretch();
 
@@ -37,64 +29,77 @@ void RenderBackendPage::setupUi() {
 }
 
 void RenderBackendPage::checkSupportedBackends() {
-    // Check operating system
-    QOperatingSystemVersion os = QOperatingSystemVersion::current();
+    qDebug() << "Checking supported FFmpeg hardware acceleration backends...";
 
-    // OpenGL support detection
-    QOpenGLContext context;
-    if (context.create()) {
-        renderBackendCombo->addItem("OpenGL", QVariant::fromValue(QSGRendererInterface::OpenGL));
-    }
+    // Add default option (disable hardware acceleration)
+    renderBackendCombo->addItem("Software (No Hardware Acceleration)", QString(""));
 
-    // Direct3D 11 and 12 (Windows only)
-    if (os.type() == QOperatingSystemVersion::Windows) {
-        if (os >= QOperatingSystemVersion::Windows7) {
-            renderBackendCombo->addItem("DirectX 11", QVariant::fromValue(QSGRendererInterface::Direct3D11));
+    // Enumerate FFmpeg supported hardware acceleration types
+    AVHWDeviceType hwType = AV_HWDEVICE_TYPE_NONE;
+    while ((hwType = av_hwdevice_iterate_types(hwType)) != AV_HWDEVICE_TYPE_NONE) {
+        const char *typeName = av_hwdevice_get_type_name(hwType);
+        if (typeName) {
+            QString backendName = QString(typeName).toUpper(); // Convert to uppercase for display
+            renderBackendCombo->addItem(backendName, QString(typeName)); // Store name and actual value separately
+            qDebug() << "Found supported backend:" << typeName;
         }
     }
 
-    // Vulkan support (basic check)
-    renderBackendCombo->addItem("Vulkan", QVariant::fromValue(QSGRendererInterface::Vulkan));
-    renderBackendCombo->addItem("Null", QVariant::fromValue(QSGRendererInterface::Null));
-    // If no backends are supported (unlikely), notify the user
-    if (renderBackendCombo->count() == 0) {
-        supportLabel->setText("No supported rendering backends detected.");
-        renderBackendCombo->setEnabled(false);
-    } else {
-        // Ensure the current selection is valid based on the stored string identifier
-        QSettings settings("MyApp", "RendererSettings");
-        QString currentBackend = settings.value("RenderingBackend", "opengl").toString();
-        int index = renderBackendCombo->findData(mapStringToGraphicsApi(currentBackend));
-        if (index == -1) {
-            renderBackendCombo->setCurrentIndex(0); // Default to first supported backend
-            qDebug() << "Switched to supported backend:" << renderBackendCombo->currentText();
-        } else {
-            renderBackendCombo->setCurrentIndex(index);
-        }
+    // Update label if no hardware acceleration is detected
+    if (renderBackendCombo->count() == 1) { // Only "Software" option exists
+        supportLabel->setText("No hardware acceleration backends detected on your system.");
     }
 }
 
 void RenderBackendPage::initRenderSettings() {
     QSettings settings("Techxartisan", "Openterface");
-    QSGRendererInterface::GraphicsApi lastbackend = settings.value("render/backend", QSGRendererInterface::OpenGL).value<QSGRendererInterface::GraphicsApi>();
-    int index = renderBackendCombo->findData(lastbackend);
-    renderBackendCombo->setCurrentIndex(index);
+
+    // Load the last FFmpeg hardware acceleration backend from settings, default to empty (software decoding)
+    QString lastBackend = settings.value("render/ffmpeg_hw_backend", "").toString();
+
+    // Set FFmpeg as the default media backend
+    qputenv("QT_MEDIA_BACKEND", "ffmpeg");
+
+    // Find and set the last backend in the ComboBox
+    int index = renderBackendCombo->findData(lastBackend);
+    if (index != -1) {
+        renderBackendCombo->setCurrentIndex(index);
+    } else {
+        renderBackendCombo->setCurrentIndex(0); // Default to "Software"
+    }
+
+    qDebug() << "Initialized FFmpeg hardware backend from settings:" << lastBackend;
 }
 
 void RenderBackendPage::applyRenderSettings() {
-    // Left empty for you to fill in
     QSettings settings("Techxartisan", "Openterface");
-    QSGRendererInterface::GraphicsApi lastbackend = settings.value("render/backend", QSGRendererInterface::OpenGL).value<QSGRendererInterface::GraphicsApi>();
-    QSGRendererInterface::GraphicsApi backend = renderBackendCombo->currentData().value<QSGRendererInterface::GraphicsApi>();
-    if (lastbackend != backend) {
-        settings.setValue("render/backend", backend);
-        QMessageBox::information(this, "Restart Required", "Please restart the application for the changes to take effect.");
-    }
-    qDebug() << "Applying rendering settings...";
 
+    // Get the current hardware acceleration backend
+    QString currentBackend = renderBackendCombo->currentData().toString();
+    QString lastBackend = settings.value("render/ffmpeg_hw_backend", "").toString();
+
+    // Save and apply changes if the backend has changed
+    if (lastBackend != currentBackend) {
+        settings.setValue("render/ffmpeg_hw_backend", currentBackend);
+
+        // Set environment variable to apply hardware acceleration
+        if (currentBackend.isEmpty()) {
+            qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", ""); // Disable hardware acceleration
+            qDebug() << "Disabled FFmpeg hardware acceleration.";
+        } else {
+            qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", currentBackend.toUtf8());
+            qDebug() << "Set FFmpeg hardware acceleration to:" << currentBackend;
+        }
+
+        QMessageBox::information(this, "Restart Required", 
+                                 "Please restart the application for the FFmpeg hardware acceleration changes to take effect.");
+    } else {
+        qDebug() << "No changes to FFmpeg hardware backend.";
+    }
 }
 
 void RenderBackendPage::onBackendChanged(int index) {
-    QSGRendererInterface::GraphicsApi api = renderBackendCombo->itemData(index).value<QSGRendererInterface::GraphicsApi>();
-    qDebug() << "Selected backend:" << renderBackendCombo->currentText() << "mapped to QSGRendererInterface::GraphicsApi:" << api;
+    QString backend = renderBackendCombo->itemData(index).toString();
+    qDebug() << "Selected FFmpeg hardware backend:" << renderBackendCombo->currentText() 
+             << "mapped to:" << (backend.isEmpty() ? "Software" : backend);
 }

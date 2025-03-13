@@ -7,7 +7,7 @@
 TARGET = openterfaceQT
 TEMPLATE = app
 
-QT += core gui multimedia multimediawidgets serialport concurrent svg network quick
+QT += core gui multimedia multimediawidgets serialport concurrent svg network 
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -54,8 +54,12 @@ SOURCES += main.cpp \
     target/KeyboardLayouts.cpp \
     regex/RegularExpression.cpp \
     server/tcpServer.cpp \
-    scripts/scriptEditor.cpp \
-    ui/renderbackendpage.cpp
+    scripts/scriptEditor.cpp
+    
+unix{
+    SOURCES += ui/renderbackendpage.cpp
+}
+    
 
 
 HEADERS  += \
@@ -106,8 +110,12 @@ HEADERS  += \
     server/tcpServer.h \
     regex/RegularExpression.h \
     target/KeyboardLayouts.h \
-    scripts/scriptEditor.h \
-    ui/renderbackendpage.h
+    scripts/scriptEditor.h
+
+unix{
+    HEADERS  += ui/renderbackendpage.h
+}
+
 
 
 
@@ -145,7 +153,7 @@ win32 {
 
 unix {
     INCLUDEPATH += /usr/include/
-    LIBS += -lusb-1.0
+    LIBS += -lusb-1.0 -lavcodec -lavutil
 
     RESOURCES += driver/linux/drivers.qrc
 }

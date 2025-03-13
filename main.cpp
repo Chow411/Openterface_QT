@@ -37,8 +37,7 @@
 #include <QLoggingCategory>
 #include <QStyleFactory>
 #include <QDir>
-#include <QQuickWindow>
-#include <QSGRendererInterface>
+
 
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -94,9 +93,8 @@ void setupEnv(){
 #endif
 }
 void setupRenderingBackend(){
-    QSGRendererInterface::GraphicsApi backend;
+    QString backend;
     GlobalSetting::instance().getRenderBackend(backend);
-    QQuickWindow::setGraphicsApi(backend);
     qDebug() << "(mapped to QSGRendererInterface::GraphicsApi:" << backend << ")";
 }
 int main(int argc, char *argv[])
@@ -105,7 +103,7 @@ int main(int argc, char *argv[])
     setupEnv();
     QApplication app(argc, argv);
 
-    setupRenderingBackend();
+    // setupRenderingBackend();
 
     // set style accroding to system palette
     QPalette systemPalette = QApplication::palette();

@@ -28,7 +28,10 @@
 #include "hardwarepage.h"
 #include "ui/videopage.h"
 #include "ui/audiopage.h"
+
+#ifdef Q_OS_LINUX
 #include "ui/renderbackendpage.h"
+#endif
 
 
 #include <QDialog>
@@ -78,7 +81,10 @@ private:
     QWidget *audioPage;
     VideoPage *videoPage;
     HardwarePage *hardwarePage;
+
+#ifdef Q_OS_LINUX
     RenderBackendPage *renderBackendPage;
+#endif
 
     QWidget *buttonWidget;
 

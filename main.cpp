@@ -92,18 +92,12 @@ void setupEnv(){
     }
 #endif
 }
-void setupRenderingBackend(){
-    QString backend;
-    GlobalSetting::instance().getRenderBackend(backend);
-    qDebug() << "(mapped to QSGRendererInterface::GraphicsApi:" << backend << ")";
-}
+
 int main(int argc, char *argv[])
 {
     qDebug() << "Start openterface...";
     setupEnv();
     QApplication app(argc, argv);
-
-    // setupRenderingBackend();
 
     // set style accroding to system palette
     QPalette systemPalette = QApplication::palette();

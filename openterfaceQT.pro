@@ -152,9 +152,11 @@ win32 {
 }
 
 unix {
-    INCLUDEPATH += /usr/include/
-    LIBS += -lusb-1.0 -lavcodec -lavutil
-
+    CONFIG += link_pkgconfig
+    PKGCONFIG += libavcodec libavformat libavutil libswscale libswresample \
+                 libva libdrm
+    LIBS += -lOpenCL -lX11 -lusb-1.0
+    INCLUDEPATH += /usr/local/include /usr/include/x86_64-linux-gnu /usr/include
     RESOURCES += driver/linux/drivers.qrc
 }
 

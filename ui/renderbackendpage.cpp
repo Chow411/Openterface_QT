@@ -57,9 +57,6 @@ void RenderBackendPage::initRenderSettings() {
     // Load the last FFmpeg hardware acceleration backend from settings, default to empty (software decoding)
     QString lastBackend = settings.value("render/ffmpeg_hw_backend", "").toString();
 
-    // Set FFmpeg as the default media backend
-    qputenv("QT_MEDIA_BACKEND", "ffmpeg");
-
     // Find and set the last backend in the ComboBox
     int index = renderBackendCombo->findData(lastBackend);
     if (index != -1) {
@@ -88,7 +85,8 @@ void RenderBackendPage::applyRenderSettings() {
             qDebug() << "Disabled FFmpeg hardware acceleration.";
         } else {
             qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", currentBackend.toUtf8());
-            qDebug() << "Set FFmpeg hardware acceleration to:" << currentBackend;
+            QString backend =  qgetenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES").toUtf8();
+            qDebug() << "Set FFmpeg hardware acceleration to:" << backend;
         }
 
         QMessageBox::information(this, "Restart Required", 

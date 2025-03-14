@@ -11,16 +11,17 @@ class RenderBackendPage : public QWidget {
 
 public:
     explicit RenderBackendPage(QWidget *parent = nullptr);
+    void initRenderSettings();
+    void applyRenderSettings();
 
 private:
     void setupUi();
     void checkSupportedBackends();
-    void initRenderSettings();
-    void applyRenderSettings();
+    bool isQtSupportedBackend(const QString &backend);
 
 private slots:
     void onBackendChanged(int index);
-
+    
 private:
     QComboBox *renderBackendCombo;
     QLabel *supportLabel;

@@ -75,6 +75,15 @@ void customMessageHandler(QtMsgType type, const QMessageLogContext &context, con
     std::cout << txt.toStdString() << std::endl;
 }
 
+void setupRenderingBackend(){
+    QString lastBackend;
+    GlobalSetting::instance().getRenderBackend(lastBackend);
+    qDebug() << "(Going to change the backend for the QT_FFMPEG_DECODING_HW_DEVICE_TYPES" << lastBackend << ")";
+    qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "drm");
+    QString backend = qgetenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES");
+    qDebug() << "(change the backend for the QT_FFMPEG_DECODING_HW_DEVICE_TYPES" << backend << ")";
+}
+
 void setupEnv(){
 #ifdef Q_OS_LINUX
     QString originalMediaBackend = qgetenv("QT_MEDIA_BACKEND");
@@ -82,7 +91,7 @@ void setupEnv(){
     qputenv("QT_MEDIA_BACKEND", "ffmpeg");
     QString newMediaBackend = qgetenv("QT_MEDIA_BACKEND");
     qDebug() << "Current QT Media Backend:" << newMediaBackend;
-
+    setupRenderingBackend();
     // Check if QT_QPA_PLATFORM is not set, and set it to "xcb" if it's empty
     if (qgetenv("QT_QPA_PLATFORM").isEmpty()) {
         qputenv("QT_QPA_PLATFORM", "xcb");

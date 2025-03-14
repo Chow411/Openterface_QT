@@ -3,7 +3,9 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QDebug>
-#include <libavutil/hwcontext.h> // FFmpeg header
+extern "C"{
+    #include <libavutil/hwcontext.h>  // FFmpeg header
+}
 
 RenderBackendPage::RenderBackendPage(QWidget *parent) : QWidget(parent) {
     setupUi();
@@ -30,25 +32,31 @@ void RenderBackendPage::setupUi() {
 
 void RenderBackendPage::checkSupportedBackends() {
     qDebug() << "Checking supported FFmpeg hardware acceleration backends...";
-
-    // Add default option (disable hardware acceleration)
+    
     renderBackendCombo->addItem("Software (No Hardware Acceleration)", QString(""));
-
-    // Enumerate FFmpeg supported hardware acceleration types
+    
     AVHWDeviceType hwType = AV_HWDEVICE_TYPE_NONE;
     while ((hwType = av_hwdevice_iterate_types(hwType)) != AV_HWDEVICE_TYPE_NONE) {
         const char *typeName = av_hwdevice_get_type_name(hwType);
         if (typeName) {
-            QString backendName = QString(typeName).toUpper(); // Convert to uppercase for display
-            renderBackendCombo->addItem(backendName, QString(typeName)); // Store name and actual value separately
-            qDebug() << "Found supported backend:" << typeName;
+            QString backendName = QString(typeName).toUpper();
+            if (isQtSupportedBackend(typeName)) {
+                renderBackendCombo->addItem(backendName, QString(typeName));
+                qDebug() << "Found supported backend:" << typeName;
+            }
         }
     }
-
-    // Update label if no hardware acceleration is detected
-    if (renderBackendCombo->count() == 1) { // Only "Software" option exists
-        supportLabel->setText("No hardware acceleration backends detected on your system.");
+    
+    if (renderBackendCombo->count() == 1) {
+        supportLabel->setText("No hardware acceleration backends detected or supported by Qt on your system.");
     }
+}
+
+bool RenderBackendPage::isQtSupportedBackend(const QString &backend) {
+    static const QSet<QString> supportedBackends = {
+        "vaapi", "dxva2", "d3d11va", "cuda", "vdpau", "qsv", "opencl", "vulkan", "drm"
+    };
+    return supportedBackends.contains(backend.toLower());
 }
 
 void RenderBackendPage::initRenderSettings() {

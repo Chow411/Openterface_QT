@@ -93,7 +93,7 @@ void RenderBackendPage::applyRenderSettings() {
             qDebug() << "Disabled FFmpeg hardware acceleration.";
         } else {
             qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", currentBackend.toUtf8());
-            QString backend =  qgetenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES").toUtf8();
+            QString backend =  qgetenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES").toString();
             qDebug() << "Set FFmpeg hardware acceleration to:" << backend;
         }
 

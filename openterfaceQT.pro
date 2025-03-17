@@ -55,7 +55,8 @@ SOURCES += main.cpp \
     target/KeyboardLayouts.cpp \
     regex/RegularExpression.cpp \
     server/tcpServer.cpp \
-    scripts/scriptEditor.cpp 
+    scripts/scriptEditor.cpp \
+    ui/languagemanager.cpp
 
 
 HEADERS  += \
@@ -106,7 +107,8 @@ HEADERS  += \
     server/tcpServer.h \
     regex/RegularExpression.h \
     target/KeyboardLayouts.h \
-    scripts/scriptEditor.h
+    scripts/scriptEditor.h \
+    ui/languagemanager.h
 
 
 
@@ -174,3 +176,11 @@ win32 {
     QTPLUGIN += qwindows qwindowsvistastyle
     CONFIG -= shared dll
 }
+
+TRANSLATIONS += config/languages/openterface_en.ts \
+                config/languages/openterface_fr.ts
+
+CONFIG += file_copies
+COPIES += translations  
+translations.files = $$files($$PWD/config/languages/*.qm)
+translations.path = $$OUT_PWD/config/languages

@@ -114,7 +114,7 @@ QPixmap recolorSvg(const QString &svgPath, const QColor &color, const QSize &siz
     return pixmap;
 }
 
-MainWindow::MainWindow() :  ui(new Ui::MainWindow),
+MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(new Ui::MainWindow),
                             m_audioManager(new AudioManager(this)),
                             videoPane(new VideoPane(this)),
                             scrollArea(new QScrollArea(this)),
@@ -122,7 +122,8 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
                             toolbarManager(new ToolbarManager(this)),
                             toggleSwitch(new ToggleSwitch(this)),
                             m_cameraManager(new CameraManager(this)),
-                            m_versionInfoManager(new VersionInfoManager(this))
+                            m_versionInfoManager(new VersionInfoManager(this)),
+                            m_languageManager(languageManager)
                             // cameraAdjust(new CameraAdjust(this))
 {
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
@@ -292,6 +293,9 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
 
     connect(ui->keyboardLayoutComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onKeyboardLayoutCombobox_Changed(int)));
 
+
+    connect(m_languageManager, &LanguageManager::languageChanged, this, &MainWindow::updateUI);
+    setupLanguageMenu();
     // fullScreen();
     // qCDebug(log_ui_mainwindow) << "full finished";
     
@@ -307,6 +311,46 @@ MainWindow::MainWindow() :  ui(new Ui::MainWindow),
         connect(this, &MainWindow::emitTCPCommandStatus, tcpServer, &TcpServer::recvTCPCommandStatus);
     }
 #endif
+
+void MainWindow::updateUI() {
+    ui->retranslateUi(this); // Update the UI elements
+    // this->menuBar()->clear();
+    setupLanguageMenu();
+}
+
+void MainWindow::setupLanguageMenu() {
+    // Clear existing language actions
+    ui->menuLanguages->clear();
+    QStringList languages = m_languageManager->availableLanguages();
+    if (languages.isEmpty()) {
+        languages << "en" << "fr";
+    }
+
+    QActionGroup *languageGroup = new QActionGroup(this);
+    languageGroup->setExclusive(true);
+
+    QMap<QString, QString> languageNames = {
+        {"en", "English"},
+        {"fr", "Français"}
+    };
+    for (const QString &lang : languages) {
+        QString displayName = languageNames.value(lang, lang);
+        QAction *action = new QAction(displayName, this);
+        action->setCheckable(true);
+        action->setData(lang);
+        if (lang == m_languageManager->currentLanguage()) {
+            action->setChecked(true);
+        }
+        ui->menuLanguages->addAction(action);
+        languageGroup->addAction(action);
+    }
+    connect(languageGroup, &QActionGroup::triggered, this, &MainWindow::onLanguageSelected);
+}
+
+void MainWindow::onLanguageSelected(QAction *action) {
+    QString language = action->data().toString();
+    m_languageManager->switchLanguage(language);
+}
 
 bool MainWindow::isFullScreenMode() {
     // return fullScreenState;

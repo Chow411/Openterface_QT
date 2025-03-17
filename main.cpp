@@ -25,6 +25,7 @@
 #include "ui/envdialog.h"
 #include "global.h"
 #include "target/KeyboardLayouts.h"
+#include "ui/languagemanager.h"
 #include <QCoreApplication>
 
 
@@ -137,8 +138,9 @@ int main(int argc, char *argv[])
             return 0;
         }
     } 
-    
-    MainWindow window;
+    LanguageManager languageManager(&app);
+    languageManager.initialize("en");
+    MainWindow window(&languageManager);
     window.show();
 
     return app.exec();

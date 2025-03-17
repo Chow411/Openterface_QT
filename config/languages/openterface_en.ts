@@ -551,66 +551,66 @@ Please try again after restarting the application.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="875"/>
+        <location filename="../../ui/mainwindow.cpp" line="876"/>
         <source>Recorded %1 sec</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1011"/>
+        <location filename="../../ui/mainwindow.cpp" line="1012"/>
         <source>Image Capture Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1079"/>
+        <location filename="../../ui/mainwindow.cpp" line="1080"/>
         <source>Captured &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1467"/>
+        <location filename="../../ui/mainwindow.cpp" line="1470"/>
         <source>Firmware Update</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1467"/>
+        <location filename="../../ui/mainwindow.cpp" line="1470"/>
         <source>The firmware is up to date.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1476"/>
+        <location filename="../../ui/mainwindow.cpp" line="1479"/>
         <source>Firmware Update Confirmation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1477"/>
+        <location filename="../../ui/mainwindow.cpp" line="1480"/>
         <source>Current firmware version: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1477"/>
+        <location filename="../../ui/mainwindow.cpp" line="1480"/>
         <source>
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1478"/>
+        <location filename="../../ui/mainwindow.cpp" line="1481"/>
         <source>Latest firmware version: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1478"/>
+        <location filename="../../ui/mainwindow.cpp" line="1481"/>
         <source>
 
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1479"/>
+        <location filename="../../ui/mainwindow.cpp" line="1482"/>
         <source>The update process will:
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1480"/>
+        <location filename="../../ui/mainwindow.cpp" line="1483"/>
         <source>1. Stop all video and USB operations
 2. Install new firmware
 3. Close the application automatically

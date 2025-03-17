@@ -8,8 +8,6 @@ TARGET = openterfaceQT
 TEMPLATE = app
 
 QT       += core gui multimedia multimediawidgets serialport concurrent svg network
-QT       += core gui multimedia multimediawidgets serialport concurrent svg network
-
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 SOURCES += main.cpp \
@@ -178,7 +176,11 @@ win32 {
 }
 
 TRANSLATIONS += config/languages/openterface_en.ts \
-                config/languages/openterface_fr.ts
+                config/languages/openterface_fr.ts \
+                config/languages/openterface_dk.ts \
+                config/languages/openterface_japanese.ts \
+                config/languages/openterface_se.ts \
+                config/languages/openterface_de.ts 
 
 CONFIG += file_copies
 COPIES += translations  

@@ -184,3 +184,9 @@ CONFIG += file_copies
 COPIES += translations  
 translations.files = $$files($$PWD/config/languages/*.qm)
 translations.path = $$OUT_PWD/config/languages
+
+OBJECTS_DIR = build/objects
+MOC_DIR = build/moc
+RCC_DIR = build/rcc
+UI_DIR = build/ui
+DESTDIR = build

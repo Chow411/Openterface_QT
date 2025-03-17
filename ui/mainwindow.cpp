@@ -1464,7 +1464,7 @@ void MainWindow::showEnvironmentSetupDialog() {
 void MainWindow::updateFirmware() {
     // Check if it's lastest firmware
     if (VideoHid::getInstance().isLatestFirmware()) {
-        QMessageBox::information(this, "Firmware Update", "The firmware is up to date.");
+        QMessageBox::information(this, tr("Firmware Update"), tr("The firmware is up to date."));
         return;
     }
 
@@ -1472,20 +1472,21 @@ void MainWindow::updateFirmware() {
     std::string currentFirmwareVersion = VideoHid::getInstance().getFirmwareVersion();
     std::string latestFirmwareVersion = VideoHid::getInstance().getLatestFirmwareVersion();
     QMessageBox::StandardButton reply;
-    reply = QMessageBox::warning(this, "Firmware Update Confirmation",
-                                "Current firmware version: " + QString::fromStdString(currentFirmwareVersion) + "\n"
-                                "Latest firmware version: " + QString::fromStdString(latestFirmwareVersion) + "\n\n"
-                               "The update process will:\n"
-                               "1. Stop all video and USB operations\n"
-                               "2. Install new firmware\n"
-                               "3. Close the application automatically\n\n"
-                               "Important:\n"
-                               "• Use a high-quality USB cable for host connection\n"
-                               "• Disconnect the HDMI cable\n"
-                               "• Do not interrupt power during update\n"
-                               "• Restart application after completion\n\n"
-                               "Do you want to proceed with the update?",
-                               QMessageBox::Ok | QMessageBox::Cancel);
+    reply = QMessageBox::warning(this, 
+                tr("Firmware Update Confirmation"),
+                tr("Current firmware version: ") + QString::fromStdString(currentFirmwareVersion) + tr("\n") +
+                tr("Latest firmware version: ") + QString::fromStdString(latestFirmwareVersion) + tr("\n\n") +
+                tr("The update process will:\n") +
+                tr("1. Stop all video and USB operations\n"
+                "2. Install new firmware\n"
+                "3. Close the application automatically\n\n"
+                "Important:\n"
+                "• Use a high-quality USB cable for host connection\n"
+                "• Disconnect the HDMI cable\n"
+                "• Do not interrupt power during update\n"
+                "• Restart application after completion\n\n"
+                "Do you want to proceed with the update?"),
+                QMessageBox::Ok | QMessageBox::Cancel);
 
     if (reply == QMessageBox::Ok) {
         // Stop video and HID operations before firmware update

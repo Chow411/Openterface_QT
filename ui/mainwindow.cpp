@@ -126,6 +126,7 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
                             m_languageManager(languageManager)
                             // cameraAdjust(new CameraAdjust(this))
 {
+    Q_UNUSED(parent);
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 
 
@@ -1327,6 +1328,7 @@ bool MainWindow::CheckDeviceAccess(uint16_t vid, uint16_t pid) {
 }
 
 void MainWindow::onToolbarVisibilityChanged(bool visible) {
+    Q_UNUSED(visible);
     // Prevent repaints during animation
     setUpdatesEnabled(false);
     
@@ -1361,7 +1363,7 @@ void MainWindow::animateVideoPane() {
 
     // Get toolbar visibility and window state
     bool isToolbarVisible = toolbarManager->getToolbar()->isVisible();
-    bool isMaximized = windowState() & Qt::WindowMaximized;
+    // bool isMaximized = windowState() & Qt::WindowMaximized;
 
     // Calculate content height based on toolbar visibility
     int contentHeight;
@@ -1426,6 +1428,7 @@ void MainWindow::changeKeyboardLayout(const QString& layout) {
 }
 
 void MainWindow::onKeyboardLayoutCombobox_Changed(int index){
+    Q_UNUSED(index);
     QString currentLayout = ui->keyboardLayoutComboBox->currentText();
     changeKeyboardLayout(currentLayout);
 }

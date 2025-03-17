@@ -17,6 +17,7 @@ LanguageManager::~LanguageManager() {
 }
 
 void LanguageManager::initialize(const QString &defaultLanguage) {
+    Q_UNUSED(defaultLanguage);
     GlobalSetting::instance().getLanguage(m_currentLanguage); 
     switchLanguage(m_currentLanguage);
 }

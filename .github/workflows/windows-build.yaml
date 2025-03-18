@@ -122,6 +122,17 @@ jobs:
           $buildDir = ${{ runner.temp }}\build_${{ matrix.version }}"
           mkdir $buildDir
 
+      - name: Update and Release Translations
+        working-directory: ${{ runner.temp }}\build_${{ matrix.version }}
+        run: |
+          echo "Setting up Qt tools path..."
+          set PATH=${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin;%PATH%
+          
+          echo "Running lupdate..."
+          ${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin\lupdate ${{ env.SOURCE_DIR }}\openterfaceQT.pro || (echo "lupdate failed" && exit 1)
+          
+          echo "Running lrelease..."
+          ${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin\lrelease ${{ env.SOURCE_DIR }}\openterfaceQT.pro || (echo "lrelease failed" && exit 1)
 
       - name: Build ${{ matrix.version }} version
         working-directory: $buildDir

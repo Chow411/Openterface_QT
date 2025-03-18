@@ -183,10 +183,13 @@ TRANSLATIONS += config/languages/openterface_en.ts \
                 config/languages/openterface_de.ts 
                 # Add more languages here
 
-CONFIG += file_copies
-COPIES += translations  
+COPIES += translationsDebug
 translations.files = $$files($$PWD/config/languages/*.qm)
 translations.path = $$OUT_PWD/debug/config/languages
+
+COPIES += translations
+translations.files = $$files($$PWD/config/languages/*.qm)
+translations.path = $$OUT_PWD/config/languages
 
 system($$QMAKE_MKDIR $$shell_path($$PWD/debug/config/languages))
 system($$QMAKE_MKDIR $$shell_path($$OUT_PWD/debug/config/languages))

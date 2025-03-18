@@ -122,6 +122,12 @@ jobs:
           echo "Building with qmake..."
           set PATH=${{ runner.temp }}\\Qt\\${{ env.QT_VERSION }}\\mingw_64\\bin;%PATH%
           
+          echo "Updating translations with lupdate..."
+          lupdate ${{ env.SOURCE_DIR }}\openterfaceQT.pro
+          
+          echo "Generating .qm files with lrelease..."
+          lrelease ${{ env.SOURCE_DIR }}\openterfaceQT.pro
+          
           set DEFINE_FLAG=DEFINES+=ONLINE_VERSION
           
           qmake -v
@@ -151,6 +157,9 @@ jobs:
           copy ${{ env.SOURCE_DIR }}\LICENSE ${{ env.PACKAGE_DIR }}
           copy ${{ env.SOURCE_DIR }}\driver\windows\* ${{ env.PACKAGE_DIR }}\driver\windows
           copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 ${{ env.PACKAGE_DIR }}
+          
+          echo "Copying translation files..."
+          copy ${{ env.SOURCE_DIR }}\config\languages\*.qm ${{ env.PACKAGE_DIR }}
           
           echo "Running windeployqt..."
           cd ${{ env.PACKAGE_DIR }}

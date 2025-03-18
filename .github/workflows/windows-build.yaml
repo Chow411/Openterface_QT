@@ -74,24 +74,18 @@ jobs:
             ${{ env.QT_CACHE_KEY }}
             qt-6.5-mingw-windows
 
+
       - name: Update version
-        id: update_version
         run: |
           if [ "${{ github.event.inputs.increase_version }}" = "true" ]; then
-            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-version > version.txt
+            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-version
           elif [ "${{ github.event.inputs.increase_major }}" = "true" ]; then
-            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-major > version.txt
+            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-major
           elif [ "${{ github.event.inputs.increase_minor }}" = "true" ]; then
-            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-minor > version.txt
+            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-minor
           else
-            python "${{ env.SOURCE_DIR }}\update_version.py" > version.txt
+            python "${{ env.SOURCE_DIR }}\update_version.py"
           fi
-          VERSION=$(cat version.txt | sed 's/\.0*\([0-9]\+\)/.\1/g' | sed 's/\.\+/./g')
-          PARTS=$(echo "$VERSION" | awk -F'.' '{print NF}')
-          if [ "$PARTS" -lt 4 ]; then
-            VERSION="$VERSION$(printf '.0%.0s' $(seq $PARTS 3))"
-          fi
-          echo "VERSION_FOR_INNO=$VERSION" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Get all tags for correct version determination
@@ -122,29 +116,31 @@ jobs:
         uses: egor-tensin/vs-shell@v2
         with:
           arch: x64
-
+      
       - name: Create build directory
         run: |
-          mkdir "${{ runner.temp }}\build_${{ matrix.version }}"
+          $buildDir = ${{ runner.temp }}\build_${{ matrix.version }}"
+          mkdir $buildDir
 
-      - name: Update and Release Translations
-        working-directory: ${{ runner.temp }}\build_${{ matrix.version }}
+      - name: Run lupdate to update translation files
+        working-directory: ${{ env.SOURCE_DIR }}
         run: |
-          mkdir "${{ runner.temp }}\build_${{ matrix.version }}" 2>nul
-          echo "Setting up Qt tools path..."
           set PATH=${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin;%PATH%
-          
-          echo "Running lupdate..."
-          ${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin\lupdate ${{ env.SOURCE_DIR }}\openterfaceQT.pro || (echo "lupdate failed" && exit 1)
-          
-          echo "Running lrelease..."
-          ${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin\lrelease ${{ env.SOURCE_DIR }}\openterfaceQT.pro || (echo "lrelease failed" && exit 1)
+          lupdate -verbose ${{ env.SOURCE_DIR }}\openterfaceQT.pro
+        shell: cmd
 
+      - name: Run lrelease to generate .qm files
+        working-directory: ${{ env.SOURCE_DIR }}
+        run: |
+          set PATH=${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin;%PATH%
+          lrelease -verbose ${{ env.SOURCE_DIR }}\openterfaceQT.pro
+        shell: cmd
+    
       - name: Build ${{ matrix.version }} version
-        working-directory: ${{ runner.temp }}\build_${{ matrix.version }}
+        working-directory: $buildDir
         run: |
           echo "Building with qmake..."
-          set PATH=${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin;%PATH%
+          set PATH=${{ runner.temp }}\\Qt\\${{ env.QT_VERSION }}\\mingw_64\\bin;%PATH%
 
           if "${{ matrix.version }}" == "online" (
             set DEFINE_FLAG=DEFINES+=ONLINE_VERSION
@@ -166,7 +162,7 @@ jobs:
           dir
 
           if not exist release\openterfaceQT.exe (
-            echo "Error: Failed to build openterfaceQT.exe"
+            echo "Error: Failed to build openterfaceQT.exe
             exit 1
           )
           
@@ -180,30 +176,29 @@ jobs:
           copy ${{ env.SOURCE_DIR }}\driver\windows\* ${{ env.PACKAGE_DIR }}\driver\windows
           copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 ${{ env.PACKAGE_DIR }}
 
+          
           echo "Running windeployqt..."
           cd ${{ env.PACKAGE_DIR }}
           windeployqt --qmldir ${{ env.SOURCE_DIR }} ${{ env.EXE_NAME }} --compiler-runtime --multimedia
 
       - name: Move build artifacts
-        run: move /Y "${{ runner.temp }}\build_${{ matrix.version }}\${{ env.PACKAGE_DIR }}" ${{ env.SOURCE_DIR }}
+        run: move /Y $buildDir\${{ env.PACKAGE_DIR }} ${{ env.SOURCE_DIR }}
         shell: cmd
-
-      - name: Debug Inno Setup Inputs
-        run: |
-          dir "${{ env.SOURCE_DIR }}"
-          dir "${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}"
-          echo "installer.iss exists: "
-          dir "${{ github.workspace }}\installer.iss" 2>nul || echo "Not found"
-          echo "VERSION_FOR_INNO: ${{ steps.update_version.outputs.VERSION_FOR_INNO }}"
-          echo "PACKAGE_DIR: ${{ env.PACKAGE_DIR }}"
-          echo "EXE_NAME: ${{ env.EXE_NAME }}"
 
       - name: Compile .ISS to .EXE Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer.iss
-          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}" /DMyAppVersion="${{ steps.update_version.outputs.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=setup_${{ matrix.version }} /DMyAppExeName="${{ env.EXE_NAME }}" /DSourcePackage="${{ env.PACKAGE_DIR }}"
-
+          options: 
+            /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}" 
+            /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" 
+            /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" 
+            /DMyAppURL="${{ vars.MY_APP_URL }}" 
+            /DOutputDir="${{ env.SOURCE_DIR }}\Output" 
+            /DOutputBaseFileName=setup_${{ matrix.version }} 
+            /DMyAppExeName=${{ env.EXE_NAME }}
+            /DSourcePackage=${{ env.PACKAGE_DIR }}
+      # Write-Output "::set-output name=capitalizedVersion::$capitalizedVersion"
       - name: Convert version to capitalized format using script
         id: convert_version
         run: |
@@ -228,6 +223,7 @@ jobs:
           path: |
             ${{ env.SOURCE_DIR }}\Output\setup_${{ steps.convert_version.outputs.capitalizedVersion }}.exe
           if-no-files-found: error
+        
 
       - name: Commit and push version update
         if: success() && (github.event.inputs.increase_version == 'true' || github.event.inputs.increase_major == 'true' || github.event.inputs.increase_minor == 'true') && matrix.version == 'online'
@@ -241,6 +237,7 @@ jobs:
           git push https://${{ env.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
 
   release:
     needs: build

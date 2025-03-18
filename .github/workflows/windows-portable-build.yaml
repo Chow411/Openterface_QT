@@ -109,14 +109,14 @@
             echo "Setting up Qt tools path..."
             set PATH=C:\Qt6\bin;C:\mingw64\bin;%PATH%
             echo "Verifying Qt tools..."
-            if not exist "C:\Qt6\mingw64\bin\lupdate.exe" (
-              echo "Error: lupdate.exe not found in C:\Qt6\mingw64\bin"
+            if not exist "C:\Qt6\bin\lupdate.exe" (
+              echo "Error: lupdate.exe not found in C:\Qt6\bin"
               exit 1
             )
             echo "Running lupdate..."
-            C:\Qt6\mingw64\bin\lupdate.exe "${{ env.SOURCE_DIR }}\openterfaceQT.pro" || (echo "lupdate failed" && exit 1)
+            C:\Qt6\bin\lupdate.exe "${{ env.SOURCE_DIR }}\openterfaceQT.pro" || (echo "lupdate failed" && exit 1)
             echo "Running lrelease..."
-            C:\Qt6\mingw64\bin\lrelease.exe "${{ env.SOURCE_DIR }}\openterfaceQT.pro" || (echo "lrelease failed" && exit 1)
+            C:\Qt6\bin\lrelease.exe "${{ env.SOURCE_DIR }}\openterfaceQT.pro" || (echo "lrelease failed" && exit 1)
 
         - name: Build Portable Executable
           working-directory: ${{ runner.temp }}\build

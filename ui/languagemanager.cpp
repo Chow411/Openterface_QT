@@ -8,8 +8,8 @@ LanguageManager::LanguageManager(QApplication *app, QObject *parent)
     : QObject(parent),
       m_app(app),
       m_translator(new QTranslator(this)),
-      m_translationPath("config/languages/") {
-
+      m_translationPath(QCoreApplication::applicationDirPath() + "/config/languages/") {
+    qDebug() << "Initial translation path:" << m_translationPath;
 }
 
 LanguageManager::~LanguageManager() {

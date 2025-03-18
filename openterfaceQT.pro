@@ -187,8 +187,5 @@ COPIES += translations
 translations.files = $$files($$PWD/config/languages/*.qm)
 translations.path = $$OUT_PWD/config/languages
 
-OBJECTS_DIR = build/objects
-MOC_DIR = build/moc
-RCC_DIR = build/rcc
-UI_DIR = build/ui
-DESTDIR = build
+system($$QMAKE_MKDIR $$shell_path($$PWD/config/languages))
+system($$QMAKE_MKDIR $$shell_path($$OUT_PWD/config/languages))

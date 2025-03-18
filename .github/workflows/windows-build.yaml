@@ -75,16 +75,18 @@ jobs:
             qt-6.5-mingw-windows
 
       - name: Update version
+        id: update_version
         run: |
           if [ "${{ github.event.inputs.increase_version }}" = "true" ]; then
-            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-version
+            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-version > version.txt
           elif [ "${{ github.event.inputs.increase_major }}" = "true" ]; then
-            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-major
+            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-major > version.txt
           elif [ "${{ github.event.inputs.increase_minor }}" = "true" ]; then
-            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-minor
+            python "${{ env.SOURCE_DIR }}\update_version.py" --increase-minor > version.txt
           else
-            python "${{ env.SOURCE_DIR }}\update_version.py"
+            python "${{ env.SOURCE_DIR }}\update_version.py" > version.txt
           fi
+          echo "VERSION_FOR_INNO=$(cat version.txt)" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Get all tags for correct version determination
@@ -181,19 +183,21 @@ jobs:
         run: move /Y "${{ runner.temp }}\build_${{ matrix.version }}\${{ env.PACKAGE_DIR }}" ${{ env.SOURCE_DIR }}
         shell: cmd
 
+      - name: Debug Inno Setup Inputs
+        run: |
+          dir "${{ env.SOURCE_DIR }}"
+          dir "${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}"
+          echo "installer.iss exists: "
+          dir "${{ github.workspace }}\installer.iss" 2>nul || echo "Not found"
+          echo "VERSION_FOR_INNO: ${{ steps.update_version.outputs.VERSION_FOR_INNO }}"
+          echo "PACKAGE_DIR: ${{ env.PACKAGE_DIR }}"
+          echo "EXE_NAME: ${{ env.EXE_NAME }}"
+
       - name: Compile .ISS to .EXE Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer.iss
-          options: |
-            /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}"
-            /DMyAppVersion="${{ env.VERSION_FOR_INNO }}"
-            /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}"
-            /DMyAppURL="${{ vars.MY_APP_URL }}"
-            /DOutputDir="${{ env.SOURCE_DIR }}\Output"
-            /DOutputBaseFileName=setup_${{ matrix.version }}
-            /DMyAppExeName=${{ env.EXE_NAME }}
-            /DSourcePackage=${{ env.PACKAGE_DIR }}
+          options: /O+ /DWorkingDir="${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}" /DMyAppVersion="${{ steps.update_version.outputs.VERSION_FOR_INNO }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=setup_${{ matrix.version }} /DMyAppExeName="${{ env.EXE_NAME }}" /DSourcePackage="${{ env.PACKAGE_DIR }}"
 
       - name: Convert version to capitalized format using script
         id: convert_version

@@ -46,7 +46,7 @@ QStringList LanguageManager::availableLanguages() const {
     
     QStringList languages;
     for (const QString &file : files) {
-        QString lang = file.mid(strlen("openterface_"), 2);
+        QString lang = file.mid(strlen("openterface_"), file.indexOf('.') - strlen("openterface_"));
         languages << lang;
     }
     return languages;

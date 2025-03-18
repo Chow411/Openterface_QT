@@ -323,8 +323,11 @@ void MainWindow::setupLanguageMenu() {
     // Clear existing language actions
     ui->menuLanguages->clear();
     QStringList languages = m_languageManager->availableLanguages();
+    for (const QString &lang : languages) {
+       qCDebug(log_ui_mainwindow) << "Available language: " << lang; 
+    }
     if (languages.isEmpty()) {
-        languages << "en" << "fr";
+        languages << "en" << "fr" << "de" << "da" << "ja" << "se";
     }
 
     QActionGroup *languageGroup = new QActionGroup(this);
@@ -332,7 +335,11 @@ void MainWindow::setupLanguageMenu() {
 
     QMap<QString, QString> languageNames = {
         {"en", "English"},
-        {"fr", "Français"}
+        {"fr", "Français"},
+        {"de", "German"},
+        {"da", "Danish"},
+        {"ja", "Japanese"},
+        {"se", "Swedish"}
     };
     for (const QString &lang : languages) {
         QString displayName = languageNames.value(lang, lang);
@@ -389,14 +396,14 @@ void MainWindow::fullScreen(){
 }
 
 void MainWindow::setTooltip(){
-    ui->ZoomInButton->setToolTip("Zoom in");
-    ui->ZoomOutButton->setToolTip("Zoom out");
-    ui->ZoomReductionButton->setToolTip("Restore original size");
-    ui->virtualKeyboardButton->setToolTip("Function key and composite key");
-    ui->pasteButton->setToolTip("Paste text to target");
-    ui->screensaverButton->setToolTip("Mouse dance");
-    ui->captureButton->setToolTip("Full screen capture");
-    ui->fullScreenButton->setToolTip("Full screen mode");
+    ui->ZoomInButton->setToolTip(tr("Zoom in"));
+    ui->ZoomOutButton->setToolTip(tr("Zoom out"));
+    ui->ZoomReductionButton->setToolTip(tr("Restore original size"));
+    ui->virtualKeyboardButton->setToolTip(tr("Function key and composite key"));
+    ui->pasteButton->setToolTip(tr("Paste text to target"));
+    ui->screensaverButton->setToolTip(tr("Mouse dance"));
+    ui->captureButton->setToolTip(tr("Full screen capture"));
+    ui->fullScreenButton->setToolTip(tr("Full screen mode"));
 }
 
 void MainWindow::onZoomIn()

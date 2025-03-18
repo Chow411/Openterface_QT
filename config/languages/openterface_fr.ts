@@ -561,54 +561,94 @@ Veuillez réessayer après avoir redémarré l&apos;application.</translation>
         <translation>Relatif</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="876"/>
+        <location filename="../../ui/mainwindow.cpp" line="399"/>
+        <source>Zoom in</source>
+        <translation>Zoomer</translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.cpp" line="400"/>
+        <source>Zoom out</source>
+        <translation>Dézoomer</translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.cpp" line="401"/>
+        <source>Restore original size</source>
+        <translation>Restaurer la taille originale</translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.cpp" line="402"/>
+        <source>Function key and composite key</source>
+        <translation>Touche de fonction et touche composée</translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.cpp" line="403"/>
+        <source>Paste text to target</source>
+        <translation>Coller le texte sur la cible</translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.cpp" line="404"/>
+        <source>Mouse dance</source>
+        <translation>Danse de la souris</translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.cpp" line="405"/>
+        <source>Full screen capture</source>
+        <translation>Capture plein écran</translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.cpp" line="406"/>
+        <source>Full screen mode</source>
+        <translation>Mode plein écran</translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.cpp" line="883"/>
         <source>Recorded %1 sec</source>
         <translation>Enregistré %1 sec</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1012"/>
+        <location filename="../../ui/mainwindow.cpp" line="1019"/>
         <source>Image Capture Error</source>
         <translation>Erreur de capture d&apos;image</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1080"/>
+        <location filename="../../ui/mainwindow.cpp" line="1087"/>
         <source>Captured &quot;%1&quot;</source>
         <translation>Capturé &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1470"/>
+        <location filename="../../ui/mainwindow.cpp" line="1477"/>
         <source>The firmware is up to date.</source>
         <translation>Le firmware est à jour.</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1470"/>
+        <location filename="../../ui/mainwindow.cpp" line="1477"/>
         <source>Firmware Update</source>
-        <translation type="unfinished">Mise à jour du firmware</translation>
+        <translation>Mise à jour du firmware</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1479"/>
+        <location filename="../../ui/mainwindow.cpp" line="1486"/>
         <source>Firmware Update Confirmation</source>
         <translation>Confirmation de mise à jour du firmware</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1480"/>
+        <location filename="../../ui/mainwindow.cpp" line="1487"/>
         <source>Current firmware version: </source>
         <translation>Version actuelle du firmware : </translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1480"/>
+        <location filename="../../ui/mainwindow.cpp" line="1487"/>
         <source>
 </source>
         <translation>
 </translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1481"/>
+        <location filename="../../ui/mainwindow.cpp" line="1488"/>
         <source>Latest firmware version: </source>
         <translation>Dernière version du firmware : </translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1481"/>
+        <location filename="../../ui/mainwindow.cpp" line="1488"/>
         <source>
 
 </source>
@@ -617,14 +657,14 @@ Veuillez réessayer après avoir redémarré l&apos;application.</translation>
 </translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1482"/>
+        <location filename="../../ui/mainwindow.cpp" line="1489"/>
         <source>The update process will:
 </source>
         <translation>Le processus de mise à jour va :
 </translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1483"/>
+        <location filename="../../ui/mainwindow.cpp" line="1490"/>
         <source>1. Stop all video and USB operations
 2. Install new firmware
 3. Close the application automatically

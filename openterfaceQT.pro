@@ -177,8 +177,8 @@ win32 {
 
 TRANSLATIONS += config/languages/openterface_en.ts \
                 config/languages/openterface_fr.ts \
-                config/languages/openterface_dk.ts \
-                config/languages/openterface_japanese.ts \
+                config/languages/openterface_da.ts \
+                config/languages/openterface_ja.ts \
                 config/languages/openterface_se.ts \
                 config/languages/openterface_de.ts 
 

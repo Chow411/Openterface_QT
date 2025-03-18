@@ -137,10 +137,10 @@ jobs:
         shell: cmd
     
       - name: Build ${{ matrix.version }} version
-        working-directory: $buildDir
+        working-directory: ${{ runner.temp }}\build_${{ matrix.version }}
         run: |
           echo "Building with qmake..."
-          set PATH=${{ runner.temp }}\\Qt\\${{ env.QT_VERSION }}\\mingw_64\\bin;%PATH%
+          set PATH=${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin;%PATH%
 
           if "${{ matrix.version }}" == "online" (
             set DEFINE_FLAG=DEFINES+=ONLINE_VERSION
@@ -162,7 +162,7 @@ jobs:
           dir
 
           if not exist release\openterfaceQT.exe (
-            echo "Error: Failed to build openterfaceQT.exe
+            echo "Error: Failed to build openterfaceQT.exe"
             exit 1
           )
           
@@ -176,6 +176,9 @@ jobs:
           copy ${{ env.SOURCE_DIR }}\driver\windows\* ${{ env.PACKAGE_DIR }}\driver\windows
           copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 ${{ env.PACKAGE_DIR }}
 
+          echo "Copying .qm files to package directory..."
+          mkdir ${{ env.PACKAGE_DIR }}\config\languages
+          copy ${{ env.SOURCE_DIR }}\config\languages\*.qm ${{ env.PACKAGE_DIR }}\config\languages\
           
           echo "Running windeployqt..."
           cd ${{ env.PACKAGE_DIR }}

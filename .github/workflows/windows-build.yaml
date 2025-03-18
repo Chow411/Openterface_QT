@@ -86,7 +86,12 @@ jobs:
           else
             python "${{ env.SOURCE_DIR }}\update_version.py" > version.txt
           fi
-          echo "VERSION_FOR_INNO=$(cat version.txt)" >> $GITHUB_OUTPUT
+          VERSION=$(cat version.txt | sed 's/\.0*\([0-9]\+\)/.\1/g' | sed 's/\.\+/./g')
+          PARTS=$(echo "$VERSION" | awk -F'.' '{print NF}')
+          if [ "$PARTS" -lt 4 ]; then
+            VERSION="$VERSION$(printf '.0%.0s' $(seq $PARTS 3))"
+          fi
+          echo "VERSION_FOR_INNO=$VERSION" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Get all tags for correct version determination

@@ -113,10 +113,16 @@ int main(int argc, char *argv[])
     app.setWindowIcon(QIcon("://images/icon_32.png"));
     
     // Create config directory if it doesn't exist
-    QString configPath = QCoreApplication::applicationDirPath() + "/config/keyboards";
-    QDir configDir(configPath);
-    if (!configDir.exists()) {
-        QDir().mkpath(configDir.path());
+    QString keyboardConfigPath = QCoreApplication::applicationDirPath() + "/config/keyboards";
+    QDir keyboardConfigDir(keyboardConfigPath);
+    if (!keyboardConfigDir.exists()) {
+        QDir().mkpath(keyboardConfigDir.path());
+    }
+
+    QString languagesConfigPath = QCoreApplication::applicationDirPath() + "/config/languages";
+    QDir languagesConfigDir(languagesConfigPath);
+    if (!languagesConfigDir.exists()) {
+        QDir().mkpath(languagesConfigDir.path());
     }
     
     // load the settings
@@ -127,7 +133,7 @@ int main(int argc, char *argv[])
     LogHandler::instance().enableLogStore();
 
     // Load keyboard layouts from the build directory
-    KeyboardLayoutManager::getInstance().loadLayouts(configPath);
+    KeyboardLayoutManager::getInstance().loadLayouts(keyboardConfigPath);
     
     // Check if the environment is properly set up
     if (EnvironmentSetupDialog::autoEnvironmentCheck() && !EnvironmentSetupDialog::checkEnvironmentSetup()) {

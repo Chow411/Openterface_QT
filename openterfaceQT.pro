@@ -127,6 +127,10 @@ COPIES += keyboard_layouts
 keyboard_layouts.files = $$files($$PWD/config/keyboards/*.json)
 keyboard_layouts.path = $$OUT_PWD/config/keyboards
 
+COPIES += keyboard_layouts_debug
+keyboard_layouts.files = $$files($$PWD/config/keyboards/*.json)
+keyboard_layouts.path = $$OUT_PWD/debug/config/keyboards
+
 # Create directories if they don't exist
 system($$QMAKE_MKDIR $$shell_path($$PWD/config/keyboards))
 system($$QMAKE_MKDIR $$shell_path($$OUT_PWD/config/keyboards))
@@ -163,9 +167,6 @@ RC_FILE = openterfaceQT.rc
 DEPENDPATH += $$PWD/''
 
 DEFINES += ONLINE_VERSION
-
-
-
 
 TRANSLATIONS += config/languages/openterface_en.ts \
                 config/languages/openterface_fr.ts \

@@ -53,7 +53,7 @@ jobs:
           host: linux
           target: desktop
           arch: gcc_64
-          modules: qtmultimedia qtserialport qttools
+          modules: qtmultimedia qtserialport
 
       - name: Install Qt for ARM64
         if: matrix.arch == 'arm64'

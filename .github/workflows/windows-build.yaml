@@ -140,11 +140,9 @@ jobs:
 
           echo "\n release dir:"
           dir release
-          echo "\n dir:"
-          dir
-
+          
           if not exist release\openterfaceQT.exe (
-            echo "Error: Failed to build openterfaceQT.exe
+            echo "Error: Failed to build openterfaceQT.exe"
             exit 1
           )
           
@@ -167,6 +165,11 @@ jobs:
           echo "Running windeployqt..."
           cd ${{ env.PACKAGE_DIR }}
           windeployqt --qmldir ${{ env.SOURCE_DIR }} ${{ env.EXE_NAME }} --compiler-runtime --multimedia
+          
+          echo "Listing package contents..."
+          dir ${{ env.PACKAGE_DIR }}
+          dir ${{ env.PACKAGE_DIR }}\config\languages
+          dir ${{ env.PACKAGE_DIR }}\config\keyboards
 
       - name: Move build artifacts
         run: move /Y ${{ runner.temp }}\build_online\${{ env.PACKAGE_DIR }} ${{ env.SOURCE_DIR }}

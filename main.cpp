@@ -38,6 +38,9 @@
 #include <QLoggingCategory>
 #include <QStyleFactory>
 #include <QDir>
+#include <QFile>
+#include <QTextStream>
+
 
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -73,6 +76,18 @@ void customMessageHandler(QtMsgType type, const QMessageLogContext &context, con
     // textStream << txt << endl;
     
     std::cout << txt.toStdString() << std::endl;
+}
+
+void writeLog(const QString &message){
+    QFile logFile("startup_log.txt");
+    if (logFile.open(QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&logFile);
+        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+        out << "[" << timestamp << "] " << message << "\n";
+        logFile.close();
+    } else {
+        qDebug() << "Failed to open log file:" << logFile.errorString();
+    }
 }
 
 void setupEnv(){
@@ -144,9 +159,12 @@ int main(int argc, char *argv[])
             return 0;
         }
     } 
+    writeLog("Environment setup completed");
     LanguageManager languageManager(&app);
     languageManager.initialize("en");
+    writeLog("languageManager initialized");
     MainWindow window(&languageManager);
+    writeLog("Application started");
     window.show();
 
     return app.exec();

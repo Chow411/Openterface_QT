@@ -100,7 +100,7 @@ jobs:
           lrelease openterfaceQT.pro
           mkdir -p ${{ env.BUILD_DIR }}/config/languages
           mkdir -p ${{ env.BUILD_DIR }}/config/keyboards
-          p config/keyboards/*.json ${{ env.BUILD_DIR }}/config/keyboards
+          cp config/keyboards/*.json ${{ env.BUILD_DIR }}/config/keyboards
           cp config/languages/*.qm ${{ env.BUILD_DIR }}/config/languages
 
       - name: Configure And Build

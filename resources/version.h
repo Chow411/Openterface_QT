@@ -5,6 +5,6 @@
 // The patch number resets to 1 whenever the major or minor version is updated.
 // Please refer to update_version.py
 
-#define APP_VERSION "0.2.6.078"
+#define APP_VERSION "0.2.7.078"
 
 #endif // VERSION_H

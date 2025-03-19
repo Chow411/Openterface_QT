@@ -34,14 +34,14 @@ defaults:
     shell: cmd
 
 env:
-  ARTIFACT: "${{ vars.MY_APP_EXE_NAME }}-online"
+  ARTIFACT: "${{ vars.MY_APP_EXE_NAME }}"
   SOURCE_DIR: ${{ github.workspace }}
   QT_VERSION: 6.5.3
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   QT_CACHE_KEY: qt-6.5.3-mingw-windows
   JOM_CACHE_KEY: jom-1.1.3-windows
   PACKAGE_DIR: "package_online"
-  EXE_NAME: "openterfaceQT_onlineVersion.exe"
+  EXE_NAME: "openterfaceQT.exe"
 
 jobs:
   build:
@@ -114,10 +114,10 @@ jobs:
       
       - name: Create build directory
         run: |
-          mkdir ${{ runner.temp }}\build_online
+          mkdir ${{ runner.temp }}\build
 
       - name: Build online version
-        working-directory: ${{ runner.temp }}\build_online
+        working-directory: ${{ runner.temp }}\build
         run: |
           echo "Building with qmake..."
           set PATH=${{ runner.temp }}\\Qt\\${{ env.QT_VERSION }}\\mingw_64\\bin;%PATH%
@@ -128,10 +128,9 @@ jobs:
           echo "Generating .qm files with lrelease..."
           lrelease ${{ env.SOURCE_DIR }}\openterfaceQT.pro
           
-          set DEFINE_FLAG=DEFINES+=ONLINE_VERSION
           
           qmake -v
-          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro %DEFINE_FLAG%
+          qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro
           if errorlevel 1 exit /b 1
           
           echo "Building with mingw32-make..."
@@ -156,7 +155,6 @@ jobs:
           copy release\openterfaceQT.exe ${{ env.PACKAGE_DIR }}\${{ env.EXE_NAME }}
           copy ${{ env.SOURCE_DIR }}\LICENSE ${{ env.PACKAGE_DIR }}
           copy ${{ env.SOURCE_DIR }}\driver\windows\* ${{ env.PACKAGE_DIR }}\driver\windows
-          copy ${{ env.SOURCE_DIR }}\.github\workflows\capitalize-version.ps1 ${{ env.PACKAGE_DIR }}
           
           echo "Copying translation & keyboard layouts files..."
           copy ${{ env.SOURCE_DIR }}\config\keyboards\*.json ${{ env.PACKAGE_DIR }}\config\keyboards
@@ -168,7 +166,7 @@ jobs:
           
 
       - name: Move build artifacts
-        run: move /Y ${{ runner.temp }}\build_online\${{ env.PACKAGE_DIR }} ${{ env.SOURCE_DIR }}
+        run: move /Y ${{ runner.temp }}\build\${{ env.PACKAGE_DIR }} ${{ env.SOURCE_DIR }}
 
       - name: Compile .ISS to .EXE Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
@@ -184,29 +182,12 @@ jobs:
             /DMyAppExeName=${{ env.EXE_NAME }}
             /DSourcePackage=${{ env.PACKAGE_DIR }}
 
-      - name: Convert version to capitalized format using script
-        id: convert_version
-        run: |
-          $version = "online"
-          $scriptPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "${{ env.PACKAGE_DIR }}\capitalize-version.ps1"
-          Write-Output "Script path: $scriptPath"
-          if (Test-Path $scriptPath) {
-            $capitalizedVersion = & $scriptPath -version $version
-            Write-Output "capitalizedVersion<<EOF" >> $env:GITHUB_OUTPUT
-            Write-Output "$capitalizedVersion" >> $env:GITHUB_OUTPUT
-            Write-Output "EOF" >> $env:GITHUB_OUTPUT
-          } else {
-            Write-Error "Script not found at path: $scriptPath"
-            exit 1
-          }
-        shell: pwsh
-
       - name: Save build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
           path: |
-            ${{ env.SOURCE_DIR }}\Output\setup_${{ steps.convert_version.outputs.capitalizedVersion }}.exe
+            ${{ env.SOURCE_DIR }}\Output\setup.exe
           if-no-files-found: error
         
       - name: Commit and push version update
@@ -268,6 +249,6 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: setup_${{ steps.convert_version.outputs.capitalizedVersion }}.exe
-          asset_name: setup_${{ steps.convert_version.outputs.capitalizedVersion }}.exe
+          asset_path: setup.exe
+          asset_name: setup.exe
           asset_content_type: application/octet-stream

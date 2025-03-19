@@ -162,7 +162,7 @@ RC_FILE = openterfaceQT.rc
 
 DEPENDPATH += $$PWD/''
 
-#DEFINES += ONLINE_VERSION
+DEFINES += ONLINE_VERSION
 
 
 win32 {

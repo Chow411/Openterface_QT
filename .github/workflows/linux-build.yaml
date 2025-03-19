@@ -89,6 +89,17 @@ jobs:
           mkdir -p $buildDir
           echo "BUILD_DIR=$buildDir" >> $GITHUB_ENV
 
+      - name: Check project file existence
+        working-directory: ${{ github.workspace }}
+        run: |
+          ls -la
+          if [ -f "openterface.pro" ]; then
+            echo "openterface.pro exists"
+          else
+            echo "openterface.pro does not exist"
+            exit 1
+          fi
+
       - name: Update translations
         working-directory: ${{ github.workspace }}
         run: |

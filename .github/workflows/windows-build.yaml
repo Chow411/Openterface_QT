@@ -116,7 +116,7 @@ jobs:
         run: |
           mkdir ${{ runner.temp }}\build
 
-      - name: Build online version
+      - name: Build
         working-directory: ${{ runner.temp }}\build
         run: |
           echo "Building with qmake..."
@@ -127,7 +127,6 @@ jobs:
           
           echo "Generating .qm files with lrelease..."
           lrelease ${{ env.SOURCE_DIR }}\openterfaceQT.pro
-          
           
           qmake -v
           qmake -r ${{ env.SOURCE_DIR }}\openterfaceQT.pro
@@ -178,7 +177,7 @@ jobs:
             /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" 
             /DMyAppURL="${{ vars.MY_APP_URL }}" 
             /DOutputDir="${{ env.SOURCE_DIR }}\Output" 
-            /DOutputBaseFileName=setup_online 
+            /DOutputBaseFileName=setup 
             /DMyAppExeName=${{ env.EXE_NAME }}
             /DSourcePackage=${{ env.PACKAGE_DIR }}
 

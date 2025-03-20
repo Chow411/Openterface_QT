@@ -106,7 +106,14 @@ jobs:
         working-directory: ${{ env.BUILD_DIR }}
         run: |
           qmake6 ${{ github.workspace }} "DEFINES+=ONLINE_VERSION" && make -j$(nproc)
-          ls -lh ${{ env.BUILD_DIR }}/openterfaceQT || echo "openterfaceQT not found!"
+          echo "Checking build output:"
+          ls -lh ${{ env.BUILD_DIR }}
+          if [ -f ${{ env.BUILD_DIR }}/openterfaceQT ]; then
+            echo "openterfaceQT found!"
+          else
+            echo "Error: openterfaceQT not found in ${{ env.BUILD_DIR }}!"
+            exit 1
+          fi
 
       - name: Create deb package
         working-directory: ${{ runner.temp }}
@@ -151,6 +158,7 @@ jobs:
         working-directory: ${{ runner.temp }}
         run: |
           mkdir -p rpmbuild/{SPECS,SOURCES,BUILD,RPMS,SRPMS}
+          cat rpmbuild/SPECS/openterfaceqt.spec
           
           PKG_NAME="${{ env.ARTIFACT }}_${{ env.VERSION }}_${{ matrix.arch }}"
           

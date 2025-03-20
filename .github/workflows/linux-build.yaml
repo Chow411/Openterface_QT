@@ -154,6 +154,9 @@ jobs:
           
           PKG_NAME="${{ env.ARTIFACT }}_${{ env.VERSION }}_${{ matrix.arch }}"
           
+          cp ${{ env.BUILD_DIR }}/openterfaceQT rpmbuild/SOURCES/
+          cp ${{ github.workspace }}/images/icon_256.png rpmbuild/SOURCES/
+
           sed -e "s/\${VERSION}/${{ env.VERSION }}/g" \
               -e "s/\${ARCH}/${{ matrix.arch }}/g" \
               ${{ github.workspace }}/packaging/rpm/spec > rpmbuild/SPECS/openterfaceqt.spec 

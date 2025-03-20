@@ -129,7 +129,6 @@ cd build
 cmake -GNinja \
     $CMAKE_COMMON_FLAGS \
     -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
-    -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
     -DBUILD_SHARED_LIBS=OFF \
     -DFEATURE_linguist=ON \      # Use linguist
     -DFEATURE_designer=OFF \     # Ban useless tools

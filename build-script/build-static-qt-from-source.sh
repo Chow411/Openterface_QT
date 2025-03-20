@@ -30,7 +30,7 @@ INSTALL_PREFIX=/opt/Qt6
 BUILD_DIR=$(pwd)/qt-build
 FFMPEG_PREFIX=/opt/Qt6
 # Update module list to include qtdeclarative (which provides Qt Quick)
-MODULES=("qtbase" "qtshadertools" "qtdeclarative" "qtmultimedia" "qtsvg" "qtserialport")
+MODULES=("qtbase" "qtshadertools" "qtdeclarative" "qtmultimedia" "qtsvg" "qtserialport" "qttools")
 DOWNLOAD_BASE_URL="https://download.qt.io/archive/qt/$QT_MAJOR_VERSION/$QT_VERSION/submodules"
 
 # Create the build directory first
@@ -122,6 +122,22 @@ cmake -GNinja \
 ninja
 sudo ninja install
 
+echo "Building qttools..."
+cd "$BUILD_DIR/qttools"
+mkdir -p build
+cd build
+cmake -GNinja \
+    $CMAKE_COMMON_FLAGS \
+    -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
+    -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DFEATURE_linguist=ON \      # Use linguist tools
+    -DFEATURE_designer=OFF \     # Ban the useless tools
+    -DFEATURE_assistant=OFF \
+    ..
+
+ninja
+sudo ninja install
 
 # Build qtshadertools
 echo "Building qtshadertools..."
@@ -148,9 +164,6 @@ cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
     -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
     -DBUILD_SHARED_LIBS=OFF \
-    -DFEATURE_linguist=ON \     # use necessary tool
-    -DFEATURE_designer=OFF \    # forbid useless tools
-    -DFEATURE_assistant=OFF \
     ..
 
 ninja

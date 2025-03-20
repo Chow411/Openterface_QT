@@ -21,7 +21,7 @@ sudo apt-get install -y build-essential meson ninja-build bison flex pkg-config 
     libvulkan-dev libssl-dev \
     libpulse-dev \
     yasm nasm \ 
-    qt6-tools-dev qt6-l10n-tools
+    qt6-tools-dev qt6-l10n-tools || { echo "Failed to install packages. Check the missing package above."; exit 1; }
 
 QT_VERSION=6.6.3
 QT_MAJOR_VERSION=6.6

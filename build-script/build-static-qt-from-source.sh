@@ -123,18 +123,24 @@ sudo ninja install
 
 # Build qttools
 echo "Building qttools..."
+if [ ! -d "$BUILD_DIR/qttools" ]; then
+    echo "Error: qttools directory not found at $BUILD_DIR/qttools"
+    ls -la "$BUILD_DIR"
+    exit 1
+fi
 cd "$BUILD_DIR/qttools"
 mkdir -p build
 cd build
 cmake -GNinja \
     $CMAKE_COMMON_FLAGS \
+    -S .. \
     -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
+    -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
     -DBUILD_SHARED_LIBS=OFF \
-    -DFEATURE_linguist=ON \      # Use linguist
-    -DFEATURE_designer=OFF \     # Ban useless tools
+    -DFEATURE_linguist=ON \
+    -DFEATURE_designer=OFF \
     -DFEATURE_assistant=OFF \
     ..
-
 ninja
 sudo ninja install
 

@@ -20,7 +20,8 @@ sudo apt-get install -y build-essential meson ninja-build bison flex pkg-config 
     libdrm-dev libgbm-dev libatspi2.0-dev \
     libvulkan-dev libssl-dev \
     libpulse-dev \
-    yasm nasm # Dependencies for FFmpeg compilation
+    yasm nasm \ 
+    qt6-tools-dev qt6-l10n-tools
 
 QT_VERSION=6.6.3
 QT_MAJOR_VERSION=6.6
@@ -147,6 +148,9 @@ cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
     -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
     -DBUILD_SHARED_LIBS=OFF \
+    -DFEATURE_linguist=ON \     # use necessary tool
+    -DFEATURE_designer=OFF \    # forbid useless tools
+    -DFEATURE_assistant=OFF \
     ..
 
 ninja

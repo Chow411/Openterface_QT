@@ -20,6 +20,7 @@ sudo apt-get install -y build-essential meson ninja-build bison flex pkg-config 
     libdrm-dev libgbm-dev libatspi2.0-dev \
     libvulkan-dev libssl-dev \
     libpulse-dev \
+    clang-15 libclang-15-dev llvm-15-dev \
     yasm nasm # Dependencies for FFmpeg compilation
 
 QT_VERSION=6.6.3

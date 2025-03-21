@@ -118,7 +118,8 @@ FORMS    += \
 RESOURCES += \
     openterfaceQT.rc \
     ui/mainwindow.qrc \
-    config/keyboards/keyboard_layouts.qrc 
+    config/keyboards/keyboard_layouts.qrc \
+    config/languages/language.qrc
 
 
 # Copy keyboard layout files to build directory

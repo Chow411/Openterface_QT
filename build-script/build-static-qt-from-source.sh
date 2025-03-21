@@ -167,12 +167,22 @@ cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
     -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
     -DBUILD_SHARED_LIBS=OFF \
-    -DFEATURE_linguist=ON \
-    -DFEATURE_designer=OFF \
-    -DFEATURE_assistant=OFF \
+    -DFEATURE_linguist=ON \      
+    -DFEATURE_qdoc=OFF \         
+    -DBUILD_qdoc=OFF \ 
+    -DQT_FEATURE_clang=OFF \          
+    -DFEATURE_designer=OFF \     
+    -DFEATURE_assistant=OFF \    
     ..
 ninja
 sudo ninja install
+
+if [ -f "$INSTALL_PREFIX/bin/lupdate" ] && [ -f "$INSTALL_PREFIX/bin/lrelease" ]; then
+    echo "lupdate and lrelease built successfully at $INSTALL_PREFIX/bin"
+else
+    echo "Error: lupdate or lrelease not found in $INSTALL_PREFIX/bin"
+    exit 1
+fi
 
 # Build other modules
 for module in "${MODULES[@]}"; do

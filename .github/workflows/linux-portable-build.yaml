@@ -61,6 +61,9 @@
               libgles2-mesa-dev \
               libegl1-mesa-dev \
               libglib2.0-dev \
+              clang-15 \
+              libclang-15-dev \
+              llvm-15-dev \
               libxrandr2 \
               libxcb1-dev \
               '^libxcb.*-dev' \
@@ -86,6 +89,9 @@
               libgbm-dev \
               libatspi2.0-dev \
               upx-ucl
+              
+              sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 100
+              sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 100
 
         - name: Analyze original binary size (if exists)
           run: |

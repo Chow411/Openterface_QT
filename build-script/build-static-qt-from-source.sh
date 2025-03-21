@@ -121,29 +121,6 @@ cmake -GNinja \
 ninja
 sudo ninja install
 
-# Build qttools
-echo "Building qttools..."
-if [ ! -d "$BUILD_DIR/qttools" ]; then
-    echo "Error: qttools directory not found at $BUILD_DIR/qttools"
-    ls -la "$BUILD_DIR"
-    exit 1
-fi
-cd "$BUILD_DIR/qttools"
-mkdir -p build
-cd build
-cmake -GNinja \
-    $CMAKE_COMMON_FLAGS \
-    -S .. \
-    -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
-    -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DFEATURE_linguist=ON \
-    -DFEATURE_designer=OFF \
-    -DFEATURE_assistant=OFF \
-    ..
-ninja
-sudo ninja install
-
 # Build qtshadertools
 echo "Building qtshadertools..."
 cd "$BUILD_DIR/qtshadertools"
@@ -174,9 +151,32 @@ cmake -GNinja \
 ninja
 sudo ninja install
 
+# Build qttools
+echo "Building qttools..."
+if [ ! -d "$BUILD_DIR/qttools" ]; then
+    echo "Error: qttools directory not found at $BUILD_DIR/qttools"
+    ls -la "$BUILD_DIR"
+    exit 1
+fi
+cd "$BUILD_DIR/qttools"
+mkdir -p build
+cd build
+cmake -GNinja \
+    $CMAKE_COMMON_FLAGS \
+    -S .. \
+    -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
+    -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DFEATURE_linguist=ON \
+    -DFEATURE_designer=OFF \
+    -DFEATURE_assistant=OFF \
+    ..
+ninja
+sudo ninja install
+
 # Build other modules
 for module in "${MODULES[@]}"; do
-    if [[ "$module" != "qtbase" && "$module" != "qtshadertools" && "$module" != "qtdeclarative" ]]; then
+    if [[ "$module" != "qtbase" && "$module" != "qtshadertools" && "$module" != "qtdeclarative" && "$module" != "qttools" ]]; then
         cd "$BUILD_DIR/$module"
         mkdir -p build
         cd build

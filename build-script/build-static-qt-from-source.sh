@@ -116,6 +116,8 @@ cmake -GNinja \
     -DFEATURE_xkbcommon=ON \
     -DFEATURE_xkbcommon_x11=ON \
     -DTEST_xcb_syslibs=ON \
+    -DQT_FEATURE_clang=OFF \
+    -DFEATURE_clang=OFF \
     ..
 
 ninja

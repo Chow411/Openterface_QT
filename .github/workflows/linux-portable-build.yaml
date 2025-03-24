@@ -106,6 +106,10 @@
             echo "Setting LD_LIBRARY_PATH..."
             export LD_LIBRARY_PATH=/usr/lib:/usr/local/lib:$LD_LIBRARY_PATH
             
+            # usingthe clang-15 compiler
+            export CC=/usr/bin/clang-15
+            export CXX=/usr/bin/clang++-15
+
             # Set environment variables for PCRE2
             export PCRE2_DIR=${{ runner.temp }}/pcre2-install
             export CPATH=$PCRE2_DIR/include:$CPATH
@@ -122,6 +126,8 @@
 
             echo "Configuring with CMake..."
             cmake -S "${{ env.SOURCE_DIR }}" -B . \
+                -DCMAKE_C_COMPILER=/usr/bin/clang-15 \
+                -DCMAKE_CXX_COMPILER=/usr/bin/clang++-15 \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DBUILD_SHARED_LIBS=OFF \
                 -DCMAKE_PREFIX_PATH="/opt/Qt6" \

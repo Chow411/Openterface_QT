@@ -9,6 +9,8 @@ LanguageManager::LanguageManager(QApplication *app, QObject *parent)
       m_app(app),
       m_translator(new QTranslator(this)),
       m_translationPath(QCoreApplication::applicationDirPath() + "/config/languages/") {
+
+    deployTranslationFiles();
     qDebug() << "Initial translation path:" << m_translationPath;
 }
 

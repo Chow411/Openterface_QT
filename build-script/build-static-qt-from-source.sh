@@ -139,21 +139,6 @@ cmake -GNinja \
 ninja
 sudo ninja install
 
-# Build qtdeclarative (Qt Quick) before qtmultimedia
-echo "Building qtdeclarative..."
-cd "$BUILD_DIR/qtdeclarative"
-mkdir -p build
-cd build
-cmake -GNinja \
-    $CMAKE_COMMON_FLAGS \
-    -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
-    -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
-    -DBUILD_SHARED_LIBS=OFF \
-    ..
-
-ninja
-sudo ninja install
-
 # Build qttools
 echo "Building qttools..."
 if [ ! -d "$BUILD_DIR/qttools" ]; then
@@ -186,6 +171,23 @@ else
     echo "Error: lupdate or lrelease not found in $INSTALL_PREFIX/bin"
     exit 1
 fi
+
+
+# Build qtdeclarative (Qt Quick) before qtmultimedia
+echo "Building qtdeclarative..."
+cd "$BUILD_DIR/qtdeclarative"
+mkdir -p build
+cd build
+cmake -GNinja \
+    $CMAKE_COMMON_FLAGS \
+    -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
+    -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
+    -DBUILD_SHARED_LIBS=OFF \
+    ..
+
+ninja
+sudo ninja install
+
 
 # Build other modules
 for module in "${MODULES[@]}"; do

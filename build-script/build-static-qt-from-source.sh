@@ -193,6 +193,9 @@ for module in "${MODULES[@]}"; do
                 -DFEATURE_qtdiag=OFF \
                 -DFEATURE_qtplugininfo=OFF \
                 ..
+            
+            /opt/Qt6/bin/lupdate --version
+
         else
             cmake -GNinja \
                 $CMAKE_COMMON_FLAGS \

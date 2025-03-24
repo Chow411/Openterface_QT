@@ -155,7 +155,7 @@ sudo ninja install
 
 # Build other modules
 for module in "${MODULES[@]}"; do
-    if [[ "$module" != "qtbase" && "$module" != "qtshadertools" && "$module" != "qtdeclarative"]]; then
+    if [[ "$module" != "qtbase" && "$module" != "qtshadertools" && "$module" != "qtdeclarative" ]]; then
         cd "$BUILD_DIR/$module"
         mkdir -p build
         cd build
@@ -180,6 +180,7 @@ for module in "${MODULES[@]}"; do
                 -DFFMPEG_PATH="$FFMPEG_PREFIX" \
                 ..
         elif [[ "$module" == "qttools" ]]; then
+            echo "Building $module..."
             cmake -GNinja \
                 $CMAKE_COMMON_FLAGS \
                 -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \

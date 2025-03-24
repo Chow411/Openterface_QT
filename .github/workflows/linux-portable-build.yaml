@@ -86,9 +86,6 @@
               libgbm-dev \
               libatspi2.0-dev \
               upx-ucl
-              
-              sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 100
-              sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 100
 
         - name: Analyze original binary size (if exists)
           run: |

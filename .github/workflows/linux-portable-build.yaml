@@ -61,9 +61,6 @@
               libgles2-mesa-dev \
               libegl1-mesa-dev \
               libglib2.0-dev \
-              clang-15 \
-              libclang-15-dev \
-              llvm-15-dev \
               libxrandr2 \
               libxcb1-dev \
               '^libxcb.*-dev' \

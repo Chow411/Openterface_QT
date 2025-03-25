@@ -113,6 +113,7 @@
 
             echo "Generating binary translations with lrelease..."
             mkdir -p package/config/languages
+            /opt/Qt6/bin/lrelease "${{ env.SOURCE_DIR }}/config/languages/*.ts" -qm "${{ env.SOURCE_DIR }}/config/languages/*.qm" || true
             /opt/Qt6/bin/lrelease "${{ env.SOURCE_DIR }}/config/languages/*.ts" -qm "package/config/languages/*.qm" || true
 
             echo "Configuring with CMake..."

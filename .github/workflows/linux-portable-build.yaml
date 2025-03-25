@@ -162,5 +162,7 @@
           uses: actions/upload-artifact@v4
           with:
             name: ${{ env.ARTIFACT }}
-            path: ${{ runner.temp }}/build/package/openterfaceQT
+            path: |
+              ${{ runner.temp }}/build/package/openterfaceQT
+              ${{ runner.temp }}/build/package/config/languages/*.qm
             if-no-files-found: error

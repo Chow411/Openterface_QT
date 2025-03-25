@@ -20,7 +20,6 @@ public:
 
     QStringList availableLanguages() const;
 
-
 signals:
     void languageChanged();
 

@@ -152,22 +152,12 @@ qt_add_resources(openterfaceQT "mainwindow"
         ${mainwindow_resource_files}
 )
 
-set(keyboard_layouts_resource_files
-    "config/keyboards/azerty_fr.json"
-    "config/keyboards/japanese.json"
-    "config/keyboards/qwerty_dk.json"
-    "config/keyboards/qwerty_uk.json"
-    "config/keyboards/qwerty_us.json"
-    "config/keyboards/qwertz_de.json"
+qt_add_resources(openterfaceQT "keyboard_layouts"
+    "config/keyboards/keyboard_layouts.qrc"
 )
 
-qt_add_resources(openterfaceQT "keyboard_layouts"
-    PREFIX
-        "/config/keyboards"
-    BASE
-        "config/keyboards"
-    FILES
-        ${keyboard_layouts_resource_files}
+qt_add_resources(openterfaceQT "languages"
+    "config/languages/language.qrc"
 )
 
 set(qmake_immediate_resource_files

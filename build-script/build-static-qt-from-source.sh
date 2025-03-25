@@ -100,7 +100,7 @@ CMAKE_COMMON_FLAGS="-Wno-dev -DCMAKE_POLICY_DEFAULT_CMP0177=NEW -DCMAKE_POLICY_D
 # Build qtbase first
 echo "Building qtbase..."
 cd "$BUILD_DIR/qtbase"
-sudo mkdir -p build
+mkdir -p build
 cd build
 
 cmake -GNinja \
@@ -127,7 +127,7 @@ sudo ninja install
 # Build qtshadertools
 echo "Building qtshadertools..."
 cd "$BUILD_DIR/qtshadertools"
-sudo mkdir -p build
+mkdir -p build
 cd build
 cmake -GNinja \
     $CMAKE_COMMON_FLAGS \
@@ -142,7 +142,7 @@ sudo ninja install
 # Build qtdeclarative (Qt Quick) before qtmultimedia
 echo "Building qtdeclarative..."
 cd "$BUILD_DIR/qtdeclarative"
-sudo mkdir -p build
+mkdir -p build
 cd build
 cmake -GNinja \
     $CMAKE_COMMON_FLAGS \
@@ -158,7 +158,7 @@ sudo ninja install
 for module in "${MODULES[@]}"; do
     if [[ "$module" != "qtbase" && "$module" != "qtshadertools" && "$module" != "qtdeclarative" ]]; then
         cd "$BUILD_DIR/$module"
-        sudo mkdir -p build
+        mkdir -p build
         cd build
         echo "Building $module..."
 

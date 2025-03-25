@@ -51,7 +51,8 @@
         "Key_NumberSign": "0x31", "Key_Apostrophe": "0x31",
         "Key_Odiaeresis": "0x33", "Key_Eacute": "0x33",
         "Key_Adiaeresis": "0x34", "Key_Agrave": "0x34",
-        "Key_QuoteLeft": "0x35",
+        "Key_degree": "0x35","Key_AsciiCircum": "0x35",
+        "key_Dead_Acute":"0x34",
         "Key_Comma": "0x36",
         "Key_Period": "0x37",
         "Key_CapsLock": "0x39",
@@ -81,6 +82,7 @@
         "Key_End": "0x4D",
         "Key_Insert": "0x49",
         "Key_Delete": "0x4C"
+        
     },
     "char_mapping": {
         "a": "Key_A", "A": "Key_A",
@@ -133,7 +135,7 @@
         "A", "B", "C", "D", "E", "F", "G", "H", "I",
         "J", "K", "L", "M", "N", "O", "P", "Q", "R",
         "S", "T", "U", "V", "W", "X", "Y", "Z",
-        "Ä", "Ö", "Ü"
+        "Ä", "Ö", "Ü", "°"
     ],
     "need_altgr_keys": [
         "@", "€", "~", "|", "{", "}", "[", "]", "\\", "µ"

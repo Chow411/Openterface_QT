@@ -243,9 +243,9 @@ int KeyboardManager::handleKeyModifiers(int modifier, bool isKeyDown) {
 
     if ((modifier & Qt::ControlModifier) && (modifier & Qt::AltModifier)) {
         // Clear Ctrl and Alt modifier，set AltGr modifier
-        combinedModifiers &= ~0x01; // 清除Ctrl
-        combinedModifiers &= ~0x04; // 清除Alt
-        combinedModifiers |= 0x40;  // 设置AltGr
+        combinedModifiers &= ~0x01; // clear Ctrl
+        combinedModifiers &= ~0x04; //  clear Alt
+        combinedModifiers |= 0x40;  // set AltGr
     }
 
     if (modifier & Qt::GroupSwitchModifier) {

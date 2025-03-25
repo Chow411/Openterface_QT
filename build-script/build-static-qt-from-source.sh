@@ -20,6 +20,7 @@ sudo apt-get install -y build-essential meson ninja-build bison flex pkg-config 
     libdrm-dev libgbm-dev libatspi2.0-dev \
     libvulkan-dev libssl-dev \
     libpulse-dev \
+    clang-16 llvm-16-dev\
     yasm nasm # Dependencies for FFmpeg compilation
 
 QT_VERSION=6.6.3
@@ -99,7 +100,7 @@ CMAKE_COMMON_FLAGS="-Wno-dev -DCMAKE_POLICY_DEFAULT_CMP0177=NEW -DCMAKE_POLICY_D
 # Build qtbase first
 echo "Building qtbase..."
 cd "$BUILD_DIR/qtbase"
-mkdir -p build
+sudo mkdir -p build
 cd build
 
 cmake -GNinja \
@@ -117,7 +118,7 @@ cmake -GNinja \
     -DFEATURE_xkbcommon_x11=ON \
     -DTEST_xcb_syslibs=ON \
     -DQT_FEATURE_clang=OFF \
-    -DFEATURE_clang=OFF \
+    -DFEATURE_clang=ON \
     ..
 
 ninja
@@ -126,7 +127,7 @@ sudo ninja install
 # Build qtshadertools
 echo "Building qtshadertools..."
 cd "$BUILD_DIR/qtshadertools"
-mkdir -p build
+sudo mkdir -p build
 cd build
 cmake -GNinja \
     $CMAKE_COMMON_FLAGS \
@@ -141,7 +142,7 @@ sudo ninja install
 # Build qtdeclarative (Qt Quick) before qtmultimedia
 echo "Building qtdeclarative..."
 cd "$BUILD_DIR/qtdeclarative"
-mkdir -p build
+sudo mkdir -p build
 cd build
 cmake -GNinja \
     $CMAKE_COMMON_FLAGS \
@@ -157,7 +158,7 @@ sudo ninja install
 for module in "${MODULES[@]}"; do
     if [[ "$module" != "qtbase" && "$module" != "qtshadertools" && "$module" != "qtdeclarative" ]]; then
         cd "$BUILD_DIR/$module"
-        mkdir -p build
+        sudo mkdir -p build
         cd build
         echo "Building $module..."
 
@@ -181,20 +182,24 @@ for module in "${MODULES[@]}"; do
                 ..
         elif [[ "$module" == "qttools" ]]; then
             echo "Building $module..."
+            CLANG_PREFIX="/usr/lib/llvm-16"
             cmake -GNinja \
                 $CMAKE_COMMON_FLAGS \
                 -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
-                -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
                 -DBUILD_SHARED_LIBS=OFF \
                 -DFEATURE_linguist=ON \
+                -DFEATURE_lupdate=ON \
+                -DFEATURE_lrelease=ON \
                 -DFEATURE_designer=OFF \
                 -DFEATURE_assistant=OFF \
                 -DFEATURE_qtattributionsscanner=OFF \
                 -DFEATURE_qtdiag=OFF \
                 -DFEATURE_qtplugininfo=OFF \
+                -DFEATURE_clang=ON \
+                -DFEATURE_clangcpp=ON \
+                -DLLVM_INSTALL_DIR="$CLANG_PREFIX" \
+                -DLLVM_CMAKE_DIR="$CLANG_PREFIX/cmake" \
                 ..
-            
-            /opt/Qt6/bin/lupdate --version
 
         else
             cmake -GNinja \

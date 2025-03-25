@@ -18,6 +18,7 @@ struct KeyboardLayoutConfig {
     QMap<int, uint8_t> keyMap;
     QMap<uint8_t, int> charMapping;
     QList<int> needShiftKeys;
+    QList<int> needAltGrKeys;
     bool isRightToLeft;
     
     // Constructor with default values
@@ -169,6 +170,8 @@ struct KeyboardLayoutConfig {
         keyNameToQt["acute"] = Qt::Key_acute; // Corrected from Key_Acute to Key_acute
         keyNameToQt["currency"] = Qt::Key_currency;
         keyNameToQt["NumberSign"] = Qt::Key_NumberSign;
+        // altgr keys
+        keyNameToQt["Mu"] = 0x00B5;
     }
     
 private:

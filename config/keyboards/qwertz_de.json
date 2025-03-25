@@ -14,11 +14,11 @@
         "Key_J": "0x0D",
         "Key_K": "0x0E",
         "Key_L": "0x0F",
-        "Key_M": "0x10",
+        "Key_M": "0x10", "Key_Mu": "0x10",
         "Key_N": "0x11",
         "Key_O": "0x12",
         "Key_P": "0x13",
-        "Key_Q": "0x14",
+        "Key_Q": "0x14", "Key_At": "0x14",
         "Key_R": "0x15",
         "Key_S": "0x16",
         "Key_T": "0x17",
@@ -57,7 +57,8 @@
         "Key_CapsLock": "0x39",
         "Key_Shift": "0xE5",
         "Key_Control": "0xE4",
-        "Key_Alt": "0xE6",
+        "Key_Alt": "0xE2",
+        "Key_AltGr": "0xE6",
         "Key_F1": "0x3A",
         "Key_F2": "0x3B",
         "Key_F3": "0x3C",
@@ -124,7 +125,7 @@
         "0": "Key_0", "=": "Key_0",
         " ": "Key_Space",
         "\t": "Key_Tab",
-        "\n": "Key_Return", "\r": "Key_Return"
+        "\n": "Key_Return", "\r": "Key_Return"   
     },
     "need_shift_keys": [
         "!", "\"", "§", "$", "%", "&", "/", "(", ")", "=",
@@ -133,5 +134,8 @@
         "J", "K", "L", "M", "N", "O", "P", "Q", "R",
         "S", "T", "U", "V", "W", "X", "Y", "Z",
         "Ä", "Ö", "Ü"
-    ]
+    ],
+    "need_altgr_keys": [
+        "@", "€", "~", "|", "{", "}", "[", "]", "\\", "µ"
+  ]
 }

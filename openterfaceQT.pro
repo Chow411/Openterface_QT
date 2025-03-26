@@ -174,15 +174,6 @@ DEFINES += ONLINE_VERSION
 INCLUDEPATH += $$PWD/zxing/include/
 LIBS += -L$$PWD/zxing/lib -llibZxing
 
-win32 {
-    CONFIG += static staticlib
-    QMAKE_LFLAGS += -static -static-libgcc -static-libstdc++ -static-libgfortran
-    QMAKE_CXXFLAGS += -static -static-libgcc -static-libstdc++
-    QMAKE_LFLAGS += -static-libgcc -static-libstdc++ -Wl,-Bstatic
-    LIBS += -static -lpthread -static-libgcc -static-libstdc++
-    QTPLUGIN += qwindows qwindowsvistastyle
-    CONFIG -= shared dll
-}
 TRANSLATIONS += config/languages/openterface_en.ts \
                 config/languages/openterface_fr.ts \
                 config/languages/openterface_da.ts \

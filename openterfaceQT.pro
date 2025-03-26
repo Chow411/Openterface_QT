@@ -8,8 +8,6 @@ TARGET = openterfaceQT
 TEMPLATE = app
 
 QT       += core gui multimedia multimediawidgets serialport concurrent svg network
-QT       += core gui multimedia multimediawidgets serialport concurrent svg network
-
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 SOURCES += main.cpp \
@@ -56,7 +54,8 @@ SOURCES += main.cpp \
     regex/RegularExpression.cpp \
     server/tcpServer.cpp \
     scripts/scriptEditor.cpp \
-    video/QrCodeDecoder.cpp
+    video/QrCodeDecoder.cpp\
+    ui/languagemanager.cpp
 
 
 HEADERS  += \
@@ -108,6 +107,7 @@ HEADERS  += \
     regex/RegularExpression.h \
     target/KeyboardLayouts.h \
     scripts/scriptEditor.h \
+    ui/languagemanager.h \
     video/QrCodeDecoder.h \
     video/ZXingQtReader.h 
 
@@ -120,7 +120,8 @@ FORMS    += \
 RESOURCES += \
     openterfaceQT.rc \
     ui/mainwindow.qrc \
-    config/keyboards/keyboard_layouts.qrc 
+    config/keyboards/keyboard_layouts.qrc \
+    config/languages/language.qrc
 
 
 # Copy keyboard layout files to build directory
@@ -128,6 +129,10 @@ CONFIG += file_copies
 COPIES += keyboard_layouts
 keyboard_layouts.files = $$files($$PWD/config/keyboards/*.json)
 keyboard_layouts.path = $$OUT_PWD/config/keyboards
+
+COPIES += keyboard_layouts_debug
+keyboard_layouts.files = $$files($$PWD/config/keyboards/*.json)
+keyboard_layouts.path = $$OUT_PWD/debug/config/keyboards
 
 # Create directories if they don't exist
 system($$QMAKE_MKDIR $$shell_path($$PWD/config/keyboards))
@@ -164,7 +169,7 @@ RC_FILE = openterfaceQT.rc
 
 DEPENDPATH += $$PWD/''
 
-#DEFINES += ONLINE_VERSION
+DEFINES += ONLINE_VERSION
 
 INCLUDEPATH += $$PWD/zxing/include/
 LIBS += -L$$PWD/zxing/lib -llibZxing
@@ -178,3 +183,21 @@ win32 {
     QTPLUGIN += qwindows qwindowsvistastyle
     CONFIG -= shared dll
 }
+TRANSLATIONS += config/languages/openterface_en.ts \
+                config/languages/openterface_fr.ts \
+                config/languages/openterface_da.ts \
+                config/languages/openterface_ja.ts \
+                config/languages/openterface_se.ts \
+                config/languages/openterface_de.ts 
+                # Add more languages here
+
+COPIES += translationsDebug
+translations.files = $$files($$PWD/config/languages/*.qm)
+translations.path = $$OUT_PWD/debug/config/languages
+
+COPIES += translations
+translations.files = $$files($$PWD/config/languages/*.qm)
+translations.path = $$OUT_PWD/config/languages
+
+system($$QMAKE_MKDIR $$shell_path($$PWD/debug/config/languages))
+system($$QMAKE_MKDIR $$shell_path($$OUT_PWD/debug/config/languages))

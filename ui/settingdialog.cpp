@@ -98,7 +98,7 @@ void SettingDialog::createSettingTree() {
     settingTree->setRootIsDecorated(false);
 
     // QStringList names = {"Log"};
-    QStringList names = {tr("General"), tr("Video"), tr("Audio"), tr("Hardware")};
+    QStringList names = {tr("General"), tr("Video"), tr("Audio"), tr("Target Control")};
     for (const QString &name : names) {     // add item to setting tree
         QTreeWidgetItem *item = new QTreeWidgetItem(settingTree);
         item->setText(0, name);
@@ -149,17 +149,12 @@ void SettingDialog::createLayout() {
 
 void SettingDialog::changePage(QTreeWidgetItem *current, QTreeWidgetItem *previous) {
 
-    static bool isChanging = false;
-
-    if (isChanging)
-        return;
-
-    isChanging = true;
-    if (!current)
+    if (!current) {
         current = previous;
-
+        if (!current) return;
+    }
+    
     QString itemText = current->text(0);
-    qDebug() << "Selected item:" << itemText;
 
     if (itemText == tr("General")) {
         stackedWidget->setCurrentIndex(0);
@@ -167,13 +162,10 @@ void SettingDialog::changePage(QTreeWidgetItem *current, QTreeWidgetItem *previo
         stackedWidget->setCurrentIndex(1);
     } else if (itemText == tr("Audio")) {
         stackedWidget->setCurrentIndex(2);
-    } else if (itemText == tr("Hardware")) {
+    } else if (itemText == tr("Target Control")) {
         stackedWidget->setCurrentIndex(3);
     }
 
-    QTimer::singleShot(100, this, [this]() {
-        isChanging = false;
-    });
 }
 
 void SettingDialog::applyAccrodingPage(){
@@ -210,4 +202,8 @@ HardwarePage* SettingDialog::getHardwarePage() {
 
 VideoPage* SettingDialog::getVideoPage() {
     return videoPage;
+}
+
+LogPage* SettingDialog::getLogPage() {
+    return logPage;
 }

@@ -7,7 +7,7 @@
 TARGET = openterfaceQT
 TEMPLATE = app
 
-QT       += core gui multimedia multimediawidgets serialport concurrent svg network
+QT       += core gui multimedia multimediawidgets serialport concurrent svg network dbus
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 SOURCES += main.cpp \
@@ -55,7 +55,8 @@ SOURCES += main.cpp \
     server/tcpServer.cpp \
     scripts/scriptEditor.cpp \
     video/QrCodeDecoder.cpp\
-    ui/languagemanager.cpp
+    ui/languagemanager.cpp \
+    ui/screensavermanager.cpp
 
 
 HEADERS  += \
@@ -110,6 +111,7 @@ HEADERS  += \
     ui/languagemanager.h \
     video/QrCodeDecoder.h \
     video/ZXingQtReader.h 
+    ui/screensavermanager.h
 
 
 FORMS    += \
@@ -181,10 +183,6 @@ TRANSLATIONS += config/languages/openterface_en.ts \
                 config/languages/openterface_se.ts \
                 config/languages/openterface_de.ts 
                 # Add more languages here
-
-COPIES += translationsDebug
-translations.files = $$files($$PWD/config/languages/*.qm)
-translations.path = $$OUT_PWD/debug/config/languages
 
 COPIES += translations
 translations.files = $$files($$PWD/config/languages/*.qm)

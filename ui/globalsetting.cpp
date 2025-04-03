@@ -137,6 +137,15 @@ void GlobalSetting::getKeyboardLayout(QString &keyboardLayout){
     keyboardLayout = m_settings.value("keyboard/keyboardLayout", "US QWERTY").toString();
 }
 
+
+void GlobalSetting::setMouseAutoHideEnable(bool enable){
+    m_settings.setValue("mouse/autoHide", enable);
+}
+
+bool GlobalSetting::getMouseAutoHideEnable(){
+    return m_settings.value("mouse/autoHide", true).toBool();
+}
+
 void GlobalSetting::setLangeuage(QString language){
     m_settings.setValue("language/language", language);
 }
@@ -144,6 +153,23 @@ void GlobalSetting::setLangeuage(QString language){
 void GlobalSetting::getLanguage(QString &language){
     language = m_settings.value("language/language", "en").toString(); 
 }
+
+void GlobalSetting::setOperatingMode(int mode) {
+    m_settings.setValue("hardware/operatingMode", mode);
+}
+
+int GlobalSetting::getOperatingMode() const {
+    return m_settings.value("hardware/operatingMode", 2).toInt();
+}
+
+void GlobalSetting::setScreenSaverInhibited(bool inhibit) {
+    m_settings.setValue("ScreenSaver/Inhibited", inhibit);
+}
+
+bool GlobalSetting::getScreenSaverInhibited() const {
+    return m_settings.value("ScreenSaver/Inhibited", false).toBool();
+}
+
 /*
 * Convert QString to ByteArray
 */

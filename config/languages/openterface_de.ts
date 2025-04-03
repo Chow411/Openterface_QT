@@ -265,54 +265,92 @@ Bitte versuchen Sie es erneut nach einem Neustart der Anwendung.</translation>
 <context>
     <name>HardwarePage</name>
     <message>
-        <location filename="../../ui/hardwarepage.cpp" line="37"/>
-        <source>General hardware setting</source>
-        <translation>Allgemeine Hardware-Einstellungen</translation>
+        <location filename="../../ui/hardwarepage.cpp" line="38"/>
+        <source>Target control setting</source>
+        <translation>Zielsteuerungseinstellung</translation>
     </message>
     <message>
-        <location filename="../../ui/hardwarepage.cpp" line="40"/>
         <source>UVC Camera resource: </source>
-        <translation>UVC-Kamera-Ressource: </translation>
+        <translation type="vanished">UVC-Kamera-Ressource: </translation>
+    </message>
+    <message>
+        <source>Custom target USB Composite Device VID and PID: </source>
+        <translation type="vanished">Benutzerdefiniertes Ziel-USB-Composite-Gerät VID and PID: </translation>
+    </message>
+    <message>
+        <location filename="../../ui/hardwarepage.cpp" line="42"/>
+        <source>Target Control Operating Mode:</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/hardwarepage.cpp" line="45"/>
-        <source>Change target VID&amp;PID: </source>
-        <translation>Ziel-VID&amp;PID ändern: </translation>
+        <source>Standard USB keyboard + USB mouse device + USB custom HID device</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/hardwarepage.cpp" line="46"/>
-        <source>Change USB descriptor: </source>
-        <translation>USB-Deskriptor ändern: </translation>
+        <source>Standard USB keyboard device</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/hardwarepage.cpp" line="47"/>
+        <source>Standard USB keyboard + USB mouse device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/hardwarepage.cpp" line="48"/>
+        <source>Standard USB custom HID device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/hardwarepage.cpp" line="73"/>
+        <source>Custom target USB Composite Device VID and PID:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/hardwarepage.cpp" line="74"/>
+        <source>Custom target USB descriptors: </source>
+        <translation>Benutzerdefinierte Ziel-USB-Deskriptoren: </translation>
+    </message>
+    <message>
+        <location filename="../../ui/hardwarepage.cpp" line="75"/>
         <source>VID: </source>
         <translation>VID: </translation>
     </message>
     <message>
-        <location filename="../../ui/hardwarepage.cpp" line="48"/>
+        <location filename="../../ui/hardwarepage.cpp" line="76"/>
         <source>PID: </source>
         <translation>PID: </translation>
     </message>
     <message>
-        <location filename="../../ui/hardwarepage.cpp" line="49"/>
+        <location filename="../../ui/hardwarepage.cpp" line="77"/>
         <source>Custom vendor descriptor:</source>
         <translation>Benutzerdefinierter Hersteller-Deskriptor:</translation>
     </message>
     <message>
-        <location filename="../../ui/hardwarepage.cpp" line="50"/>
+        <location filename="../../ui/hardwarepage.cpp" line="78"/>
         <source>Custom product descriptor:</source>
         <translation>Benutzerdefinierter Produkt-Deskriptor:</translation>
     </message>
     <message>
-        <location filename="../../ui/hardwarepage.cpp" line="51"/>
+        <location filename="../../ui/hardwarepage.cpp" line="79"/>
         <source>USB serial number:</source>
         <translation>USB-Seriennummer:</translation>
     </message>
     <message>
-        <location filename="../../ui/hardwarepage.cpp" line="52"/>
-        <source>Enable USB flag</source>
-        <translation>USB-Flag aktivieren</translation>
+        <location filename="../../ui/hardwarepage.cpp" line="80"/>
+        <source>Enable custom USB flag</source>
+        <translation>Aktivieren Sie das benutzerdefinierte USB-Flag</translation>
+    </message>
+    <message>
+        <location filename="../../ui/hardwarepage.cpp" line="214"/>
+        <source>App Restart Required</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/hardwarepage.cpp" line="215"/>
+        <source>You have changed the USB operating mode. Please restart the application and re-connect the Openterface Mini-KVM for this change to take effect.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Enable file logging</source>
@@ -352,17 +390,32 @@ Bitte versuchen Sie es erneut nach einem Neustart der Anwendung.</translation>
         <translation>Durchsuchen</translation>
     </message>
     <message>
-        <location filename="../../ui/logpage.cpp" line="76"/>
+        <location filename="../../ui/logpage.cpp" line="57"/>
+        <source>Inhibit Screen Saver</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/logpage.cpp" line="78"/>
         <source>General log setting</source>
         <translation>Allgemeine Log-Einstellungen</translation>
     </message>
     <message>
-        <location filename="../../ui/logpage.cpp" line="80"/>
+        <location filename="../../ui/logpage.cpp" line="82"/>
         <source>Check the check box to see the corresponding log in the QT console.</source>
         <translation>Aktivieren Sie das Kontrollkästchen, um das entsprechende Protokoll in der QT-Konsole zu sehen.</translation>
     </message>
     <message>
-        <location filename="../../ui/logpage.cpp" line="99"/>
+        <location filename="../../ui/logpage.cpp" line="87"/>
+        <source>Screen Saver setting</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/logpage.cpp" line="91"/>
+        <source>Inhibit the screen saver when the application is running.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/logpage.cpp" line="111"/>
         <source>Select Log Directory</source>
         <translation>Log-Verzeichnis auswählen</translation>
     </message>
@@ -406,259 +459,284 @@ Bitte versuchen Sie es erneut nach einem Neustart der Anwendung.</translation>
     </message>
     <message>
         <location filename="../../ui/mainwindow.ui" line="218"/>
+        <source>Mouse Visibility</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.ui" line="225"/>
         <source>Baudrate</source>
         <translation>Baudrate</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="225"/>
+        <location filename="../../ui/mainwindow.ui" line="232"/>
         <source>Switchable USB</source>
         <translation>Umschaltbarer USB</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="237"/>
+        <location filename="../../ui/mainwindow.ui" line="245"/>
         <source>Help</source>
         <translation>Hilfe</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="248"/>
+        <location filename="../../ui/mainwindow.ui" line="256"/>
         <source>Edit</source>
         <translation>Bearbeiten</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="254"/>
+        <location filename="../../ui/mainwindow.ui" line="262"/>
         <source>Advance</source>
         <translation>Erweitert</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="275"/>
+        <location filename="../../ui/mainwindow.ui" line="283"/>
         <source>Close</source>
         <translation>Schließen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="280"/>
+        <location filename="../../ui/mainwindow.ui" line="288"/>
         <source>Change Settings</source>
         <translation>Einstellungen ändern</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="285"/>
+        <location filename="../../ui/mainwindow.ui" line="293"/>
         <source>Reset Keyboard and Mouse</source>
         <translation>Tastatur und Maus zurücksetzen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="290"/>
+        <location filename="../../ui/mainwindow.ui" line="298"/>
         <source>Reset Serial Port</source>
         <translation>Seriellen Port zurücksetzen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="295"/>
+        <location filename="../../ui/mainwindow.ui" line="303"/>
         <source>Serial Console</source>
         <translation>Serielle Konsole</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="300"/>
+        <location filename="../../ui/mainwindow.ui" line="308"/>
         <source>AutoReszie</source>
         <translation>Automatische Größenanpassung</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="305"/>
+        <location filename="../../ui/mainwindow.ui" line="313"/>
         <source>Factory Reset HID Chip</source>
         <translation>Werkseinstellungen des HID-Chips zurücksetzen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="310"/>
+        <location filename="../../ui/mainwindow.ui" line="318"/>
         <source>Preferences</source>
         <translation>Einstellungen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="315"/>
+        <location filename="../../ui/mainwindow.ui" line="323"/>
         <source>Office Website</source>
         <translation>Offizielle Website</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="320"/>
+        <location filename="../../ui/mainwindow.ui" line="328"/>
         <source>Purchase</source>
         <translation>Kaufen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="325"/>
+        <location filename="../../ui/mainwindow.ui" line="333"/>
         <source>Feedback</source>
         <translation>Feedback</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="330"/>
+        <location filename="../../ui/mainwindow.ui" line="338"/>
         <source>Update</source>
         <translation>Aktualisieren</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="335"/>
+        <location filename="../../ui/mainwindow.ui" line="343"/>
         <source>Environment</source>
         <translation>Umgebung</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="340"/>
+        <location filename="../../ui/mainwindow.ui" line="348"/>
         <source>About</source>
         <translation>Über</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="351"/>
+        <location filename="../../ui/mainwindow.ui" line="359"/>
         <source>Follow Switch</source>
         <translation>Schalter folgen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="359"/>
+        <location filename="../../ui/mainwindow.ui" line="367"/>
         <source>Paste</source>
         <translation>Einfügen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="362"/>
+        <location filename="../../ui/mainwindow.ui" line="370"/>
         <source>Paste clipboard content to target</source>
         <translation>Inhalt der Zwischenablage in Ziel einfügen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="367"/>
+        <location filename="../../ui/mainwindow.ui" line="375"/>
         <source>Script Tool</source>
         <translation>Skript-Tool</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="372"/>
+        <location filename="../../ui/mainwindow.ui" line="380"/>
         <source>TCP Server</source>
         <translation>TCP-Server</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="377"/>
+        <location filename="../../ui/mainwindow.ui" line="385"/>
         <source>Environment Checking</source>
         <translation>Umgebungsprüfung</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="382"/>
+        <location filename="../../ui/mainwindow.ui" line="390"/>
         <source>Firmware Update...</source>
         <translation>Firmware-Aktualisierung...</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="391"/>
+        <location filename="../../ui/mainwindow.ui" line="399"/>
         <source>115200</source>
         <translation>115200</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="399"/>
+        <location filename="../../ui/mainwindow.ui" line="407"/>
         <source>9600</source>
         <translation>9600</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="409"/>
+        <location filename="../../ui/mainwindow.ui" line="417"/>
         <source>To Host</source>
         <translation>Zum Host</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="417"/>
+        <location filename="../../ui/mainwindow.ui" line="425"/>
         <source>To Target</source>
         <translation>Zum Ziel</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="430"/>
+        <location filename="../../ui/mainwindow.ui" line="438"/>
         <source>Absolute</source>
         <translation>Absolut</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.ui" line="438"/>
+        <location filename="../../ui/mainwindow.ui" line="446"/>
         <source>Relative</source>
         <translation>Relativ</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="400"/>
+        <location filename="../../ui/mainwindow.ui" line="459"/>
+        <source>Auto Hide</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.ui" line="462"/>
+        <source>Auto hide mouse cursor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.ui" line="470"/>
+        <source>Always Show</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.ui" line="473"/>
+        <source>Always show mouse cursor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/mainwindow.cpp" line="407"/>
         <source>Zoom in</source>
         <translation>Vergrößern</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="401"/>
+        <location filename="../../ui/mainwindow.cpp" line="408"/>
         <source>Zoom out</source>
         <translation>Verkleinern</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="402"/>
+        <location filename="../../ui/mainwindow.cpp" line="409"/>
         <source>Restore original size</source>
         <translation>Ursprüngliche Größe wiederherstellen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="403"/>
+        <location filename="../../ui/mainwindow.cpp" line="410"/>
         <source>Function key and composite key</source>
         <translation>Funktionstaste und Kombinationstaste</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="404"/>
+        <location filename="../../ui/mainwindow.cpp" line="411"/>
         <source>Paste text to target</source>
         <translation>Text in Ziel einfügen</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="405"/>
+        <location filename="../../ui/mainwindow.cpp" line="412"/>
         <source>Mouse dance</source>
         <translation>Maustanz</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="406"/>
+        <location filename="../../ui/mainwindow.cpp" line="413"/>
         <source>Full screen capture</source>
         <translation>Vollbildaufnahme</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="407"/>
+        <location filename="../../ui/mainwindow.cpp" line="414"/>
         <source>Full screen mode</source>
         <translation>Vollbildmodus</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="884"/>
+        <location filename="../../ui/mainwindow.cpp" line="916"/>
         <source>Recorded %1 sec</source>
         <translation>Aufgezeichnet %1 Sek.</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1025"/>
+        <location filename="../../ui/mainwindow.cpp" line="1059"/>
         <source>Image Capture Error</source>
         <translation>Bildaufnahmefehler</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1093"/>
+        <location filename="../../ui/mainwindow.cpp" line="1127"/>
         <source>Captured &quot;%1&quot;</source>
         <translation>Erfasst &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1483"/>
+        <location filename="../../ui/mainwindow.cpp" line="1550"/>
         <source>Firmware Update</source>
         <translation>Firmware-Aktualisierung</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1483"/>
+        <location filename="../../ui/mainwindow.cpp" line="1550"/>
         <source>The firmware is up to date.</source>
         <translation>Die Firmware ist auf dem neuesten Stand.</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1492"/>
+        <location filename="../../ui/mainwindow.cpp" line="1559"/>
         <source>Firmware Update Confirmation</source>
         <translation>Bestätigung der Firmware-Aktualisierung</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1493"/>
+        <location filename="../../ui/mainwindow.cpp" line="1560"/>
         <source>Current firmware version: </source>
         <translation>Aktuelle Firmware-Version: </translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1493"/>
+        <location filename="../../ui/mainwindow.cpp" line="1560"/>
         <source>
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1494"/>
+        <location filename="../../ui/mainwindow.cpp" line="1561"/>
         <source>Latest firmware version: </source>
         <translation>Neueste Firmware-Version: </translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1494"/>
+        <location filename="../../ui/mainwindow.cpp" line="1561"/>
         <source>
 
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1495"/>
+        <location filename="../../ui/mainwindow.cpp" line="1562"/>
         <source>The update process will:
 </source>
         <translation>Der Aktualisierungsprozess wird:
@@ -669,7 +747,7 @@ Bitte versuchen Sie es erneut nach einem Neustart der Anwendung.</translation>
         <translation type="vanished">Der Aktualisierungsprozess wird:</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1496"/>
+        <location filename="../../ui/mainwindow.cpp" line="1563"/>
         <source>1. Stop all video and USB operations
 2. Install new firmware
 3. Close the application automatically
@@ -837,27 +915,31 @@ Möchten Sie mit der Aktualisierung fortfahren?</translation>
     </message>
     <message>
         <location filename="../../ui/settingdialog.cpp" line="101"/>
-        <location filename="../../ui/settingdialog.cpp" line="164"/>
+        <location filename="../../ui/settingdialog.cpp" line="159"/>
         <source>General</source>
         <translation>Allgemein</translation>
     </message>
     <message>
         <location filename="../../ui/settingdialog.cpp" line="101"/>
-        <location filename="../../ui/settingdialog.cpp" line="166"/>
+        <location filename="../../ui/settingdialog.cpp" line="161"/>
         <source>Video</source>
         <translation>Video</translation>
     </message>
     <message>
         <location filename="../../ui/settingdialog.cpp" line="101"/>
-        <location filename="../../ui/settingdialog.cpp" line="168"/>
+        <location filename="../../ui/settingdialog.cpp" line="163"/>
         <source>Audio</source>
         <translation>Audio</translation>
     </message>
     <message>
         <location filename="../../ui/settingdialog.cpp" line="101"/>
-        <location filename="../../ui/settingdialog.cpp" line="170"/>
+        <location filename="../../ui/settingdialog.cpp" line="165"/>
+        <source>Target Control</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Hardware</source>
-        <translation>Hardware</translation>
+        <translation type="vanished">Hardware</translation>
     </message>
     <message>
         <location filename="../../ui/settingdialog.cpp" line="118"/>
@@ -941,29 +1023,33 @@ Bitte überprüfen Sie Ihre Internetverbindung.
 <context>
     <name>VideoPage</name>
     <message>
-        <location filename="../../ui/videopage.cpp" line="44"/>
+        <location filename="../../ui/videopage.cpp" line="54"/>
+        <source>UVC Camera resource: </source>
+        <translation type="unfinished">UVC-Kamera-Ressource: </translation>
+    </message>
+    <message>
+        <location filename="../../ui/videopage.cpp" line="108"/>
         <source>General video setting</source>
         <translation>Allgemeine Videoeinstellungen</translation>
     </message>
     <message>
-        <location filename="../../ui/videopage.cpp" line="48"/>
+        <location filename="../../ui/videopage.cpp" line="112"/>
         <source>Capture resolutions: </source>
         <translation>Aufnahmeauflösungen: </translation>
     </message>
     <message>
-        <location filename="../../ui/videopage.cpp" line="54"/>
+        <location filename="../../ui/videopage.cpp" line="118"/>
         <source>Framerate: </source>
         <translation>Bildrate: </translation>
     </message>
     <message>
-        <location filename="../../ui/videopage.cpp" line="63"/>
+        <location filename="../../ui/videopage.cpp" line="127"/>
         <source>Pixel format: </source>
         <translation>Pixelformat: </translation>
     </message>
     <message>
-        <location filename="../../ui/videopage.cpp" line="179"/>
         <source>Default pixel format</source>
-        <translation>Standard-Pixelformat</translation>
+        <translation type="vanished">Standard-Pixelformat</translation>
     </message>
 </context>
 </TS>

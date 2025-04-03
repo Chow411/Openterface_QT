@@ -37,7 +37,7 @@ void ScreenSaverManager::setScreenSaverInhibited(bool inhibit) {
 
     m_isInhibited = inhibit;
     GlobalSetting::instance().setScreenSaverInhibited(m_isInhibited); // save the state to QSettings
-    emit screenSaverInhibitedChanged(m_isInhibited);            // emit signal
+    emit screenSaverChanged(m_isInhibited);            // emit signal
 }
 
 void ScreenSaverManager::inhibitScreenSaver() {

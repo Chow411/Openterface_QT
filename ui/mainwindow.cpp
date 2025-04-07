@@ -24,21 +24,20 @@
 #include "global.h"
 #include "ui_mainwindow.h"
 #include "globalsetting.h"
-#include "statusbarmanager.h"
+#include "ui/statusbar/statusbarmanager.h"
 #include "host/HostManager.h"
 #include "host/cameramanager.h"
 #include "serial/SerialPortManager.h"
 #include "loghandler.h"
-#include "ui/settingdialog.h"
-#include "ui/helppane.h"
-#include "ui/serialportdebugdialog.h"
+#include "ui/preferences/settingdialog.h"
+#include "ui/help/helppane.h"
 #include "ui/videopane.h"
 #include "video/videohid.h"
-#include "ui/versioninfomanager.h"
-#include "ui/cameraajust.h"
+#include "ui/help/versioninfomanager.h"
 #include "ui/TaskManager.h"
-#include "ui/firmwareupdatedialog.h"
-#include "envdialog.h"
+#include "ui/advance/serialportdebugdialog.h"
+#include "ui/advance/firmwareupdatedialog.h"
+#include "ui/advance/envdialog.h"
 
 #include <QCameraDevice>
 #include <QMediaDevices>
@@ -1545,33 +1544,24 @@ void MainWindow::showEnvironmentSetupDialog() {
 }
 
 void MainWindow::updateFirmware() {
-    // Check if it's lastest firmware
+    // Check if it's latest firmware
     if (VideoHid::getInstance().isLatestFirmware()) {
-        QMessageBox::information(this, tr("Firmware Update"), tr("The firmware is up to date."));
+        std::string currentFirmwareVersion = VideoHid::getInstance().getFirmwareVersion();
+        QMessageBox::information(this, tr("Firmware Update"), 
+            tr("The firmware is up to date.\nCurrent version: ") + 
+            QString::fromStdString(currentFirmwareVersion));
         return;
     }
 
 
     std::string currentFirmwareVersion = VideoHid::getInstance().getFirmwareVersion();
     std::string latestFirmwareVersion = VideoHid::getInstance().getLatestFirmwareVersion();
-    QMessageBox::StandardButton reply;
-    reply = QMessageBox::warning(this, 
-                tr("Firmware Update Confirmation"),
-                tr("Current firmware version: ") + QString::fromStdString(currentFirmwareVersion) + tr("\n") +
-                tr("Latest firmware version: ") + QString::fromStdString(latestFirmwareVersion) + tr("\n\n") +
-                tr("The update process will:\n") +
-                tr("1. Stop all video and USB operations\n"
-                "2. Install new firmware\n"
-                "3. Close the application automatically\n\n"
-                "Important:\n"
-                "• Use a high-quality USB cable for host connection\n"
-                "• Disconnect the HDMI cable\n"
-                "• Do not interrupt power during update\n"
-                "• Restart application after completion\n\n"
-                "Do you want to proceed with the update?"),
-                QMessageBox::Ok | QMessageBox::Cancel);
+    
+    // Create and show the confirmation dialog
+    FirmwareUpdateConfirmDialog confirmDialog(this);
+    bool proceed = confirmDialog.showConfirmDialog(currentFirmwareVersion, latestFirmwareVersion);
 
-    if (reply == QMessageBox::Ok) {
+    if (proceed) {
         // Stop video and HID operations before firmware update
         VideoHid::getInstance().stop();
         SerialPortManager::getInstance().stop();
@@ -1583,5 +1573,5 @@ void MainWindow::updateFirmware() {
         updateDialog->startUpdate();
         // The application will be closed by the dialog if the update is successful
         updateDialog->deleteLater();
-    } 
+    }
 }

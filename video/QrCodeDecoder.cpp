@@ -1,4 +1,4 @@
-#include "QRCodeDecoder.h"
+#include "QrCodeDecoder.h"
 #include <QDebug>
 
 #include <iostream>

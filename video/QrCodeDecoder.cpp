@@ -1,4 +1,4 @@
-#include "QRCodeDecoder.h"
+#include "QrCodeDecoder.h"
 #include <QDebug>
 
 #include <iostream>
@@ -31,7 +31,7 @@ QString QRCodeDecoder::decodeQRCode(const QImage &image)
         .setFormats(BarcodeFormat::MatrixCodes)
         .setTryInvert(false)
         .setTextMode(TextMode::HRI)
-        .setMaxNumberOfSymbols(10);
+        .setMaxNumberOfSymbols(2);
 
     auto barcodes = ReadBarcodes(image, options);
     for (const auto& barcode : barcodes) {

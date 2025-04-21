@@ -143,15 +143,16 @@ win32:LIBS += -lsetupapi
 
 win32 {
     INCLUDEPATH += $$PWD/lib
+    INCLUDEPATH += $$PWD/zxing/include
     LIBS += -L$$PWD/lib -llibusb-1.0 -loleaut32 -lwinpthread
-
+    LIBS += -L$$PWD/zxing/lib -lZXing
     RESOURCES += driver/windows/drivers.qrc
 }
 
 unix {
     INCLUDEPATH += /usr/include/
     LIBS += -lusb-1.0
-
+    LIBS += -lZXing
     RESOURCES += driver/linux/drivers.qrc
 }
 
@@ -170,8 +171,8 @@ DEPENDPATH += $$PWD/''
 
 DEFINES += ONLINE_VERSION
 
-INCLUDEPATH += $$PWD/zxing/include/
-LIBS += -L$$PWD/zxing/lib -llibZxing
+
+
 
 TRANSLATIONS += config/languages/openterface_en.ts \
                 config/languages/openterface_fr.ts \

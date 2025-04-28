@@ -48,6 +48,7 @@ private:
 
 private slots:
     void onKeyButtonClicked();
+    void onCustomButtonClicked();
     void onCtrlAltDelClicked();
     void onRepeatingKeystrokeChanged(int index);
 

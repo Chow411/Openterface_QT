@@ -81,11 +81,11 @@ void ToolbarManager::setupToolbar()
     toolbar->addSeparator();
 
     // Function keys
-    for (int i = 1; i <= 12; i++) {
-        QPushButton *button = addKeyButton(QString("F%1").arg(i), QString("Press Function key F%1.").arg(i));
-        button->setProperty(KEYCODE_PROPERTY, Qt::Key_F1 + i - 1);
-        connect(button, &QPushButton::clicked, this, &ToolbarManager::onKeyButtonClicked);
-    }
+    // for (int i = 1; i <= 12; i++) {
+    //     QPushButton *button = addKeyButton(QString("F%1").arg(i), QString("Press Function key F%1.").arg(i));
+    //     button->setProperty(KEYCODE_PROPERTY, Qt::Key_F1 + i - 1);
+    //     connect(button, &QPushButton::clicked, this, &ToolbarManager::onKeyButtonClicked);
+    // }
 
     toolbar->addSeparator();
 
@@ -134,6 +134,10 @@ QPushButton *ToolbarManager::addKeyButton(const QString& text, const QString& to
     button->setFocusPolicy(Qt::TabFocus);
     toolbar->addWidget(button);
     return button;
+}
+
+void ToolbarManager::onCustomButtonClicked(){
+    
 }
 
 void ToolbarManager::onKeyButtonClicked()

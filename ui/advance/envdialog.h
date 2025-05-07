@@ -46,8 +46,10 @@ private:
     bool isDevicePlugged;
     const uint16_t openterfaceVID = 0x534D;
     const uint16_t openterfacePID = 0x2109;
+    const uint16_t ch340VID = 0x1A86;
+    const uint16_t ch340PID = 0x7523;
     libusb_context *context = nullptr;
-    bool detectDevice();
+    bool detectDevice(uint16_t vendorID, uint16_t productID);
 
 #ifdef __linux__
     static bool checkInRightUserGroup(); 

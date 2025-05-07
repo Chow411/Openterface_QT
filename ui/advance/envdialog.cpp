@@ -86,7 +86,8 @@ EnvironmentSetupDialog::EnvironmentSetupDialog(QWidget *parent) :
         return;
     }
     std::cout << "libusb initialized successfully." << std::endl;
-    detectDevice();
+    detectDevice(openterfaceVID, openterfacePID);
+    // detectDevice(ch340VID, ch340PID);
 
 #ifdef _WIN32
     setFixedSize(250, 140);
@@ -397,7 +398,7 @@ void EnvironmentSetupDialog::reject()
     QDialog::reject();
 }
 
-bool EnvironmentSetupDialog::detectDevice() {
+bool EnvironmentSetupDialog::detectDevice(uint16_t vendorID, uint16_t productID) {
     libusb_device **dev_list = nullptr;
     size_t dev_count = libusb_get_device_list(context, &dev_list);
     if (dev_count < 0) {
@@ -419,27 +420,30 @@ bool EnvironmentSetupDialog::detectDevice() {
             std::cerr << "libusb_get_device_descriptor failed: " << libusb_error_name(ret) << std::endl;
             continue;
         }
-        if (desc.idVendor == openterfaceVID && desc.idProduct == openterfacePID) {
+        if (desc.idVendor == vendorID && desc.idProduct == productID) {
             found = true;
-            break;
+            
 
             // check device permission
             libusb_device_handle* handle = nullptr;
             ret = libusb_open(dev, &handle);
             if (ret == 0) {
-                std::cout << "Device opened successfully, you have permission to control it." << std::endl;
+                std::cout << "Device" << desc.iManufacturer <<" opened successfully, you have permission to control it." << std::endl;
                 libusb_close(handle);
+                break;
             } else {
                 std::cerr << "Failed to open device: " << libusb_error_name(ret) 
                           << " (Check permissions or if device is in use)" << std::endl;
+                found = false;
+                break;
             }
             break;
         }
     }
 
     if (!found) {
-        std::cout << "Device with VID=0x" << std::hex << openterfaceVID 
-                  << ", PID=0x" << openterfacePID << " not found." << std::dec << std::endl;
+        std::cout << "Device with VID=0x" << std::hex << vendorID 
+                  << ", PID=0x" << productID << " not found." << std::dec << std::endl;
     }
     std::cout << "Device detection result: " << (found? "Found" : "Not Found") << std::endl;
     return found;
@@ -461,7 +465,7 @@ bool EnvironmentSetupDialog::checkEnvironmentSetup() {
     }
 
     checkBrlttyRunning(); // No need to return value here
-    return checkDriverInstalled() && checkInRightUserGroup() && checkHidPermission() && !isBrlttyRunning || skipCheck;
+    return checkDriverInstalled() && checkInRightUserGroup() && detectDevice(openterfaceVID, openterfacePID) && !isBrlttyRunning || skipCheck;
     #else
     return true;
     #endif

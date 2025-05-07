@@ -42,6 +42,7 @@ jobs:
     runs-on: windows-2022
     permissions:
       contents: write
+      actions: write
     environment: ${{ github.event.inputs.TARGET_ENV || 'Openterface_build' }}
     
     steps:

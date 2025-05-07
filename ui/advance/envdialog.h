@@ -49,7 +49,7 @@ private:
     static const uint16_t ch340VID = 0x1A86;
     static const uint16_t ch340PID = 0x7523;
     libusb_context *context = nullptr;
-    static bool detectDevice(uint16_t vendorID, uint16_t productID);
+    bool detectDevice(uint16_t vendorID, uint16_t productID);
 
 #ifdef __linux__
     static bool checkInRightUserGroup(); 

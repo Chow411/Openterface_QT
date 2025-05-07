@@ -398,7 +398,7 @@ void EnvironmentSetupDialog::reject()
     QDialog::reject();
 }
 
-static bool EnvironmentSetupDialog::detectDevice(uint16_t vendorID, uint16_t productID) {
+bool EnvironmentSetupDialog::detectDevice(uint16_t vendorID, uint16_t productID) {
     libusb_device **dev_list = nullptr;
     size_t dev_count = libusb_get_device_list(context, &dev_list);
     if (dev_count < 0) {
@@ -465,7 +465,8 @@ bool EnvironmentSetupDialog::checkEnvironmentSetup() {
     }
 
     checkBrlttyRunning(); // No need to return value here
-    return checkDriverInstalled() && checkInRightUserGroup() && detectDevice(openterfaceVID, openterfacePID) && !isBrlttyRunning || skipCheck;
+    bool HIDret = detectDevice(openterfaceVID, openterfacePID);
+    return checkDriverInstalled() && checkInRightUserGroup() && HIDret && !isBrlttyRunning || skipCheck;
     #else
     return true;
     #endif

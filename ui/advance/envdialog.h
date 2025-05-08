@@ -50,7 +50,6 @@ private:
     static bool checkDevicePermission(uint16_t vendorID, uint16_t productID);
 
 #ifdef __linux__
-    static bool checkInRightUserGroup(); 
     static bool checkHidPermission();
     static bool checkBrlttyRunning();
 
@@ -61,6 +60,7 @@ private:
 
     static bool isInRightUserGroup;
     static bool isHidPermission;
+    static bool isSerialPermission;
     static bool isBrlttyRunning;
 
     QString buildCommands();

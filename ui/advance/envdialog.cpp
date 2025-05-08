@@ -41,14 +41,16 @@ const QString EnvironmentSetupDialog::crossHtml = "<span style='color: red; font
 // Define the static commands
 static const uint16_t openterfaceVID = 0x534d;
 static const uint16_t openterfacePID = 0x2109;
+static const uint16_t ch341VID = 0x1a86;
+static const uint16_t ch341PID = 0x7523;
 libusb_context *context = nullptr;
 
 const QString EnvironmentSetupDialog::driverCommands = "# Build and install the driver\n make ; sudo make install\n\n";
-const QString EnvironmentSetupDialog::groupCommands = "# Add user to dialout group\n sudo usermod -a -G dialout $USER\n\n";
+// const QString EnvironmentSetupDialog::groupCommands = "# Add user to dialout group\n sudo usermod -a -G dialout $USER\n\n";
 const QString EnvironmentSetupDialog::udevCommands =
     "#Add udev rules for Openterface Mini-KVM\n"
-    "echo 'ACTION==\"add\", SUBSYSTEM==\"usb\",ATTRS{idVendor}=\"534d\", ATTRS{idProduct}=\"2109\", MODE=\"0666\"' | sudo tee /etc/udev/rules.d/51-openterface.rules\n"
-    "echo 'SUBSYSTEM==\"usb\", ATTR{idVendor}==\"1a86\", ATTR{idProduct}==\"7523\", ENV{BRL TTY_BRAILLY_DRIVER}=\"none\", MODE=\"0666\"' | sudo tee -a /etc/udev/rules.d/51-openterface.rules\n"
+    "echo 'SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"534d\", ATTRS{idProduct}==\"2109\", MODE=\"0666\"' | sudo tee /etc/udev/rules.d/51-openterface.rules\n"
+    "echo 'SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"1a86\", ATTRS{idProduct}==\"7523\", MODE=\"0666\"' | sudo tee -a /etc/udev/rules.d/51-openterface.rules\n"
     "sudo udevadm control --reload-rules\n"
     "sudo udevadm trigger\n\n";
 const QString EnvironmentSetupDialog::brlttyCommands =
@@ -56,7 +58,7 @@ const QString EnvironmentSetupDialog::brlttyCommands =
     "sudo apt-get remove -y brltty\n"
     "sudo apt-get autoremove -y\n\n";
 
-bool EnvironmentSetupDialog::isInRightUserGroup = false;
+bool EnvironmentSetupDialog::isSerialPermission = false;
 bool EnvironmentSetupDialog::isHidPermission = false;
 bool EnvironmentSetupDialog::isBrlttyRunning = false;
 bool EnvironmentSetupDialog::isDevicePlugged = false;
@@ -123,9 +125,9 @@ EnvironmentSetupDialog::EnvironmentSetupDialog(QWidget *parent) :
     connect(ui->copyButton, &QPushButton::clicked, this, &EnvironmentSetupDialog::copyCommands);
 
     // Create the status summary
-    QString statusSummary = tr("The following steps help you install the driver and add user to correct group. Current status:<br>");
+    QString statusSummary = tr("The following steps help you install the driver and access the device permissions. Current status:<br>");
     statusSummary += tr("‣ Driver Installed: ") + QString(isDriverInstalled ? tickHtml : crossHtml) + "<br>";
-    statusSummary += tr("‣ In Dialout Group: ") + QString(isInRightUserGroup ? tickHtml : crossHtml) + "<br>";
+    statusSummary += tr("‣ In Serial Port Permission: ") + QString(isSerialPermission ? tickHtml : crossHtml) + "<br>";
     statusSummary += tr("‣ HID Permission: ") + QString(isHidPermission ? tickHtml : crossHtml) + "<br>";
     statusSummary += tr("‣ BRLTTY checking: ") + QString(isBrlttyRunning ? crossHtml + tr(" (needs removal)") : tickHtml + tr(" (not running)"));
     ui->descriptionLabel->setText(statusSummary);
@@ -230,7 +232,7 @@ void EnvironmentSetupDialog::accept()
         // Check the current status
         QString statusSummary;
         statusSummary += tr("Driver Installed: ") + QString(isDriverInstalled ? tr("Yes") : tr("No")) + "\n";
-        statusSummary += tr("In Dialout Group: ") + QString(isInRightUserGroup ? tr("Yes") : tr("No")) + "\n";
+        statusSummary += tr("Serial port Permission: ") + QString(isSerialPermission ? tr("Yes") : tr("No")) + "\n";
         statusSummary += tr("HID Permission: ") + QString(isHidPermission ? tr("Yes") : tr("No")) + "\n";
         statusSummary += tr("BRLTTY is Running: ") + QString(isBrlttyRunning ? tr("Yes (needs removal)") : tr("No")) + "\n";
 
@@ -273,10 +275,10 @@ QString EnvironmentSetupDialog::buildCommands(){
     if (!isDriverInstalled) {
         commands += driverCommands;
     }
-    if (!isInRightUserGroup) {
-        commands += groupCommands;
-    }
-    if (!isHidPermission) {
+    // if (!isSerialPermission) {
+    //     commands += groupCommands;
+    // }
+    if (!isHidPermission && !isSerialPermission) {
         commands += udevCommands;
     }
     if (isBrlttyRunning) {
@@ -286,14 +288,7 @@ QString EnvironmentSetupDialog::buildCommands(){
     return commands;
 }
 
-bool EnvironmentSetupDialog::checkInRightUserGroup() {
-    // Check if the user is in the dialout group
-    std::string command = "groups | grep -i dialout";
-    int result = system(command.c_str());
-    isInRightUserGroup = (result == 0);
-    // Remove the UI update from the static method
-    return isInRightUserGroup;
-}
+
 
 bool EnvironmentSetupDialog::checkHidPermission() {
     std::cout << "Checking HID permissions..." << std::endl;
@@ -427,8 +422,13 @@ bool EnvironmentSetupDialog::checkDevicePermission(uint16_t vendorID, uint16_t p
             if (ret == LIBUSB_SUCCESS) {
                 // close the device handle
                 libusb_close(handle);
-                qDebug() << "Device permission check passed.";
-                isHidPermission = true;
+                if (vendorID == ch341VID && productID == ch341PID) {
+                    isSerialPermission = true;
+                    qDebug() << "CH341 permission check passed.";
+                } else if (vendorID == openterfaceVID && productID == openterfacePID) {
+                    isHidPermission = true;
+                    qDebug() << "Openterface permission check passed.";
+                }
                 return true; 
             } else if (ret == LIBUSB_ERROR_ACCESS) {
                 std::cerr << "Permission denied for the device" << std::endl;
@@ -442,6 +442,7 @@ bool EnvironmentSetupDialog::checkDevicePermission(uint16_t vendorID, uint16_t p
             }
         }
     }
+    
 }
 
 bool EnvironmentSetupDialog::detectDevice(uint16_t vendorID, uint16_t productID) {
@@ -503,11 +504,24 @@ bool EnvironmentSetupDialog::checkEnvironmentSetup() {
         std::cout << "MS2109 not exist, so no Openterface plugged in" << std::endl;
         skipCheck = true;
     }
+    bool isSerialPlugged = detectDevice(ch341VID, ch341PID);
+    if (!isSerialPlugged) {
+        std::cout << "CH341 not exist, so no Openterface plugged in" << std::endl;
+    }else{
+        std::cout << "CH341 exist, so Openterface plugged in" << std::endl;
+    }
+
+    bool checkSerialPermission = checkDevicePermission(ch341VID, ch341PID);
+    if (!checkSerialPermission) {
+        std::cout << "CH341 permission check failed." << std::endl;
+    } else {
+        std::cout << "CH341 permission check passed." << std::endl;
+    }
     
     checkBrlttyRunning(); // No need to return value here
     bool checkPermission = checkDevicePermission(openterfaceVID, openterfacePID);
     qDebug() << "Check permission result: " << checkPermission;
-    return checkDriverInstalled() && checkInRightUserGroup() && checkPermission && !isBrlttyRunning || skipCheck;
+    return checkDriverInstalled() && checkSerialPermission && checkPermission && !isBrlttyRunning || skipCheck;
     #else
     return true;
     #endif

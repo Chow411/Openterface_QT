@@ -43,13 +43,11 @@ private:
     static bool isDriverInstalled;
     static const QString tickHtml;
     static const QString crossHtml;
-    bool isDevicePlugged;
-    static const uint16_t openterfaceVID = 0x534D;
-    static const uint16_t openterfacePID = 0x2109;
-    static const uint16_t ch340VID = 0x1A86;
-    static const uint16_t ch340PID = 0x7523;
-    libusb_context *context = nullptr;
-    bool detectDevice(uint16_t vendorID, uint16_t productID);
+    static bool isDevicePlugged;
+    // bool isDevicePlugged;
+    
+    static bool detectDevice(uint16_t vendorID, uint16_t productID);
+    static bool checkDevicePermission(uint16_t vendorID, uint16_t productID);
 
 #ifdef __linux__
     static bool checkInRightUserGroup(); 

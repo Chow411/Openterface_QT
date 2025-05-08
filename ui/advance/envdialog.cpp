@@ -39,11 +39,15 @@ const QString EnvironmentSetupDialog::crossHtml = "<span style='color: red; font
 
 #ifdef __linux__
 // Define the static commands
+static const uint16_t openterfaceVID = 0x534d;
+static const uint16_t openterfacePID = 0x2109;
+libusb_context *context = nullptr;
+
 const QString EnvironmentSetupDialog::driverCommands = "# Build and install the driver\n make ; sudo make install\n\n";
 const QString EnvironmentSetupDialog::groupCommands = "# Add user to dialout group\n sudo usermod -a -G dialout $USER\n\n";
 const QString EnvironmentSetupDialog::udevCommands =
     "#Add udev rules for Openterface Mini-KVM\n"
-    "echo 'KERNEL== \"hidraw*\", SUBSYSTEM==\"hidraw\", MODE=\"0666\"' | sudo tee /etc/udev/rules.d/51-openterface.rules\n"
+    "echo 'ACTION==\"add\", SUBSYSTEM==\"usb\",ATTRS{idVendor}=\"534d\", ATTRS{idProduct}=\"2109\", MODE=\"0666\"' | sudo tee /etc/udev/rules.d/51-openterface.rules\n"
     "echo 'SUBSYSTEM==\"usb\", ATTR{idVendor}==\"1a86\", ATTR{idProduct}==\"7523\", ENV{BRL TTY_BRAILLY_DRIVER}=\"none\", MODE=\"0666\"' | sudo tee -a /etc/udev/rules.d/51-openterface.rules\n"
     "sudo udevadm control --reload-rules\n"
     "sudo udevadm trigger\n\n";
@@ -55,6 +59,7 @@ const QString EnvironmentSetupDialog::brlttyCommands =
 bool EnvironmentSetupDialog::isInRightUserGroup = false;
 bool EnvironmentSetupDialog::isHidPermission = false;
 bool EnvironmentSetupDialog::isBrlttyRunning = false;
+bool EnvironmentSetupDialog::isDevicePlugged = false;
 #endif
 
 // Define the help URL
@@ -66,28 +71,23 @@ const QString EnvironmentSetupDialog::helpUrl = "https://github.com/TechxArtisan
 
 EnvironmentSetupDialog::EnvironmentSetupDialog(QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::EnvironmentSetupDialog),
-    isDevicePlugged(false)
+    ui(new Ui::EnvironmentSetupDialog)
+    // isDevicePlugged(false)
 {
     ui->setupUi(this);
     
     // Set labels to interpret rich text
     ui->descriptionLabel->setTextFormat(Qt::RichText);
     ui->helpLabel->setTextFormat(Qt::RichText);
+    
 
     checkEnvironmentSetup(); // Ensure the status variables are updated
     QSettings settings("Openterface", "EnvironmentSetup");
     bool autoCheck = settings.value("autoCheck", true).toBool();
     ui->autoCheckBox->setChecked(autoCheck);
 
-    int ret = libusb_init(&context);
-    if (ret < 0) {
-        std::cerr << "Error initializing libusb: " << libusb_error_name(ret) << std::endl;
-        return;
-    }
-    std::cout << "libusb initialized successfully." << std::endl;
-    detectDevice(openterfaceVID, openterfacePID);
-    // detectDevice(ch340VID, ch340PID);
+
+
 
 #ifdef _WIN32
     setFixedSize(250, 140);
@@ -398,7 +398,57 @@ void EnvironmentSetupDialog::reject()
     QDialog::reject();
 }
 
+bool EnvironmentSetupDialog::checkDevicePermission(uint16_t vendorID, uint16_t productID) {
+    libusb_device **dev_list = nullptr;
+    size_t dev_count = libusb_get_device_list(context, &dev_list);
+    if (dev_count < 0) {
+        std::cerr << "libusb_get_device_list failed: " << libusb_error_name(static_cast<int>(dev_count)) << std::endl;
+        return false;
+    }
+
+    std::unique_ptr<libusb_device*[], void(*)(libusb_device**)> dev_list_guard(dev_list, [](libusb_device** list) {
+        libusb_free_device_list(list, 1);
+    });
+
+    bool found = false;
+
+    for (ssize_t i =0; i < dev_count; i++) {
+        libusb_device *dev = dev_list[i];
+        libusb_device_descriptor desc;
+        int ret = libusb_get_device_descriptor(dev, &desc);
+        if (ret < 0) {
+            std::cerr << "libusb_get_device_descriptor failed: " << libusb_error_name(ret) << std::endl;
+            continue;
+        }
+        if (desc.idVendor == vendorID && desc.idProduct == productID) {
+            qDebug() << "Name of device" << desc.iProduct;
+            libusb_device_handle* handle = nullptr;
+            int ret = libusb_open(dev, &handle);
+            if (ret == LIBUSB_SUCCESS) {
+                // close the device handle
+                libusb_close(handle);
+                qDebug() << "Device permission check passed.";
+                isHidPermission = true;
+                return true; 
+            } else if (ret == LIBUSB_ERROR_ACCESS) {
+                std::cerr << "Permission denied for the device" << std::endl;
+                return false;
+            } else if (ret == LIBUSB_ERROR_BUSY) {
+                std::cerr << "Device is busy" << std::endl;
+                return false;
+            } else {
+                std::cerr << "Failed to open device: " << libusb_error_name(ret) << std::endl;
+                return false;
+            }
+        }
+    }
+}
+
 bool EnvironmentSetupDialog::detectDevice(uint16_t vendorID, uint16_t productID) {
+    qDebug() << "Device detected with VID: 0x" 
+                    << QString::number(vendorID, 16).rightJustified(4, '0')
+                    << "PID: 0x" 
+                    << QString::number(productID, 16).rightJustified(4, '0');
     libusb_device **dev_list = nullptr;
     size_t dev_count = libusb_get_device_list(context, &dev_list);
     if (dev_count < 0) {
@@ -422,30 +472,13 @@ bool EnvironmentSetupDialog::detectDevice(uint16_t vendorID, uint16_t productID)
         }
         if (desc.idVendor == vendorID && desc.idProduct == productID) {
             found = true;
-            
-
-            // check device permission
-            libusb_device_handle* handle = nullptr;
-            ret = libusb_open(dev, &handle);
-            if (ret == 0) {
-                std::cout << "Device" << desc.iManufacturer <<" opened successfully, you have permission to control it." << std::endl;
-                libusb_close(handle);
-                break;
-            } else {
-                std::cerr << "Failed to open device: " << libusb_error_name(ret) 
-                          << " (Check permissions or if device is in use)" << std::endl;
-                found = false;
-                break;
-            }
-            break;
+            isDevicePlugged = true;
+            qDebug() << "Device detected with VID: 0x" 
+                    << QString::number(vendorID, 16).rightJustified(4, '0')
+                    << "PID: 0x" 
+                    << QString::number(productID, 16).rightJustified(4, '0');
         }
     }
-
-    if (!found) {
-        std::cout << "Device with VID=0x" << std::hex << vendorID 
-                  << ", PID=0x" << productID << " not found." << std::dec << std::endl;
-    }
-    std::cout << "Device detection result: " << (found? "Found" : "Not Found") << std::endl;
     return found;
 }
 
@@ -455,18 +488,26 @@ bool EnvironmentSetupDialog::checkEnvironmentSetup() {
     #elif defined(__linux__)
     std::cout << "Checking if MS2109 is on Linux." << std::endl;
 
-    // If the device file does not exist, check using lsusb for VID and PID
-    std::string command = "lsusb | grep -i '534d:2109'";
-    int result = system(command.c_str());
+    // EnvironmentSetupDialog dialog;
+    if (context == nullptr){
+        int ret = libusb_init(&context);
+        if (ret < 0) {
+            std::cerr << "Error initializing libusb: " << libusb_error_name(ret) << std::endl;
+        }
+        std::cout << "libusb initialized successfully." << std::endl;
+    }
+
+    bool HIDret = detectDevice(openterfaceVID, openterfacePID);
     bool skipCheck = false;
-    if (result != 0) {
+    if (!HIDret) {
         std::cout << "MS2109 not exist, so no Openterface plugged in" << std::endl;
         skipCheck = true;
     }
-
+    
     checkBrlttyRunning(); // No need to return value here
-    bool HIDret = detectDevice(openterfaceVID, openterfacePID);
-    return checkDriverInstalled() && checkInRightUserGroup() && HIDret && !isBrlttyRunning || skipCheck;
+    bool checkPermission = checkDevicePermission(openterfaceVID, openterfacePID);
+    qDebug() << "Check permission result: " << checkPermission;
+    return checkDriverInstalled() && checkInRightUserGroup() && checkPermission && !isBrlttyRunning || skipCheck;
     #else
     return true;
     #endif
@@ -516,13 +557,13 @@ bool EnvironmentSetupDialog::checkDriverInstalled() {
     // Log the start of the driver check
     std::cout << "Checking if driver is installed on Linux." << std::endl;
 
-    // If the device file does not exist, check using lsusb for VID and PID
-    std::string command = "lsusb | grep -i '1a86:7523'";
+    // If the device file does not exist, check using cat /proc/modules
+    std::string command = "cat /proc/modules | grep 'ch341'";
     int result = system(command.c_str());
     if (result == 0) {
-        std::cout << "Driver installation status: Installed (found via lsusb)" << std::endl;
+        std::cout << "Driver installation status: Installed (found via cat /proc/modules)" << std::endl;
         isDriverInstalled = true;
-        return true; // Driver found via lsusb
+        return true; // Driver found via /proc/modules
     }
 
     std::cout << "Driver installation status: Not Installed" << std::endl;

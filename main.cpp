@@ -127,6 +127,17 @@ int main(int argc, char *argv[])
     qDebug() << "Show window now";
     app.setWindowIcon(QIcon("://images/icon_32.png"));
     
+    // Check if the environment is properly set up
+    if (EnvironmentSetupDialog::autoEnvironmentCheck() && !EnvironmentSetupDialog::checkEnvironmentSetup()) {
+        EnvironmentSetupDialog envDialog;
+        qDebug() << "Environment setup dialog opened";
+        if (envDialog.exec() == QDialog::Rejected) {
+            qDebug() << "Driver dialog rejected";
+            QApplication::quit(); // Quit the application if the dialog is rejected
+            return 0;
+        }
+    } 
+
     // Create config directory if it doesn't exist
     QString keyboardConfigPath = QCoreApplication::applicationDirPath() + "/config/keyboards";
     QDir keyboardConfigDir(keyboardConfigPath);
@@ -150,15 +161,7 @@ int main(int argc, char *argv[])
     // Load keyboard layouts from the build directory
     KeyboardLayoutManager::getInstance().loadLayouts(keyboardConfigPath);
     
-    // Check if the environment is properly set up
-    if (EnvironmentSetupDialog::autoEnvironmentCheck() && !EnvironmentSetupDialog::checkEnvironmentSetup()) {
-        EnvironmentSetupDialog envDialog;
-        if (envDialog.exec() == QDialog::Rejected) {
-            qDebug() << "Driver dialog rejected";
-            QApplication::quit(); // Quit the application if the dialog is rejected
-            return 0;
-        }
-    } 
+    
     // writeLog("Environment setup completed");
     LanguageManager languageManager(&app);
     languageManager.initialize("en");

@@ -137,19 +137,6 @@ int main(int argc, char *argv[])
             return 0;
         }
     } 
-
-    // Create config directory if it doesn't exist
-    QString keyboardConfigPath = QCoreApplication::applicationDirPath() + "/config/keyboards";
-    QDir keyboardConfigDir(keyboardConfigPath);
-    if (!keyboardConfigDir.exists()) {
-        QDir().mkpath(keyboardConfigDir.path());
-    }
-
-    QString languagesConfigPath = QCoreApplication::applicationDirPath() + "/config/languages";
-    QDir languagesConfigDir(languagesConfigPath);
-    if (!languagesConfigDir.exists()) {
-        QDir().mkpath(languagesConfigDir.path());
-    }
     
     // load the settings
     qDebug() << "Loading settings";
@@ -158,7 +145,8 @@ int main(int argc, char *argv[])
     // onVideoSettingsChanged(GlobalVar::instance().getCaptureWidth(), GlobalVar::instance().getCaptureHeight());
     LogHandler::instance().enableLogStore();
 
-    // Load keyboard layouts from the build directory
+    // Load keyboard layouts from resource file
+    QString keyboardConfigPath = ":/config/keyboards";
     KeyboardLayoutManager::getInstance().loadLayouts(keyboardConfigPath);
     
     

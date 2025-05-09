@@ -49,8 +49,8 @@ const QString EnvironmentSetupDialog::driverCommands = "# Build and install the 
 // const QString EnvironmentSetupDialog::groupCommands = "# Add user to dialout group\n sudo usermod -a -G dialout $USER\n\n";
 const QString EnvironmentSetupDialog::udevCommands =
     "#Add udev rules for Openterface Mini-KVM\n"
-    "echo 'SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"534d\", ATTRS{idProduct}==\"2109\", MODE=\"0666\"' | sudo tee /etc/udev/rules.d/51-openterface.rules\n"
-    "echo 'SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"1a86\", ATTRS{idProduct}==\"7523\", MODE=\"0666\"' | sudo tee -a /etc/udev/rules.d/51-openterface.rules\n"
+    "echo 'SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"534d\", ATTRS{idProduct}==\"2109\", TAG+=\"uaccess\"' | sudo tee /etc/udev/rules.d/51-openterface.rules\n"
+    "echo 'SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"1a86\", ATTRS{idProduct}==\"7523\", TAG+=\"uaccess\"' | sudo tee -a /etc/udev/rules.d/51-openterface.rules\n"
     "sudo udevadm control --reload-rules\n"
     "sudo udevadm trigger\n\n";
 const QString EnvironmentSetupDialog::brlttyCommands =

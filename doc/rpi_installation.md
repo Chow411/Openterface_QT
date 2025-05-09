@@ -20,7 +20,7 @@ The OpenterfaceQT app requires access to serial and HID devices. This setup is m
    - Create a new file `/etc/udev/rules.d/51-openterface.rules` with the following content:
 
      ```bash
-     echo 'KERNEL== "hidraw*", SUBSYSTEM=="hidraw", MODE="0666"' | sudo tee /etc/udev/rules.d/51-openterface.rules
+     echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="534d", ATTRS{idProduct}=="2109", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/51-openterface.rules
      ```
 
 3. **Reload udev Rules**:
@@ -56,13 +56,19 @@ flatpak install --user --noninteractive flathub org.kde.Platform/aarch64/6.7
 
 ### Download Openterface Flatpak File
 
-Currently, only a preview version is available. We plan to publish on Flathub, but this will take some time. Download the latest version of the Flatpak file and unzip it.
+Download the latest version of the Flatpak file.
 
 ```sh
 # This command installs for the user and may prompt you to install some packages; proceed with the installation.
 flatpak --user install com.openterface.openterfaceQT-aarch64.flatpak
 # Run the OpenterfaceQT app via Flatpak
 flatpak --user run com.openterface.openterfaceQT
+```
+
+### Download Openterface from flathub
+
+```sh
+flatpak install flathub com.openterface.openterfaceQT
 ```
 
 ***After you can run the app, enjoy using the OpenterfaceQT app.***

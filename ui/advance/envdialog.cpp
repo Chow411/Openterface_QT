@@ -392,7 +392,7 @@ void EnvironmentSetupDialog::reject()
 {
     QDialog::reject();
 }
-
+#ifdef __linux__
 bool EnvironmentSetupDialog::checkDevicePermission(uint16_t vendorID, uint16_t productID) {
     libusb_device **dev_list = nullptr;
     size_t dev_count = libusb_get_device_list(context, &dev_list);
@@ -482,6 +482,8 @@ bool EnvironmentSetupDialog::detectDevice(uint16_t vendorID, uint16_t productID)
     }
     return found;
 }
+
+#endif
 
 bool EnvironmentSetupDialog::checkEnvironmentSetup() {
     #ifdef _WIN32

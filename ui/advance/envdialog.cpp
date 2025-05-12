@@ -36,6 +36,8 @@
 bool EnvironmentSetupDialog::isDriverInstalled = false;
 const QString EnvironmentSetupDialog::tickHtml = "<span style='color: green; font-size: 16pt'>✓</span>";
 const QString EnvironmentSetupDialog::crossHtml = "<span style='color: red; font-size: 16pt'>✗</span>";
+const QString EnvironmentSetupDialog::lastestFirewareDescription = "not the lastest firmware version. Please click ok then update it in Advance->Firmware Update...";
+bool EnvironmentSetupDialog::lastestFirmware = false;
 
 #ifdef __linux__
 // Define the static commands
@@ -98,10 +100,15 @@ EnvironmentSetupDialog::EnvironmentSetupDialog(QWidget *parent) :
     ui->step2Label->setVisible(false);
     ui->copyButton->setVisible(false);
     ui->commandsTextEdit->setVisible(false);
-    if(isDriverInstalled)
-        ui->descriptionLabel->setText(tickHtml + tr(" The driver is installed. No further action is required."));
-    else
-        ui->descriptionLabel->setText(crossHtml + tr(" The driver is missing. Openterface Mini-KVM will install it automatically."));
+    QString statusSummary = tr("The following steps help you install the driver and the openterface driver update. Current status:<br>");
+    statusSummary += tr("‣ Driver Installed: ") + QString(isDriverInstalled? tickHtml : crossHtml) + "<br>";
+    statusSummary += tr("‣ Latest Firmware: ") + QString(lastestFirmware? tickHtml : crossHtml) + QString(lastestFirmware?  QString(""): lastestFirewareDescription);
+    ui->descriptionLabel->setText(statusSummary);
+
+    // if(isDriverInstalled)
+    //     ui->descriptionLabel->setText(tickHtml + tr(" The driver is installed. No further action is required."));
+    // else
+    //     ui->descriptionLabel->setText(crossHtml + tr(" The driver is missing. Openterface Mini-KVM will install it automatically."));
 #else
     if(!isDevicePlugged){
         ui->descriptionLabel->setText(crossHtml + tr(" The device is not plugged in. Please plug it in and try again."));
@@ -130,6 +137,7 @@ EnvironmentSetupDialog::EnvironmentSetupDialog(QWidget *parent) :
     statusSummary += tr("‣ In Serial Port Permission: ") + QString(isSerialPermission ? tickHtml : crossHtml) + "<br>";
     statusSummary += tr("‣ HID Permission: ") + QString(isHidPermission ? tickHtml : crossHtml) + "<br>";
     statusSummary += tr("‣ BRLTTY checking: ") + QString(isBrlttyRunning ? crossHtml + tr(" (needs removal)") : tickHtml + tr(" (not running)"));
+    statusSummary += tr("‣ Latest Firmware: ") + QString(lastestFirmware? tickHtml : crossHtml) + QString(lastestFirmware?  QString(""): lastestFirewareDescription);
     ui->descriptionLabel->setText(statusSummary);
 
     // Create help link
@@ -235,7 +243,7 @@ void EnvironmentSetupDialog::accept()
         statusSummary += tr("Serial port Permission: ") + QString(isSerialPermission ? tr("Yes") : tr("No")) + "\n";
         statusSummary += tr("HID Permission: ") + QString(isHidPermission ? tr("Yes") : tr("No")) + "\n";
         statusSummary += tr("BRLTTY is Running: ") + QString(isBrlttyRunning ? tr("Yes (needs removal)") : tr("No")) + "\n";
-
+        
         // Append the status summary to the description label
         ui->descriptionLabel->setText(ui->descriptionLabel->text() + "\n" + statusSummary);
     #endif
@@ -486,6 +494,10 @@ bool EnvironmentSetupDialog::detectDevice(uint16_t vendorID, uint16_t productID)
 #endif
 
 bool EnvironmentSetupDialog::checkEnvironmentSetup() {
+    std::string version = VideoHid::getInstance().getFirmwareVersion();
+    std::cout << "Dirver detect: " << version << std::endl;
+    lastestFirmware = VideoHid::getInstance().isLatestFirmware();
+    std::cout << "Dirver is lastest: " << (lastestFirmware ? "yes" : "no" ) << std::endl;
     #ifdef _WIN32
     return checkDriverInstalled();
     #elif defined(__linux__)

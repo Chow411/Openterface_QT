@@ -139,7 +139,7 @@ EnvironmentSetupDialog::EnvironmentSetupDialog(QWidget *parent) :
     statusSummary += tr("‣ Driver Installed: ") + QString(isDriverInstalled ? tickHtml : crossHtml) + "<br>";
     statusSummary += tr("‣ In Serial Port Permission: ") + QString(isSerialPermission ? tickHtml : crossHtml) + "<br>";
     statusSummary += tr("‣ HID Permission: ") + QString(isHidPermission ? tickHtml : crossHtml) + "<br>";
-    statusSummary += tr("‣ BRLTTY checking: ") + QString(isBrlttyRunning ? crossHtml + tr(" (needs removal)") : tickHtml + tr(" (not running)"));
+    statusSummary += tr("‣ BRLTTY checking: ") + QString(isBrlttyRunning ? crossHtml + tr(" (needs removal)") : tickHtml + tr(" (not running)")) + "<br>";
     statusSummary += tr("‣ Latest Firmware: ") + QString(lastestFirmware? tickHtml : crossHtml) + QString(lastestFirmware?  QString(""): lastestFirewareDescription);
     ui->descriptionLabel->setText(statusSummary);
 

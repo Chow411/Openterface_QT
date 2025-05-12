@@ -44,7 +44,7 @@ private:
     static bool isDriverInstalled;
     static const QString tickHtml;
     static const QString crossHtml;
-    static const QString lastestFirewareDescription;
+    static QString lastestFirewareDescription;
     static bool isDevicePlugged;
     static bool lastestFirmware;
     // bool isDevicePlugged;

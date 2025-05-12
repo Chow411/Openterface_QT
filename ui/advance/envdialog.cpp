@@ -36,7 +36,8 @@
 bool EnvironmentSetupDialog::isDriverInstalled = false;
 const QString EnvironmentSetupDialog::tickHtml = "<span style='color: green; font-size: 16pt'>✓</span>";
 const QString EnvironmentSetupDialog::crossHtml = "<span style='color: red; font-size: 16pt'>✗</span>";
-const QString EnvironmentSetupDialog::lastestFirewareDescription = "not the lastest firmware version. Please click ok then update it in Advance->Firmware Update...";
+QString EnvironmentSetupDialog::lastestFirewareDescription = QString("");
+// const QString EnvironmentSetupDialog::lastestFirewareDescription = "not the lastest firmware version. Please click ok then update it in Advance->Firmware Update...";
 bool EnvironmentSetupDialog::lastestFirmware = false;
 
 #ifdef __linux__
@@ -100,9 +101,11 @@ EnvironmentSetupDialog::EnvironmentSetupDialog(QWidget *parent) :
     ui->step2Label->setVisible(false);
     ui->copyButton->setVisible(false);
     ui->commandsTextEdit->setVisible(false);
-    QString statusSummary = tr("The following steps help you install the driver and the openterface driver update. Current status:<br>");
+    QString statusSummary = tr("The following steps help you install the driver and the openterface firemware update. Current status:<br>");
+    QString lastestDescription = lastestFirewareDescription;
+    qDebug() << lastestDescription;
     statusSummary += tr("‣ Driver Installed: ") + QString(isDriverInstalled? tickHtml : crossHtml) + "<br>";
-    statusSummary += tr("‣ Latest Firmware: ") + QString(lastestFirmware? tickHtml : crossHtml) + QString(lastestFirmware?  QString(""): lastestFirewareDescription);
+    statusSummary += tr("‣ Latest Firmware: ") + QString(lastestFirmware? tickHtml : crossHtml) + QString(lastestFirmware?  QString(""): lastestDescription);
     ui->descriptionLabel->setText(statusSummary);
 
     // if(isDriverInstalled)
@@ -132,7 +135,7 @@ EnvironmentSetupDialog::EnvironmentSetupDialog(QWidget *parent) :
     connect(ui->copyButton, &QPushButton::clicked, this, &EnvironmentSetupDialog::copyCommands);
 
     // Create the status summary
-    QString statusSummary = tr("The following steps help you install the driver and access the device permissions. Current status:<br>");
+    QString statusSummary = tr("The following steps help you install the driver and access the device permissions and the openterface firemware update. Current status:<br>");
     statusSummary += tr("‣ Driver Installed: ") + QString(isDriverInstalled ? tickHtml : crossHtml) + "<br>";
     statusSummary += tr("‣ In Serial Port Permission: ") + QString(isSerialPermission ? tickHtml : crossHtml) + "<br>";
     statusSummary += tr("‣ HID Permission: ") + QString(isHidPermission ? tickHtml : crossHtml) + "<br>";
@@ -243,7 +246,7 @@ void EnvironmentSetupDialog::accept()
         statusSummary += tr("Serial port Permission: ") + QString(isSerialPermission ? tr("Yes") : tr("No")) + "\n";
         statusSummary += tr("HID Permission: ") + QString(isHidPermission ? tr("Yes") : tr("No")) + "\n";
         statusSummary += tr("BRLTTY is Running: ") + QString(isBrlttyRunning ? tr("Yes (needs removal)") : tr("No")) + "\n";
-        
+
         // Append the status summary to the description label
         ui->descriptionLabel->setText(ui->descriptionLabel->text() + "\n" + statusSummary);
     #endif
@@ -494,12 +497,19 @@ bool EnvironmentSetupDialog::detectDevice(uint16_t vendorID, uint16_t productID)
 #endif
 
 bool EnvironmentSetupDialog::checkEnvironmentSetup() {
-    std::string version = VideoHid::getInstance().getFirmwareVersion();
-    std::cout << "Dirver detect: " << version << std::endl;
     lastestFirmware = VideoHid::getInstance().isLatestFirmware();
+    std::string version = VideoHid::getInstance().getFirmwareVersion();
+    std::string latestVersion = VideoHid::getInstance().getLatestFirmwareVersion();
+    std::cout << "Dirver detect: " << version << std::endl;
+    std::cout << "Lastest driver: " << latestVersion << std::endl;
     std::cout << "Dirver is lastest: " << (lastestFirmware ? "yes" : "no" ) << std::endl;
+    lastestFirewareDescription ="<br>Current version" + QString::fromStdString(version) + 
+    "<br>" + "Lastest version: " + QString::fromStdString(latestVersion) +
+    "<br>" + "Please update driver to lastest version." + 
+    "<br>" + "click ok then Advance->Firmware Update...";
+    qDebug() << lastestFirewareDescription;
     #ifdef _WIN32
-    return checkDriverInstalled();
+    return checkDriverInstalled() && lastestFirmware;
     #elif defined(__linux__)
     std::cout << "Checking if MS2109 is on Linux." << std::endl;
 
@@ -535,7 +545,7 @@ bool EnvironmentSetupDialog::checkEnvironmentSetup() {
     checkBrlttyRunning(); // No need to return value here
     bool checkPermission = checkDevicePermission(openterfaceVID, openterfacePID);
     qDebug() << "Check permission result: " << checkPermission;
-    return checkDriverInstalled() && checkSerialPermission && checkPermission && !isBrlttyRunning || skipCheck;
+    return checkDriverInstalled() && checkSerialPermission && checkPermission && lastestFirmware && !isBrlttyRunning || skipCheck;
     #else
     return true;
     #endif

@@ -172,19 +172,19 @@ void SerialPortManager::checkSerialPort() {
         if (isTargetUsbConnected){
             // Check target connection status when no data received in 3 seconds
             if (latestUpdateTime.secsTo(QDateTime::currentDateTime()) > 3) {
-                sendAsyncCommand(CMD_GET_INFO, false);
+                ready = sendAsyncCommand(CMD_GET_INFO, false);
             }
         }else {
-            sendAsyncCommand(CMD_GET_INFO, false);
+            ready = sendAsyncCommand(CMD_GET_INFO, false);
         }
     }
 
     // If no data received in 5 seconds, check if any port disconnected
     // Because the connection will regularily check every 3 seconds, if not data received
     // is received, consider the port is disconnected or not working
-    if (latestUpdateTime.secsTo(QDateTime::currentDateTime()) > 5) {
-        ready = false;
-    }
+    // if (latestUpdateTime.secsTo(QDateTime::currentDateTime()) > 5) {
+    //     ready = false;
+    // }
 }
 
 /*

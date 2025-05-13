@@ -175,7 +175,6 @@ void SerialPortManager::checkSerialPort() {
                 ready = sendAsyncCommand(CMD_GET_INFO, false);
             }
         }else {
-            sendSyncCommand(CMD_GET_INFO, false);
             ready = false;
         }
     }
@@ -183,9 +182,10 @@ void SerialPortManager::checkSerialPort() {
     // If no data received in 5 seconds, check if any port disconnected
     // Because the connection will regularily check every 3 seconds, if not data received
     // is received, consider the port is disconnected or not working
-    // if (latestUpdateTime.secsTo(QDateTime::currentDateTime()) > 5) {
-    //     ready = false;
-    // }
+    sendSyncCommand(CMD_GET_INFO, false);
+    if (latestUpdateTime.secsTo(QDateTime::currentDateTime()) > 5) {
+        ready = false;
+    }
 }
 
 /*

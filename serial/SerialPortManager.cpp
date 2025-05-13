@@ -88,12 +88,6 @@ void SerialPortManager::stop() {
 }
 
 void SerialPortManager::checkSerialPorts() {
-#ifdef __linux__
-    QList<QString> acceptedPorts = {"USB Serial", "USB2.0-Serial"};
-#elif _WIN32
-    QList<QString> acceptedPorts = {"USB-SERIAL CH340"};
-#endif
-    
     if(ready) return;
     
     QSet<QString> currentPorts;
@@ -108,9 +102,12 @@ void SerialPortManager::checkSerialPorts() {
             
         qCDebug(log_core_serial) << "Search port name" << port.portName() << "Manufacturer:" << port.manufacturer() 
                  << "VID:" << vidHex << "PID:" << pidHex;
-        if (acceptedPorts.contains(port.description())) {
+        
+        // Match specific VID:PID {0x1A86, 0x7523}
+        if (port.hasVendorIdentifier() && port.hasProductIdentifier() &&
+            port.vendorIdentifier() == 0x1A86 && port.productIdentifier() == 0x7523) {
             currentPorts.insert(port.portName());
-            qCDebug(log_core_serial) << "Matched port name" << port.portName();
+            qCDebug(log_core_serial) << "Matched port name" << port.portName() << "with VID:PID 0x1A86:0x7523";
         }
     }
 
@@ -435,8 +432,8 @@ bool SerialPortManager::restartPort() {
     closePort();
     QThread::sleep(1);
     openPort(portName, baudRate);
-        onSerialPortConnected(portName);
-        return ready;
+    onSerialPortConnected(portName);
+    return ready;
 }
 
 

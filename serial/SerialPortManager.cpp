@@ -71,19 +71,17 @@ void SerialPortManager::stop() {
         serialTimer->stop();
     }
 
-    if (serialThread) {
-        if (serialThread->isRunning()) {
-            serialThread->quit();
-            // Wait for up to 5 seconds for thread to finish
-            if (!serialThread->wait(5000)) {
-                qCWarning(log_core_serial) << "Thread did not terminate in time - forcing termination";
-                serialThread->terminate();
-                serialThread->wait();
-            }
+    if (serialThread && serialThread->isRunning()) {
+        closePort();
+        
+        serialThread->quit();
+
+        const int maxWaitTime = 10000; 
+        if (!serialThread->wait(maxWaitTime)) {
+            qCWarning(log_core_serial) << "Thread did not terminate within" << maxWaitTime << "ms - thread may be blocked";
         }
     }
 
-    closePort();
     qCDebug(log_core_serial) << "Serial port manager thread stopped";
 }
 
@@ -576,15 +574,20 @@ bool SerialPortManager::sendAsyncCommand(const QByteArray &data, bool force) {
 
     // Check if less than the configured delay has passed since the last command
     if (m_lastCommandTime.isValid() && m_lastCommandTime.elapsed() < m_commandDelayMs) {
-        // If less than the configured delay has passed, delay for the remaining time
-        QThread::usleep((m_commandDelayMs - m_lastCommandTime.elapsed()) * 1000);
+        // Calculate remaining delay time
+        int remainingDelay = m_commandDelayMs - m_lastCommandTime.elapsed();
+        
+        // Use QTimer::singleShot for non-blocking delay
+        QTimer::singleShot(remainingDelay, this, [this, command]() {
+            writeData(command);
+            m_lastCommandTime.start();
+        });
+        
+        return true;
     }
 
     bool result = writeData(command);
-
-    // Reset the timer after sending the command
     m_lastCommandTime.start();
-
     return result;
 }
 

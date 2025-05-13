@@ -175,7 +175,8 @@ void SerialPortManager::checkSerialPort() {
                 ready = sendAsyncCommand(CMD_GET_INFO, false);
             }
         }else {
-            ready = sendAsyncCommand(CMD_GET_INFO, false);
+            sendSyncCommand(CMD_GET_INFO, false);
+            ready = false;
         }
     }
 

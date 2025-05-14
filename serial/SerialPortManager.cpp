@@ -106,7 +106,14 @@ void SerialPortManager::checkSerialPorts() {
             port.vendorIdentifier() == 0x1A86 && port.productIdentifier() == 0x7523) {
             currentPorts.insert(port.portName());
             qCDebug(log_core_serial) << "Matched port name" << port.portName() << "with VID:PID 0x1A86:0x7523";
-            // if (!isSerialPortConnected) emit serialPortConnected(port.portName());
+
+            if(serialPort == nullptr) {
+                qCDebug(log_core_serial) << "The serial port is nullptr create a new serial port instance";
+                emit serialPortConnected(port.portName());
+            }else if (!serialPort->isOpen()){
+                qCDebug(log_core_serial) << "The serial port is not open create a new serial port instance";
+                emit serialPortConnected(port.portName());
+            }
         }
     }
 
@@ -218,8 +225,6 @@ void SerialPortManager::onSerialPortConnected(const QString &portName){
     }
     if (!openSuccess) {
         qCWarning(log_core_serial) << "Retry failed to open serial port: " << portName;
-        availablePorts.remove(portName);
-        qCDebug(log_core_serial) << "Availabele ports count: " << availablePorts.size();
         return; // Exit if retry also fails
     }
 

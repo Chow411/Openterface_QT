@@ -94,7 +94,6 @@ signals:
 
 private slots:
     void checkSerialPort();
-
     void observeSerialPortNotification();
     void readData();
     void bytesWritten(qint64 bytes);
@@ -103,6 +102,7 @@ private slots:
     //void checkSerialPortConnection();
 
     void checkSerialPorts();
+    void changeSerialPortflag(bool disconnect);
 
     // /*
     //  * Check if the USB switch status
@@ -134,6 +134,7 @@ private:
     StatusEventCallback* eventCallback = nullptr;
     bool isSwitchToHost = false;
     bool isTargetUsbConnected = false;
+    bool isSerialPortConnected = false;
     bool NumLockState;
     bool CapsLockState;
     bool ScrollLockState;
@@ -145,7 +146,6 @@ private:
     QElapsedTimer m_lastCommandTime;  // New member for timing
     int m_commandDelayMs;  // New member for configurable delay
 
-    void enableNotifier();
     
 };
 

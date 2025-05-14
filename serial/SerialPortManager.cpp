@@ -106,13 +106,16 @@ void SerialPortManager::checkSerialPorts() {
             port.vendorIdentifier() == 0x1A86 && port.productIdentifier() == 0x7523) {
             currentPorts.insert(port.portName());
             qCDebug(log_core_serial) << "Matched port name" << port.portName() << "with VID:PID 0x1A86:0x7523";
+            if (!isSerialPortConnected) emit serialPortConnected(port.portName());
         }
     }
 
     // Detect newly connected ports
     for (const QString &portName : currentPorts) {
+        qCDebug(log_core_serial) << "Current port name:" << portName;
         if (!availablePorts.contains(portName)) {
-            emit serialPortConnected(portName);
+            qCDebug(log_core_serial) << "New port connected: " << portName;
+            if (!isSerialPortConnected) emit serialPortConnected(portName);
         }
     }
 
@@ -120,7 +123,8 @@ void SerialPortManager::checkSerialPorts() {
     for (auto it = availablePorts.constBegin(); it != availablePorts.constEnd(); ++it) {
         const QString &portName = *it;
         if (!currentPorts.contains(portName)) {
-            emit serialPortDisconnected(portName);
+            qCDebug(log_core_serial) << "Disconnect port: " << portName;
+            if (isSerialPortConnected) emit serialPortDisconnected(portName);
         }
     }
 
@@ -194,7 +198,29 @@ void SerialPortManager::checkSerialPort() {
 void SerialPortManager::onSerialPortConnected(const QString &portName){
     // Use synchronous method to check the serial port
     qCDebug(log_core_serial) << "Serial port connected: " << portName << "baudrate:" << DEFAULT_BAUDRATE;
-    openPort(portName, DEFAULT_BAUDRATE);
+    // Check if the port was successfully opened
+    const int maxRetries = 5;
+    int retryCount = 0;
+    bool openSuccess = openPort(portName, DEFAULT_BAUDRATE);
+    while (retryCount < maxRetries && !openSuccess) {
+        qCWarning(log_core_serial) << "Failed to open serial port: " << portName;
+        // Check if the port is still open (in case of partial failure)
+        if (serialPort->isOpen()) {
+            qCDebug(log_core_serial) << "Port is still open, closing it before retry";
+            closePort();
+        }
+        QThread::msleep(500 * (retryCount + 1));
+        retryCount++;
+        // Retry opening the port
+        qCDebug(log_core_serial) << "Retrying to open serial port: " << portName << "baudrate:" << DEFAULT_BAUDRATE;
+        openSuccess = openPort(portName, DEFAULT_BAUDRATE);
+    }
+    if (!openSuccess) {
+        qCWarning(log_core_serial) << "Retry failed to open serial port: " << portName;
+        availablePorts.remove(portName);
+        return; // Exit if retry also fails
+    }
+
     // send a command to get the parameter configuration with 115200 baudrate
     QByteArray retBtye = sendSyncCommand(CMD_GET_PARA_CFG, true);
     CmdDataParamConfig config;
@@ -240,7 +266,15 @@ void SerialPortManager::onSerialPortDisconnected(const QString &portName){
     if (ready) {
         closePort();
         availablePorts.remove(portName);
+        QThread::msleep(500);
+        emit changeSerialPortflag(false);
     }
+    
+}
+
+
+void SerialPortManager::changeSerialPortflag(bool disconnect){
+    isSerialPortConnected = disconnect;
 }
 
 /*
@@ -407,21 +441,25 @@ bool SerialPortManager::openPort(const QString &portName, int baudRate) {
  */
 void SerialPortManager::closePort() {
     qCDebug(log_core_serial) << "Close serial port";
-    if (serialPort != nullptr && serialPort->isOpen()) {
-        serialPort->flush();
-        serialPort->clear();
-        serialPort->clearError();
-        qCDebug(log_core_serial) << "Unregister obseration of the data ready";
-        disconnect(serialPort, &QSerialPort::readyRead, this, &SerialPortManager::readData);
-        disconnect(serialPort, &QSerialPort::bytesWritten, this, &SerialPortManager::bytesWritten);
-        serialPort->close();
+    if (serialPort != nullptr) {
+        if (serialPort->isOpen()) {
+            disconnect(serialPort, &QSerialPort::readyRead, this, &SerialPortManager::readData);
+            disconnect(serialPort, &QSerialPort::bytesWritten, this, &SerialPortManager::bytesWritten);
+            serialPort->flush();
+            serialPort->clear();
+            serialPort->clearError();
+            serialPort->close();
+        }
         delete serialPort;
         serialPort = nullptr;
-        ready=false;
-        if(eventCallback!=nullptr) eventCallback->onPortConnected("NA",0);
     } else {
         qCDebug(log_core_serial) << "Serial port is not opened.";
     }
+    ready = false;
+    if (eventCallback != nullptr) {
+        eventCallback->onPortConnected("NA", 0);
+    }
+    QThread::msleep(200);
 }
 
 bool SerialPortManager::restartPort() {

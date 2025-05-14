@@ -122,7 +122,7 @@ void SerialPortManager::checkSerialPorts() {
         qCDebug(log_core_serial) << "Current port name:" << portName;
         if (!availablePorts.contains(portName)) {
             qCDebug(log_core_serial) << "New port connected: " << portName;
-            if (!isSerialPortConnected) emit serialPortConnected(portName);
+            emit serialPortConnected(portName);
         }
     }
 
@@ -131,7 +131,7 @@ void SerialPortManager::checkSerialPorts() {
         const QString &portName = *it;
         if (!currentPorts.contains(portName)) {
             qCDebug(log_core_serial) << "Disconnect port: " << portName;
-            if (isSerialPortConnected) emit serialPortDisconnected(portName);
+            emit serialPortDisconnected(portName);
         }
     }
 
@@ -275,15 +275,10 @@ void SerialPortManager::onSerialPortDisconnected(const QString &portName){
         closePort();
         availablePorts.remove(portName);
         QThread::msleep(500);
-        emit changeSerialPortflag(false);
     }
     
 }
 
-
-void SerialPortManager::changeSerialPortflag(bool disconnect){
-    isSerialPortConnected = disconnect;
-}
 
 /*
  * Serial port connection success, connect the data ready and bytes written signal

@@ -102,7 +102,6 @@ private slots:
     //void checkSerialPortConnection();
 
     void checkSerialPorts();
-    void changeSerialPortflag(bool disconnect);
 
     // /*
     //  * Check if the USB switch status
@@ -134,7 +133,6 @@ private:
     StatusEventCallback* eventCallback = nullptr;
     bool isSwitchToHost = false;
     bool isTargetUsbConnected = false;
-    bool isSerialPortConnected = false;
     bool NumLockState;
     bool CapsLockState;
     bool ScrollLockState;

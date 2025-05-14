@@ -106,7 +106,7 @@ void SerialPortManager::checkSerialPorts() {
             port.vendorIdentifier() == 0x1A86 && port.productIdentifier() == 0x7523) {
             currentPorts.insert(port.portName());
             qCDebug(log_core_serial) << "Matched port name" << port.portName() << "with VID:PID 0x1A86:0x7523";
-            if (!isSerialPortConnected) emit serialPortConnected(port.portName());
+            // if (!isSerialPortConnected) emit serialPortConnected(port.portName());
         }
     }
 
@@ -179,7 +179,8 @@ void SerialPortManager::checkSerialPort() {
                 ready = sendAsyncCommand(CMD_GET_INFO, false);
             }
         }else {
-            ready = false;
+            sendAsyncCommand(CMD_GET_INFO, false);
+            // ready = false;
         }
     }
 
@@ -199,7 +200,7 @@ void SerialPortManager::onSerialPortConnected(const QString &portName){
     // Use synchronous method to check the serial port
     qCDebug(log_core_serial) << "Serial port connected: " << portName << "baudrate:" << DEFAULT_BAUDRATE;
     // Check if the port was successfully opened
-    const int maxRetries = 5;
+    const int maxRetries = 2;
     int retryCount = 0;
     bool openSuccess = openPort(portName, DEFAULT_BAUDRATE);
     while (retryCount < maxRetries && !openSuccess) {
@@ -218,6 +219,7 @@ void SerialPortManager::onSerialPortConnected(const QString &portName){
     if (!openSuccess) {
         qCWarning(log_core_serial) << "Retry failed to open serial port: " << portName;
         availablePorts.remove(portName);
+        qCDebug(log_core_serial) << "Availabele ports count: " << availablePorts.size();
         return; // Exit if retry also fails
     }
 
@@ -231,6 +233,7 @@ void SerialPortManager::onSerialPortConnected(const QString &portName){
         config = CmdDataParamConfig::fromByteArray(retBtye);
         if(config.mode == mode){ 
             ready = true;
+            qCDebug(log_core_serial) << "Connect success with baudrate: " << DEFAULT_BAUDRATE << ready;
         } else { // the mode is not correct, need to re-config the chip
             qCWarning(log_core_serial) << "The mode is incorrect, mode:" << config.mode;
             resetHipChip();

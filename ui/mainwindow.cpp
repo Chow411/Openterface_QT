@@ -533,17 +533,21 @@ void MainWindow::doResize(){
     }
 
     // Define the desired aspect ratio
+    QScreen *currentScreen = this->screen();
+    QRect availableGeometry = currentScreen->availableGeometry();
+    systemScaleFactor = currentScreen->devicePixelRatio();
     if(GlobalVar::instance().getCaptureWidth() && GlobalVar::instance().getCaptureHeight()){
         video_width = GlobalVar::instance().getCaptureWidth();
         video_height = GlobalVar::instance().getCaptureHeight();
+        qDebug() << "video_width" << video_width << "video_height" << video_height;
     }
-    qreal aspect_ratio = static_cast<qreal>(video_width) / video_height;
-    if(GlobalVar::instance().getInputAspectRatio()){
-        aspect_ratio = GlobalVar::instance().getInputAspectRatio();
-    }
-
-    QScreen *currentScreen = this->screen();
-    QRect availableGeometry = currentScreen->availableGeometry();
+    double aspect_ratio = GlobalSetting::instance().getScreenRatio();
+    double input_aspect_ratio = double(video_width / video_height);
+    qDebug() << " ------------ input_aspect_ratio: " << input_aspect_ratio;
+    // if (GlobalVar::instance().getCaptureAspectRatio()){
+    //     qreal input_aspect_ratio = GlobalVar::instance().getCaptureAspectRatio();
+    // }
+    
     // Get the available screen width and height
     int availableWidth = availableGeometry.width();
     int availableHeight = availableGeometry.height();
@@ -562,72 +566,89 @@ void MainWindow::doResize(){
     // Check if the current width or height exceeds the available screen size
     qCDebug(log_ui_mainwindow) << "current height: " << currentHeight << "available height: " << availableHeight;
     qCDebug(log_ui_mainwindow) << "current width: " << currentWidth << "available width: " << currentWidth;
-
-    if (currentWidth >= availableWidth || currentHeight >= availableHeight) {
-        // Calculate the new size while maintaining the aspect ratio
-        int videoHeight = maxContentHeight;
-        int videoWidth = static_cast<int>(videoHeight * aspect_ratio);
-        if (currentWidth >= availableWidth) {
-            currentWidth = availableWidth;
-            videoWidth = currentWidth;
-            videoHeight = static_cast<int>(currentWidth / aspect_ratio);
+    qDebug() << " ------------ aspect_ratio: " << aspect_ratio << "input_aspect_ratio: " << input_aspect_ratio;
+    if (aspect_ratio < input_aspect_ratio){
+        if (currentWidth >= availableWidth || currentHeight >= availableHeight){
+            currentHeight = video_height;
         }
-        if (currentHeight >= availableHeight || videoHeight >= maxContentHeight) {
-            // Use the maximum content height and adjust the window height accordingly
-            videoHeight = maxContentHeight;
-            // currentHeight = maxContentHeight + menuBarHeight + statusBarHeight + 6;
-            currentHeight = static_cast<int>(availableWidth / aspect_ratio) - menuBarHeight - statusBarHeight;
-            qCDebug(log_ui_mainwindow) << "video height: " << videoHeight << "mainwindow height: " << currentHeight;
-            videoWidth = static_cast<int>(videoHeight * aspect_ratio);
-        }
-
-        // Set the new size of the window
-        qCDebug(log_ui_mainwindow) << "Resize to " << currentWidth << "x" << currentHeight;
-        qCDebug(log_ui_mainwindow) << "available height: " << availableHeight << "video height: " << videoHeight;
-        qCDebug(log_ui_mainwindow) << "video height: "<< videoHeight <<"video width: " << videoWidth;
-
-        if (currentWidth != availableWidth && currentHeight != availableHeight){
-            // Resize the window only when it's not maximized
-            resize(currentWidth, currentHeight);
-        }
-
-        // Calculate the horizontal offset to center the videoPane
-        int horizontalOffset = (currentWidth - videoWidth) / 2;
-
-        // Set the minimum size and resize the videoPane
-        videoPane->setMinimumSize(videoWidth, videoHeight);
-        videoPane->resize(videoWidth, videoHeight);
-
-
-        // Move the videoPane to the center horizontally
+        qDebug() << " ------------ the aspect_ratio < input_aspect_ratio " << currentHeight;
+        if (currentWidth != availableWidth && currentHeight != availableHeight) resize(static_cast<int>(currentHeight * aspect_ratio), currentHeight);
         
-        // Resize the scrollArea to match the videoPane size
-        scrollArea->resize(videoWidth, videoHeight);
-        videoPane->move(horizontalOffset, videoPane->y());
-        scrollArea->move(horizontalOffset, videoPane->y());
-        GlobalVar::instance().setWinWidth(currentWidth);
-        GlobalVar::instance().setWinHeight(currentHeight);
-    } else {
-        // If the window size is within the available screen size, use the original logic
-        qCDebug(log_ui_mainwindow) << "Aspect ratio:" << aspect_ratio << ", Width:" << video_width << "Height:" << video_height;
-        qCDebug(log_ui_mainwindow) << "menuBar height:" << menuBarHeight << ", statusbar height:" << statusBarHeight << ", titleBarHeight" << titleBarHeight;
-
-        // Calculate the new height based on the width and the aspect ratio
-        int new_height = static_cast<int>(currentWidth / aspect_ratio) + menuBarHeight + statusBarHeight;
-
-        // Set the new size of the window
-        qCDebug(log_ui_mainwindow) << "Resize to " << currentWidth << "x" << new_height;
-        resize(currentWidth, new_height);
-
-        int contentHeight = this->height() - statusBarHeight - menuBarHeight;
-        qCDebug(log_ui_mainwindow) << "this height: "<< this->height();
-        videoPane->setMinimumSize(this->width(), contentHeight);
-        videoPane->resize(this->width(), contentHeight);
-        qCDebug(log_ui_mainwindow) << "video height: "<< contentHeight <<"video width: " << this->width();
-        scrollArea->resize(this->width(), contentHeight);
-        GlobalVar::instance().setWinWidth(this->width());
-        GlobalVar::instance().setWinHeight(this->height());
+    }else if(aspect_ratio > input_aspect_ratio){
+        if (currentWidth >= availableWidth || currentHeight >= availableHeight){
+            currentHeight = video_width;
+        }
+        qDebug() << " ------------ else the aspect_ratio > input_aspect_ratio " << currentHeight;
+        if (currentWidth != availableWidth && currentHeight != availableHeight) resize(currentWidth, static_cast<int>(currentHeight / aspect_ratio));
+    }else{
+        if (currentWidth >= availableWidth || currentHeight >= availableHeight) {
+            // Calculate the new size while maintaining the aspect ratio
+            int videoHeight = maxContentHeight;
+            int videoWidth = static_cast<int>(videoHeight * aspect_ratio);
+            if (currentWidth >= availableWidth) {
+                currentWidth = availableWidth;
+                videoWidth = currentWidth;
+                videoHeight = static_cast<int>(currentWidth / aspect_ratio);
+            }
+            if (currentHeight >= availableHeight || videoHeight >= maxContentHeight) {
+                // Use the maximum content height and adjust the window height accordingly
+                videoHeight = maxContentHeight;
+                // currentHeight = maxContentHeight + menuBarHeight + statusBarHeight + 6;
+                currentHeight = static_cast<int>(availableWidth / aspect_ratio) - menuBarHeight - statusBarHeight;
+                qCDebug(log_ui_mainwindow) << "video height: " << videoHeight << "mainwindow height: " << currentHeight;
+                videoWidth = static_cast<int>(videoHeight * aspect_ratio);
+            }
+    
+            // Set the new size of the window
+            qCDebug(log_ui_mainwindow) << "Resize to " << currentWidth << "x" << currentHeight;
+            qCDebug(log_ui_mainwindow) << "available height: " << availableHeight << "video height: " << videoHeight;
+            qCDebug(log_ui_mainwindow) << "video height: "<< videoHeight <<"video width: " << videoWidth;
+    
+            if (currentWidth != availableWidth && currentHeight != availableHeight){
+                // Resize the window only when it's not maximized
+                resize(currentWidth, currentHeight);
+            }
+    
+            // Calculate the horizontal offset to center the videoPane
+            int horizontalOffset = (currentWidth - videoWidth) / 2;
+    
+            // Set the minimum size and resize the videoPane
+            videoPane->setMinimumSize(videoWidth, videoHeight);
+            videoPane->resize(videoWidth, videoHeight);
+    
+    
+            // Move the videoPane to the center horizontally
+            
+            // Resize the scrollArea to match the videoPane size
+            scrollArea->resize(videoWidth, videoHeight);
+            videoPane->move(horizontalOffset, videoPane->y());
+            scrollArea->move(horizontalOffset, videoPane->y());
+            GlobalVar::instance().setWinWidth(currentWidth);
+            GlobalVar::instance().setWinHeight(currentHeight);
+        } else {
+            // If the window size is within the available screen size, use the original logic
+            qCDebug(log_ui_mainwindow) << "Aspect ratio:" << aspect_ratio << ", Width:" << video_width << "Height:" << video_height;
+            qCDebug(log_ui_mainwindow) << "menuBar height:" << menuBarHeight << ", statusbar height:" << statusBarHeight << ", titleBarHeight" << titleBarHeight;
+    
+            // Calculate the new height based on the width and the aspect ratio
+            int new_height = static_cast<int>(currentWidth / aspect_ratio) + menuBarHeight + statusBarHeight;
+    
+            // Set the new size of the window
+            qCDebug(log_ui_mainwindow) << "Resize to " << currentWidth << "x" << new_height;
+            resize(currentWidth, new_height);
+    
+            int contentHeight = this->height() - statusBarHeight - menuBarHeight;
+            qCDebug(log_ui_mainwindow) << "this height: "<< this->height();
+            videoPane->setMinimumSize(this->width(), contentHeight);
+            videoPane->resize(this->width(), contentHeight);
+            qCDebug(log_ui_mainwindow) << "video height: "<< contentHeight <<"video width: " << this->width();
+            scrollArea->resize(this->width(), contentHeight);
+            GlobalVar::instance().setWinWidth(this->width());
+            GlobalVar::instance().setWinHeight(this->height());
+        }
     }
+
+    
 }
 
 void MainWindow::moveEvent(QMoveEvent *event) {
@@ -643,42 +664,7 @@ void MainWindow::moveEvent(QMoveEvent *event) {
     QWidget::moveEvent(event);
 }
 
-void MainWindow::calculate_video_position(){
-    double aspect_ratio = static_cast<double>(video_width) / video_height;
-    if(GlobalVar::instance().getInputAspectRatio()){
-        aspect_ratio = GlobalVar::instance().getInputAspectRatio();
-    } 
 
-    int scaled_window_width, scaled_window_height;
-    int titleBarHeight = this->frameGeometry().height() - this->geometry().height();
-    int statusBarHeight = ui->statusbar->height();
-    QMenuBar *menuBar = this->menuBar();
-    int menuBarHeight = menuBar->height();
-
-    double widget_ratio = static_cast<double>(width()) / (height()-titleBarHeight-statusBarHeight-menuBarHeight);
-
-    qCDebug(log_ui_mainwindow) << "titleBarHeight: " << titleBarHeight;
-    qCDebug(log_ui_mainwindow) << "statusBarHeight: " << statusBarHeight;
-    qCDebug(log_ui_mainwindow) << "menuBarHeight: " << menuBarHeight;
-
-    if (widget_ratio < aspect_ratio) {
-        // Window is relatively shorter, scale the window by video width
-        scaled_window_width =  static_cast<int>(ui->centralwidget->height() * aspect_ratio);
-        scaled_window_height = ui->centralwidget->height() + titleBarHeight + statusBarHeight+menuBarHeight;
-    } else {
-        // Window is relatively taller, scale the window by video height
-        scaled_window_width = ui->centralwidget->width();
-        scaled_window_height =static_cast<int>(ui->centralwidget->width()) / aspect_ratio + titleBarHeight + statusBarHeight+menuBarHeight;
-    }
-    resize(scaled_window_width, scaled_window_height);
-
-    GlobalVar::instance().setMenuHeight(menuBarHeight);
-    GlobalVar::instance().setTitleHeight(titleBarHeight);
-    GlobalVar::instance().setStatusbarHeight(statusBarHeight);
-    QSize windowSize = this->size();
-    GlobalVar::instance().setWinWidth(windowSize.width());
-    GlobalVar::instance().setWinHeight(windowSize.height());
-}
 
 void MainWindow::updateScrollbars() {
     // Get the screen geometry using QScreen
@@ -929,11 +915,30 @@ void MainWindow::configScreenScale(){
             m_screenScaleDialog->deleteLater();
             m_screenScaleDialog = nullptr;
         });
+        connect(m_screenScaleDialog, &ScreenScale::screenRatio, this, &MainWindow::onScreenRatioChanged);
         m_screenScaleDialog->show();
     }else{
         m_screenScaleDialog->raise();
         m_screenScaleDialog->activateWindow();
     }
+}
+
+void MainWindow::onScreenRatioChanged(double ratio) {
+    qDebug() << "onScreenRatioChanged" << ratio;
+    double currentRatio =  GlobalSetting::instance().getScreenRatio();
+    if (ratio != currentRatio) {
+        qDebug() << "Screen ratio changed to" << ratio;
+        GlobalSetting::instance().setScreenRatio(ratio);
+        calculate_video_position(); 
+    }
+}
+
+void MainWindow::calculate_video_position(){
+    double currentRatio = GlobalSetting::instance().getScreenRatio();
+    int height = GlobalVar::instance().getInputHeight();
+    int width  = int(currentRatio * height);
+    qDebug() << "calculate_video_position" << width << height;
+    resize(width, height);
 }
 
 void MainWindow::configureSettings() {
@@ -1294,7 +1299,7 @@ void MainWindow::onVideoSettingsChanged() {
     // Calculate aspect ratios
     double inputAspectRatio = static_cast<double>(inputWidth) / inputHeight;
     double captureAspectRatio = static_cast<double>(captureWidth) / captureHeight;
-    
+
     // Resize the window based on aspect ratios
     double scale = captureHeight >= availableGeometry.height() * 0.8 ? 0.6 : 1.0;
     scale = captureWidth >= availableGeometry.width() * 0.8 ? 0.6 : 1.0;

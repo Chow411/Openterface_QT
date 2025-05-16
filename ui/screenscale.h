@@ -16,6 +16,9 @@ public:
 
     QString getSelectedRatio() const;
 
+signals:
+    void screenRatio(double ratio);
+
 private slots:
     void onOkClicked();
     void onCancelClicked();
@@ -26,6 +29,8 @@ private:
     QPushButton *cancelButton;
     QVBoxLayout *layout;
     QHBoxLayout *layoutBtn;
+    double converseRatio(QString ratio);
+    QString converseRatio(double ratio);
 };
 
 #endif // SCREENSCALE_H

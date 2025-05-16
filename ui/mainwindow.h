@@ -119,6 +119,7 @@ public slots:
     void handleSyntaxTree(std::shared_ptr<ASTNode> syntaxTree);
     void changeKeyboardLayout(const QString& layout);
     void initializeKeyboardLayouts();
+    void onScreenRatioChanged(double ratio);
 
 private slots:
     void initCamera();

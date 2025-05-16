@@ -47,6 +47,7 @@
 #include "scripts/AST.h"
 #include "ui/languagemanager.h"
 #include "ui/screensavermanager.h"
+#include "ui/screenscale.h"
 
 
 #ifdef ONLINE_VERSION
@@ -172,12 +173,29 @@ private slots:
     void onSwitchableUsbToggle(const bool isToHost) override;
 
     void onTargetUsbConnected(const bool isConnected) override;
-    
-    bool CheckDeviceAccess(uint16_t vid, uint16_t pid);
 
     void showEnvironmentSetupDialog();
 
     void updateFirmware(); 
+
+    void onRepeatingKeystrokeChanged(int index);
+
+    void onCtrlAltDelPressed();
+    
+    void onBaudrateMenuTriggered(QAction* action);
+
+    void onToggleSwitchStateChanged(int state);
+
+    void onZoomIn();
+    void onZoomOut();
+    void onZoomReduction();
+    void onKeyboardLayoutCombobox_Changed(int index);
+    
+    void checkMousePosition();
+
+    void onVideoSettingsChanged();
+    void onResolutionsUpdated(int input_width, int input_height, float input_fps, int capture_width, int capture_height, int capture_fps, float pixelClk);
+    void onInputResolutionChanged(int old_input_width, int old_input_height, int new_input_width, int new_input_height);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -200,36 +218,8 @@ protected:
     void onActionScreensaver();
     void onToggleVirtualKeyboard();
 
-    void queryResolutions();
-
     void onResolutionChange(const int& width, const int& height, const float& fps, const float& pixelClk);
 
-    void onButtonClicked();
-
-
-private slots:
-    void onRepeatingKeystrokeChanged(int index);
-
-    void onCtrlAltDelPressed();
-    
-    void onBaudrateMenuTriggered(QAction* action);
-
-    void onToggleSwitchStateChanged(int state);
-
-    void onZoomIn();
-    void onZoomOut();
-    void onZoomReduction();
-    void onKeyboardLayoutCombobox_Changed(int index);
-    
-private slots:
-    void checkMousePosition();
-
-private slots:
-    void onVideoSettingsChanged();
-    void onResolutionsUpdated(int input_width, int input_height, float input_fps, int capture_width, int capture_height, int capture_fps, float pixelClk);
-    void onInputResolutionChanged(int old_input_width, int old_input_height, int new_input_width, int new_input_height);
-
-protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
@@ -273,9 +263,6 @@ private:
 
     QWidget *keyboardPanel = nullptr;
 
-    QPushButton* createFunctionButton(const QString &text);
-
-    void onRepeatingKeystrokeToggled(bool checked);
     QComboBox *repeatingKeystrokeComboBox;
     
     void updateBaudrateMenu(int baudrate);
@@ -318,6 +305,8 @@ private:
     Qt::WindowStates oldWindowState;
     ScriptTool *scriptTool;
     ScreenSaverManager *m_screenSaverManager;
+    ScreenScale *m_screenScaleDialog = nullptr;
+    void configScreenScale();
 #ifdef ONLINE_VERSION
     void startServer();
     TcpServer *tcpServer;

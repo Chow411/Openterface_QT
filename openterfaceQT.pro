@@ -54,7 +54,8 @@ SOURCES += main.cpp \
     server/tcpServer.cpp \
     scripts/scriptEditor.cpp \
     ui/languagemanager.cpp \
-    ui/screensavermanager.cpp
+    ui/screensavermanager.cpp \
+    ui/screenscale.cpp
 
 
 HEADERS  += \
@@ -106,7 +107,8 @@ HEADERS  += \
     target/KeyboardLayouts.h \
     scripts/scriptEditor.h \
     ui/languagemanager.h \
-    ui/screensavermanager.h
+    ui/screensavermanager.h \
+    ui/screenscale.h
 
 FORMS    += \
     ui/mainwindow.ui \

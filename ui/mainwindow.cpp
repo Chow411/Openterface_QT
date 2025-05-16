@@ -63,7 +63,6 @@
 #include <QPixmap>
 #include <QSvgRenderer>
 #include <QPainter>
-#include <QMessageBox>
 #include <QDesktopServices>
 #include <QSysInfo>
 #include <QMenuBar>
@@ -247,6 +246,7 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
     connect(ui->ZoomInButton, &QPushButton::clicked, this, &MainWindow::onZoomIn);
     connect(ui->ZoomOutButton, &QPushButton::clicked, this, &MainWindow::onZoomOut);
     connect(ui->ZoomReductionButton, &QPushButton::clicked, this, &MainWindow::onZoomReduction);
+    connect(ui->ScreenScaleButton, &QPushButton::clicked, this, &MainWindow::configScreenScale);
     
     connect(ui->captureButton, &QPushButton::clicked, this, &MainWindow::takeImageDefault);
     scrollArea->ensureWidgetVisible(videoPane);
@@ -298,7 +298,7 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
     // qCDebug(log_ui_mainwindow) << "full screen...";
     connect(ui->fullScreenButton, &QPushButton::clicked, this, &MainWindow::fullScreen);
 
-    connect(ui->keyboardLayoutComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onKeyboardLayoutCombobox_Changed(int)));
+    connect(ui->keyboardLayoutComboBox, &QComboBox::currentIndexChanged, this, &MainWindow::onKeyboardLayoutCombobox_Changed);
 
 
     connect(m_languageManager, &LanguageManager::languageChanged, this, &MainWindow::updateUI);
@@ -483,9 +483,6 @@ void MainWindow::initCamera()
 #endif
     // Camera devices:
     updateCameras();
-    
-
-    // m_cameraManager->loadCameraSettingAndSetCamera();
 
     GlobalVar::instance().setWinWidth(this->width());
     GlobalVar::instance().setWinHeight(this->height());
@@ -638,16 +635,12 @@ void MainWindow::moveEvent(QMoveEvent *event) {
     QPoint oldPos = event->oldPos();
     QPoint newPos = event->pos();
     
-    // scrollTimer->start(100);     // problem here
-    // Calculate the position delta
     QPoint delta = newPos - oldPos;
 
     qCDebug(log_ui_mainwindow) << "Window move delta: " << delta;
 
     // Call the base class implementation
     QWidget::moveEvent(event);
-
-    //calculate_video_position();
 }
 
 void MainWindow::calculate_video_position(){
@@ -926,6 +919,21 @@ void MainWindow::processCapturedImage(int requestId, const QImage &img)
     // Display captured image for 4 seconds.
     displayCapturedImage();
     QTimer::singleShot(4000, this, &MainWindow::displayViewfinder);
+}
+
+void MainWindow::configScreenScale(){
+    if (!m_screenScaleDialog){
+        qDebug() << "Creating screen scale dialog";
+        m_screenScaleDialog = new ScreenScale(this);
+        connect(m_screenScaleDialog, &QDialog::finished, this, [this](){
+            m_screenScaleDialog->deleteLater();
+            m_screenScaleDialog = nullptr;
+        });
+        m_screenScaleDialog->show();
+    }else{
+        m_screenScaleDialog->raise();
+        m_screenScaleDialog->activateWindow();
+    }
 }
 
 void MainWindow::configureSettings() {
@@ -1393,33 +1401,6 @@ MainWindow::~MainWindow()
     delete m_cameraManager;
     
     qCDebug(log_ui_mainwindow) << "MainWindow destroyed successfully";
-}
-
-bool MainWindow::CheckDeviceAccess(uint16_t vid, uint16_t pid) {
-    libusb_context *context;
-    int result = libusb_init(&context);
-    if (result < 0) return false;
-    libusb_device_handle *handle = libusb_open_device_with_vid_pid(context, vid, pid);
-    if (!handle) {
-        qDebug() << "Failed to open device: " << libusb_error_name(result);
-        libusb_close(handle);
-        libusb_exit(context);
-        return false;
-    }
-
-    int r = libusb_claim_interface(handle, 0);
-    if (r != LIBUSB_SUCCESS && r != LIBUSB_ERROR_BUSY) {
-        qDebug() << "Failed to claim interface: " << libusb_error_name(r);
-        libusb_close(handle);
-        
-        libusb_exit(context);
-        return false;
-    }
-    return true;
-    
-
-    libusb_exit(context);
-    
 }
 
 void MainWindow::onToolbarVisibilityChanged(bool visible) {

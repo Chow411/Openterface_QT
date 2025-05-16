@@ -113,6 +113,14 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="ScreenScaleButton">
+       <property name="icon">
+        <iconset resource="mainwindow.qrc">
+         <normaloff>:/images/screen_scale.svg</normaloff>:/images/screen_scale.svg</iconset>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="ZoomInButton">
        <property name="icon">
         <iconset resource="mainwindow.qrc">

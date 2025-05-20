@@ -48,7 +48,7 @@
 #include "ui/languagemanager.h"
 #include "ui/screensavermanager.h"
 #include "ui/screenscale.h"
-
+#include "ui/cornerwidget/cornerwidgetmanager.h"
 
 #ifdef ONLINE_VERSION
 #define SERVER_PORT 12345
@@ -100,6 +100,12 @@ class MetaDataDialog;
 
 QPixmap recolorSvg(const QString &svgPath, const QColor &color, const QSize &size);
 
+enum class ratioType{
+    EQUAL,
+    LARGER,
+    SMALLER
+};
+
 class MainWindow : public QMainWindow, public StatusEventCallback
 {
     Q_OBJECT
@@ -140,7 +146,6 @@ private slots:
     void officialLink();
     void aboutLink();
     void updateLink();
-    void setTooltip();
 
     void configureSettings();
     void debugSerialPort();
@@ -190,7 +195,7 @@ private slots:
     void onZoomIn();
     void onZoomOut();
     void onZoomReduction();
-    void onKeyboardLayoutCombobox_Changed(int index);
+    void onKeyboardLayoutCombobox_Changed(const QString &layout);
     
     void checkMousePosition();
 
@@ -298,7 +303,7 @@ private:
 
     void doResize();
 
-    void centerVideoPane();
+    void centerVideoPane(int videoWidth, int videoHeight, int WindowWidth, int WindowHeight);
     void checkInitSize();
     void fullScreen();
     bool isFullScreenMode();
@@ -307,7 +312,10 @@ private:
     ScriptTool *scriptTool;
     ScreenSaverManager *m_screenSaverManager;
     ScreenScale *m_screenScaleDialog = nullptr;
+    CornerWidgetManager *m_cornerWidgetManager = nullptr;
     void configScreenScale();
+    
+    ratioType currentRatioType = ratioType::EQUAL;
 #ifdef ONLINE_VERSION
     void startServer();
     TcpServer *tcpServer;

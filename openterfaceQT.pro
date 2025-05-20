@@ -55,7 +55,8 @@ SOURCES += main.cpp \
     scripts/scriptEditor.cpp \
     ui/languagemanager.cpp \
     ui/screensavermanager.cpp \
-    ui/screenscale.cpp
+    ui/screenscale.cpp \
+    ui/cornerwidget/cornerwidgetmanager.cpp
 
 
 HEADERS  += \
@@ -108,7 +109,8 @@ HEADERS  += \
     scripts/scriptEditor.h \
     ui/languagemanager.h \
     ui/screensavermanager.h \
-    ui/screenscale.h
+    ui/screenscale.h \
+    ui/cornerwidget/cornerwidgetmanager.h
 
 FORMS    += \
     ui/mainwindow.ui \

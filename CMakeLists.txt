@@ -79,6 +79,7 @@ qt_add_executable(openterfaceQT WIN32 MACOSX_BUNDLE
     ui/help/versioninfomanager.cpp ui/help/versioninfomanager.h
     ui/statusevents.h
     ui/screenscale.h ui/screenscale.cpp
+    ui/cornerwidget/cornerwidgetmanager.h ui/cornerwidget/cornerwidgetmanager.cpp
     ui/statusbar/statuswidget.cpp ui/statusbar/statuswidget.h
     ui/toolbar/toggleswitch.cpp ui/toolbar/toggleswitch.h
     ui/toolbar/toolbarmanager.cpp ui/toolbar/toolbarmanager.h

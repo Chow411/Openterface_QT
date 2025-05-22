@@ -129,9 +129,26 @@ win32:LIBS += -lhid
 win32:LIBS += -lsetupapi
 
 win32 {
-    INCLUDEPATH += $$PWD/lib
-    LIBS += -L$$PWD/lib -llibusb-1.0 -loleaut32 -lwinpthread
+    CONFIG += static static-runtime
+    QMAKE_LFLAGS += -static -static-libgcc -static-libstdc++
 
+    QTPLUGIN.platforms = qwindows
+    QTPLUGIN.styles = qwindowsvistastyle
+
+    INCLUDEPATH += $$PWD/lib
+    LIBS += -L$$PWD/lib \
+            -llibusb-1.0 \
+            -loleaut32 \
+            -lwinpthread \
+            -lhid \
+            -lsetupapi \
+            -lws2_32 \
+            -lwinmm \
+            -limm32 \
+            -lversion \
+            -ldwmapi
+            
+    DEFINES += QT_STATIC_BUILD
     RESOURCES += driver/windows/drivers.qrc
 }
 

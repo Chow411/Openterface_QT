@@ -579,12 +579,24 @@ void MainWindow::doResize(){
         case ratioType::LARGER:
             videoWidth = int(videoHeight * aspect_ratio);
             currentHeight = videoHeight + titleBarHeight + menuBarHeight + statusBarHeight;
-            currentWidth = videoWidth;
+            if (currentWidth == availableWidth) 
+            {
+                currentWidth = availableWidth;
+                currentHeight = static_cast<int>(availableWidth / aspect_ratio) - menuBarHeight - statusBarHeight;
+            }else{
+                currentWidth = videoWidth;
+            }
             break;
         case ratioType::SMALLER:
             videoWidth = int(videoHeight * aspect_ratio);
             currentHeight = videoHeight + titleBarHeight + menuBarHeight + statusBarHeight;
-            currentWidth = videoWidth;
+            if (currentWidth == availableWidth) 
+            {
+                currentWidth = availableWidth;
+                currentHeight = static_cast<int>(availableWidth / aspect_ratio) - menuBarHeight - statusBarHeight;
+            }else{
+                currentWidth = videoWidth;
+            }
             break;
     }
     // just resize the window when the window is not maximized

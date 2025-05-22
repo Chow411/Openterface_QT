@@ -155,9 +155,7 @@ jobs:
           copy ${{ env.SOURCE_DIR }}\config\keyboards\*.json ${{ env.PACKAGE_DIR }}\config\keyboards
           copy ${{ env.SOURCE_DIR }}\config\languages\*.qm ${{ env.PACKAGE_DIR }}\config\languages
           
-          # echo "Running windeployqt..."
-          # cd ${{ env.PACKAGE_DIR }}
-          # windeployqt --qmldir ${{ env.SOURCE_DIR }} ${{ env.EXE_NAME }} --compiler-runtime --multimedia
+        
           
 
       - name: Move build artifacts

@@ -164,3 +164,8 @@ TRANSLATIONS += config/languages/openterface_en.ts \
                 config/languages/openterface_se.ts \
                 config/languages/openterface_de.ts 
                 # Add more languages here
+
+win32{
+    CONFIG += static
+    LIBS += -static -static-libgcc -static-libstdc++
+}

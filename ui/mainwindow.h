@@ -41,11 +41,9 @@
 #include "ui/TaskManager.h"
 #include "ui/languagemanager.h"
 #include "ui/statusbar/statusbarmanager.h"
-#include "host/usbcontrol.h"
 #include "host/cameramanager.h"
 #include "scripts/semanticAnalyzer.h"
 #include "scripts/AST.h"
-#include "ui/languagemanager.h"
 #include "ui/screensavermanager.h"
 #include "ui/screenscale.h"
 #include "ui/cornerwidget/cornerwidgetmanager.h"
@@ -201,7 +199,7 @@ private slots:
 
     void onVideoSettingsChanged();
     void onResolutionsUpdated(int input_width, int input_height, float input_fps, int capture_width, int capture_height, int capture_fps, float pixelClk);
-    void onInputResolutionChanged(int old_input_width, int old_input_height, int new_input_width, int new_input_height);
+    void onInputResolutionChanged();
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -244,7 +242,7 @@ private:
     QToolBar *toolbar;
     ToolbarManager *toolbarManager; // Moved up in the declaration orde r
     
-    LanguageManager *m_languageManager;
+    
     void updateUI();
     void setupLanguageMenu();
     void onLanguageSelected(QAction *action);
@@ -286,9 +284,8 @@ private:
     const int edgeDuration = 125; // Reduced duration for more frequent checks
     const int maxScrollSpeed = 50; // Maximum scroll speed
     VersionInfoManager *m_versionInfoManager;
-
+    LanguageManager *m_languageManager;
     StatusBarManager *m_statusBarManager;
-    USBControl *usbControl;
 
     // CameraAdjust *cameraAdjust;
     std::unique_ptr<MouseManager> mouseManager;

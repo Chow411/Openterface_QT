@@ -28,7 +28,6 @@
 #include "host/HostManager.h"
 #include "host/cameramanager.h"
 #include "serial/SerialPortManager.h"
-#include "loghandler.h"
 #include "ui/preferences/settingdialog.h"
 #include "ui/help/helppane.h"
 #include "ui/videopane.h"
@@ -265,10 +264,6 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
     
     qApp->installEventFilter(this);
 
-    // usbControl = new USBControl(this);
-    // connect(ui->contrastButton, &QPushButton::clicked, cameraAdjust, &CameraAdjust::toggleVisibility);
-    // connect(ui->contrastButton, &QPushButton::toggled, cameraAdjust, &CameraAdjust::setVisible);
-
     // Initial position setup
     // QPoint buttonPos = ui->contrastButton->mapToGlobal(QPoint(0, 0));
     // int menuBarHeight = buttonPos.y() - this->mapToGlobal(QPoint(0, 0)).y();
@@ -486,7 +481,7 @@ void MainWindow::resizeEvent(QResizeEvent *event) {
     static qint64 lastResizeTime = 0;
     qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
     
-    if (isFullScreenMode() || (currentTime - lastResizeTime) < 50) { // 100ms
+    if (isFullScreenMode() || (currentTime - lastResizeTime) < 10) { // 100ms
         return;
     }
     
@@ -514,11 +509,9 @@ void MainWindow::doResize(){
     QScreen *currentScreen = this->screen();
     QRect availableGeometry = currentScreen->availableGeometry();
     systemScaleFactor = currentScreen->devicePixelRatio();
-    double input_aspect_ratio;
     if(GlobalVar::instance().getCaptureWidth() && GlobalVar::instance().getCaptureHeight()){
         video_width = GlobalVar::instance().getCaptureWidth();
         video_height = GlobalVar::instance().getCaptureHeight();
-        input_aspect_ratio = double(GlobalVar::instance().getCaptureWidth()) / double(GlobalVar::instance().getCaptureHeight());
     }
     double aspect_ratio = GlobalSetting::instance().getScreenRatio();
     
@@ -865,9 +858,6 @@ void MainWindow::onScreenRatioChanged(double ratio) {
 void MainWindow::calculate_video_position(){
     double currentRatio = GlobalSetting::instance().getScreenRatio();
     double input_aspect_ratio = double(GlobalVar::instance().getCaptureWidth()) / double(GlobalVar::instance().getCaptureHeight());
-    
-    int width = this->width();
-    int height = this->height();
     
     if(currentRatio > input_aspect_ratio){
         currentRatioType = ratioType::LARGER;
@@ -1286,7 +1276,7 @@ void MainWindow::onResolutionsUpdated(int input_width, int input_height, float i
     video_width = GlobalVar::instance().getCaptureWidth();
 }
 
-void MainWindow::onInputResolutionChanged(int old_input_width, int old_input_height, int new_input_width, int new_input_height)
+void MainWindow::onInputResolutionChanged()
 {
     doResize();
 

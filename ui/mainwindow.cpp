@@ -484,7 +484,7 @@ void MainWindow::resizeEvent(QResizeEvent *event) {
     QMainWindow::resizeEvent(event);
     doResize();
     
-    m_cornerWidgetManager->updateLayout(this->width());
+    m_cornerWidgetManager->updateButtonVisibility(this->width());
     m_cornerWidgetManager->updatePosition(this->width(), ui->menubar->height(), isFullScreenMode());
 
 } // end resize event function

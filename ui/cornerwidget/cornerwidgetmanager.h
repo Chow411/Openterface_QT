@@ -3,12 +3,10 @@
 
 #include <QWidget>
 #include <QHBoxLayout>
-#include <QVBoxLayout>
 #include <QPushButton>
 #include <QComboBox>
 #include <QMenuBar>
 #include "ui/toolbar/toggleswitch.h"
-
 
 class CornerWidgetManager : public QObject {
     Q_OBJECT
@@ -19,10 +17,11 @@ public:
 
     QWidget* getCornerWidget() const;
     void setMenuBar(QMenuBar *menuBar);
-    void updateLayout(int windowWidth);
+    void updateButtonVisibility(int windowWidth);
     void updatePosition(int windowWidth, int menuBarHeight, bool isFullScreen);
     void initializeKeyboardLayouts(const QStringList &layouts, const QString &defaultLayout);
     QPushButton *screensaverButton;
+
 signals:
     void zoomInClicked();
     void zoomOutClicked();
@@ -39,8 +38,6 @@ signals:
 private:
     void createWidgets();
     void setupConnections();
-    void switchToHorizontalLayout();
-    void switchToVerticalLayout();
     void setButtonIcon(QPushButton *button, const QString &iconPath);
 
     QWidget *cornerWidget;
@@ -56,9 +53,7 @@ private:
     
     ToggleSwitch *toggleSwitch;
     QHBoxLayout *horizontalLayout;
-    QVBoxLayout *verticalLayout;
     QMenuBar *menuBar;
-    bool isVerticalLayout;
     int layoutThreshold;
 };
 

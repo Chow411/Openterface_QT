@@ -18,17 +18,13 @@ CornerWidgetManager::CornerWidgetManager(QWidget *parent)
       screensaverButton(nullptr),
       toggleSwitch(new ToggleSwitch(cornerWidget)),
       horizontalLayout(new QHBoxLayout()),
-      verticalLayout(new QVBoxLayout()),
       menuBar(nullptr),
-      isVerticalLayout(false),
       layoutThreshold(800)
 {
     createWidgets();
     setupConnections();
     horizontalLayout->setSpacing(2);
     horizontalLayout->setContentsMargins(5, 5, 5, 5);
-    verticalLayout->setSpacing(2);
-    verticalLayout->setContentsMargins(5, 5, 5, 5);
     cornerWidget->setLayout(horizontalLayout);
     horizontalLayout->invalidate();
     horizontalLayout->activate();
@@ -217,99 +213,70 @@ void CornerWidgetManager::initializeKeyboardLayouts(const QStringList &layouts, 
     }
 }
 
-void CornerWidgetManager::updateLayout(int windowWidth)
+void CornerWidgetManager::updateButtonVisibility(int windowWidth)
 {
-    qDebug() << "Entering updateLayout, windowWidth:" << windowWidth << ", current layout:" << cornerWidget->layout();
+    qDebug() << "Entering updateButtonVisibility, windowWidth:" << windowWidth << ", layoutThreshold:" << layoutThreshold;
 
-    bool shouldBeVertical = windowWidth < layoutThreshold;
+    // Define the step size for hiding buttons
+    const int widthStep = 100; // Increased to make hiding more gradual
 
-    if (shouldBeVertical == isVerticalLayout) {
-        return;
-    }
-
-    isVerticalLayout = shouldBeVertical;
-
+    // List of widgets in hiding order (first to hide is first in the list)
     QList<QWidget*> widgets = {
-        keyboardLayoutComboBox,
-        screenScaleButton,
-        zoomInButton,
-        zoomOutButton,
-        zoomReductionButton,
-        virtualKeyboardButton,
-        captureButton,
-        fullScreenButton,
-        pasteButton,
         screensaverButton,
-        toggleSwitch
+        pasteButton,
+        fullScreenButton,
+        captureButton,
+        virtualKeyboardButton,
+        zoomReductionButton,
+        zoomOutButton,
+        zoomInButton,
+        screenScaleButton,
+        keyboardLayoutComboBox // Hidden last
+        // toggleSwitch is excluded to ensure it remains visible
     };
 
+    // Show all widgets by default
     for (QWidget* widget : widgets) {
         if (widget) {
-            horizontalLayout->removeWidget(widget);
-            verticalLayout->removeWidget(widget);
-            widget->setParent(cornerWidget);
             widget->show();
+            qDebug() << "Initially showing widget:" << widget->objectName();
+        }
+    }
+    toggleSwitch->show(); // Ensure toggleSwitch is always visible
+    qDebug() << "Initially showing toggleSwitch";
+
+    // Calculate how many widgets to hide based on window width
+    int widgetsToHide = 0;
+    if (windowWidth < layoutThreshold) {
+        widgetsToHide = qMin(widgets.size(), (layoutThreshold - windowWidth) / widthStep);
+    }
+    qDebug() << "Widgets to hide:" << widgetsToHide;
+
+    // Hide widgets based on calculated number
+    for (int i = 0; i < widgetsToHide && i < widgets.size(); ++i) {
+        if (widgets[i]) {
+            widgets[i]->hide();
+            qDebug() << "Hiding widget:" << widgets[i]->objectName() << "at index" << i
+                     << "threshold:" << (layoutThreshold - (i * widthStep));
         }
     }
 
-    QLayout* oldLayout = cornerWidget->layout();
-    if (oldLayout) {
-        while (QLayoutItem* item = oldLayout->takeAt(0)) {
-            delete item;
-        }
-        if (oldLayout != horizontalLayout && oldLayout != verticalLayout) {
-            oldLayout->deleteLater();
-        }
-    }
-    QLayout* newLayout = nullptr;
-    if (isVerticalLayout) {
-        newLayout = verticalLayout;
-    }else{
-        newLayout = horizontalLayout;
-    }
-    newLayout->setSpacing(2);
-    newLayout->setContentsMargins(5, 5, 5, 5);
-
-    for (QWidget* widget : widgets) {
-        if (widget) {
-            newLayout->addWidget(widget);
-            if (widget == keyboardLayoutComboBox) {
-                widget->setMinimumSize(100, 30);
-            } else if (widget == toggleSwitch) {
-                widget->setMinimumSize(78, 28);
-            } else {
-                widget->setMinimumSize(30, 30);
-            }
-            widget->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-        }
-    }
-    cornerWidget->setLayout(newLayout);
-
-    if (isVerticalLayout) {
-        cornerWidget->setStyleSheet(
-            "QWidget#cornerWidget { background-color: #f0f0f0; border: 1px solid #ccc; }"
-            "QPushButton, QComboBox { min-width: 30px; min-height: 30px; margin: 2px; padding: 0px; }"
-        );
-    } else {
-        cornerWidget->setStyleSheet("");
-    }
-
-    newLayout->invalidate();
-    newLayout->activate();
-    QSize layoutSizeHint = newLayout->sizeHint();
+    // Update layout
+    horizontalLayout->invalidate();
+    horizontalLayout->activate();
+    QSize layoutSizeHint = horizontalLayout->sizeHint();
     cornerWidget->setMinimumSize(layoutSizeHint);
     cornerWidget->resize(layoutSizeHint);
     cornerWidget->adjustSize();
     cornerWidget->show();
+
     if (cornerWidget->parentWidget()) {
         cornerWidget->parentWidget()->updateGeometry();
         cornerWidget->parentWidget()->update();
     }
     QApplication::processEvents();
 
-    qDebug() << "Exiting updateLayout, isVertical:" << isVerticalLayout << ", windowWidth:" << windowWidth
-             << ", new layout:" << cornerWidget->layout()
-             << ", cornerWidget geometry:" << cornerWidget->geometry()
+    qDebug() << "Exiting updateButtonVisibility, cornerWidget geometry:" << cornerWidget->geometry()
              << ", layout sizeHint:" << layoutSizeHint;
     for (QWidget* widget : widgets) {
         if (widget) {
@@ -318,52 +285,24 @@ void CornerWidgetManager::updateLayout(int windowWidth)
                      << "geometry:" << widget->geometry();
         }
     }
+    qDebug() << "Widget toggleSwitch visible:" << toggleSwitch->isVisible()
+             << "size:" << toggleSwitch->size() << "pos:" << toggleSwitch->pos()
+             << "geometry:" << toggleSwitch->geometry();
 }
 
-void CornerWidgetManager::switchToHorizontalLayout()
+void CornerWidgetManager::updatePosition(int windowWidth, int menuBarHeight, bool isFullScreen)
 {
-    cornerWidget->setLayout(horizontalLayout);
-    cornerWidget->setStyleSheet("");
     horizontalLayout->invalidate();
     horizontalLayout->activate();
     cornerWidget->setMinimumSize(horizontalLayout->sizeHint());
     cornerWidget->resize(horizontalLayout->sizeHint());
     cornerWidget->adjustSize();
-    cornerWidget->show();
-}
 
-void CornerWidgetManager::switchToVerticalLayout()
-{
-    cornerWidget->setLayout(verticalLayout);
-    cornerWidget->setStyleSheet(
-        "QWidget#cornerWidget { background-color: #f0f0f0; border: 1px solid #ccc; }"
-        "QPushButton, QComboBox { min-width: 30px; min-height: 30px; margin: 2px; padding: 0px; }"
-    );
-    verticalLayout->invalidate();
-    verticalLayout->activate();
-    cornerWidget->setMinimumSize(verticalLayout->sizeHint());
-    cornerWidget->resize(verticalLayout->sizeHint());
-    cornerWidget->adjustSize();
-    cornerWidget->show();
-}
-
-void CornerWidgetManager::updatePosition(int windowWidth, int menuBarHeight, bool isFullScreen)
-{
-    if (isVerticalLayout) {
+    if (windowWidth < layoutThreshold || isFullScreen) {
         if (menuBar) {
             menuBar->setCornerWidget(nullptr, Qt::TopRightCorner);
         }
         cornerWidget->setParent(cornerWidget->parentWidget());
-
-        QLayout* layout = cornerWidget->layout();
-        if (layout) {
-            layout->invalidate();
-            layout->activate();
-            QSize layoutSizeHint = layout->sizeHint();
-            cornerWidget->setMinimumSize(layoutSizeHint);
-            cornerWidget->resize(layoutSizeHint);
-        }
-        cornerWidget->adjustSize();
 
         QSize size = cornerWidget->size();
         int x = qMax(0, windowWidth - size.width() - 10);
@@ -371,24 +310,16 @@ void CornerWidgetManager::updatePosition(int windowWidth, int menuBarHeight, boo
         cornerWidget->setGeometry(x, y, size.width(), size.height());
         cornerWidget->raise();
         cornerWidget->show();
-        qDebug() << "Vertical layout position: (" << x << "," << y << "), size:" << size
+        qDebug() << "Floating position: (" << x << "," << y << "), size:" << size
                  << ", geometry:" << cornerWidget->geometry()
-                 << ", layout sizeHint:" << (layout ? layout->sizeHint() : QSize());
+                 << ", layout sizeHint:" << horizontalLayout->sizeHint();
     } else {
-        QLayout* layout = cornerWidget->layout();
-        if (layout) {
-            layout->invalidate();
-            layout->activate();
-            cornerWidget->setMinimumSize(layout->sizeHint());
-            cornerWidget->resize(layout->sizeHint());
-        }
-        cornerWidget->adjustSize();
         if (menuBar) {
             menuBar->setCornerWidget(cornerWidget, Qt::TopRightCorner);
             cornerWidget->show();
         }
-        qDebug() << "Horizontal layout, cornerWidget size:" << cornerWidget->size()
+        qDebug() << "Menu bar corner widget, size:" << cornerWidget->size()
                  << ", geometry:" << cornerWidget->geometry()
-                 << ", layout sizeHint:" << (layout ? layout->sizeHint() : QSize());
+                 << ", layout sizeHint:" << horizontalLayout->sizeHint();
     }
 }

@@ -155,8 +155,6 @@ RC_FILE = openterfaceQT.rc
 
 DEPENDPATH += $$PWD/''
 
-DEFINES += ONLINE_VERSION
-
 TRANSLATIONS += config/languages/openterface_en.ts \
                 config/languages/openterface_fr.ts \
                 config/languages/openterface_da.ts \

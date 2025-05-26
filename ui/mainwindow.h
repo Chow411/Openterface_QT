@@ -48,11 +48,8 @@
 #include "ui/screenscale.h"
 #include "ui/cornerwidget/cornerwidgetmanager.h"
 
-#ifdef ONLINE_VERSION
 #define SERVER_PORT 12345
 #include "server/tcpServer.h"
-#endif
-
 
 #include <QAudioInput>
 #include <QAudioOutput>
@@ -313,10 +310,8 @@ private:
     void configScreenScale();
     
     ratioType currentRatioType = ratioType::EQUAL;
-#ifdef ONLINE_VERSION
     void startServer();
     TcpServer *tcpServer;
-#endif
 
 };
 #endif // MAINWINDOW_H

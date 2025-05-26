@@ -226,14 +226,10 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
     connect(&VideoHid::getInstance(), &VideoHid::inputResolutionChanged, this, &MainWindow::onInputResolutionChanged);
     connect(&VideoHid::getInstance(), &VideoHid::resolutionChangeUpdate, this, &MainWindow::onResolutionChange);
 
-    #ifdef ONLINE_VERSION
-        qCDebug(log_ui_mainwindow) << "Test actionTCPServer true...";
-        ui->actionTCPServer->setVisible(true);
-        connect(ui->actionTCPServer, &QAction::triggered, this, &MainWindow::startServer);
-    #else
-        qCDebug(log_ui_mainwindow) << "Test actionTCPServer false...";
-        ui->actionTCPServer->setVisible(false);
-    #endif
+    
+    qCDebug(log_ui_mainwindow) << "Test actionTCPServer true...";
+    ui->actionTCPServer->setVisible(true);
+    connect(ui->actionTCPServer, &QAction::triggered, this, &MainWindow::startServer);
 
     qDebug() << "Init camera...";
     checkInitSize();
@@ -294,16 +290,15 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
     
 }
 
-#ifdef ONLINE_VERSION
-    void MainWindow::startServer(){
-        tcpServer = new TcpServer(this);
-        tcpServer->startServer(SERVER_PORT);
-        qCDebug(log_ui_mainwindow) << "TCP Server start at port 12345";
-        connect(m_cameraManager, &CameraManager::lastImagePath, tcpServer, &TcpServer::handleImgPath);
-        connect(tcpServer, &TcpServer::syntaxTreeReady, this, &MainWindow::handleSyntaxTree);
-        connect(this, &MainWindow::emitTCPCommandStatus, tcpServer, &TcpServer::recvTCPCommandStatus);
-    }
-#endif
+void MainWindow::startServer(){
+    tcpServer = new TcpServer(this);
+    tcpServer->startServer(SERVER_PORT);
+    qCDebug(log_ui_mainwindow) << "TCP Server start at port 12345";
+    connect(m_cameraManager, &CameraManager::lastImagePath, tcpServer, &TcpServer::handleImgPath);
+    connect(tcpServer, &TcpServer::syntaxTreeReady, this, &MainWindow::handleSyntaxTree);
+    connect(this, &MainWindow::emitTCPCommandStatus, tcpServer, &TcpServer::recvTCPCommandStatus);
+}
+
 
 void MainWindow::updateUI() {
     ui->retranslateUi(this); // Update the UI elements
@@ -1312,12 +1307,11 @@ void MainWindow::handleSyntaxTree(std::shared_ptr<ASTNode> syntaxTree) {
         bool runStatus = semanticAnalyzer->analyze(syntaxTree.get());
         qCDebug(log_ui_mainwindow) << "Script run status: " << runStatus;
         emit emitScriptStatus(runStatus);
-        #ifdef ONLINE_VERSION
-            if (senderObj == tcpServer) {
-                qCDebug(log_ui_mainwindow) << "run finish: " << runStatus;
-                emit emitTCPCommandStatus(runStatus);
-            }
-        #endif
+        
+        if (senderObj == tcpServer) {
+            qCDebug(log_ui_mainwindow) << "run finish: " << runStatus;
+            emit emitTCPCommandStatus(runStatus);
+        }
     });
 } 
 

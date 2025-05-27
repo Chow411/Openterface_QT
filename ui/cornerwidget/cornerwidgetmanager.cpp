@@ -26,16 +26,8 @@ CornerWidgetManager::CornerWidgetManager(QWidget *parent)
     horizontalLayout->setSpacing(2);
     horizontalLayout->setContentsMargins(5, 5, 5, 5);
     cornerWidget->setLayout(horizontalLayout);
-    horizontalLayout->invalidate();
-    horizontalLayout->activate();
-    cornerWidget->setMinimumSize(horizontalLayout->sizeHint());
-    cornerWidget->resize(horizontalLayout->sizeHint());
     cornerWidget->adjustSize();
     cornerWidget->show();
-    if (cornerWidget->parentWidget()) {
-        cornerWidget->parentWidget()->update();
-    }
-    QApplication::processEvents();
 }
 
 CornerWidgetManager::~CornerWidgetManager()
@@ -51,106 +43,46 @@ QWidget* CornerWidgetManager::getCornerWidget() const
 void CornerWidgetManager::setMenuBar(QMenuBar *menuBar)
 {
     this->menuBar = menuBar;
+    if (menuBar) {
+        menuBar->setCornerWidget(cornerWidget, Qt::TopRightCorner);
+    }
 }
 
 void CornerWidgetManager::createWidgets()
 {
     keyboardLayoutComboBox = new QComboBox(cornerWidget);
     keyboardLayoutComboBox->setObjectName("keyboardLayoutComboBox");
-    keyboardLayoutComboBox->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    keyboardLayoutComboBox->setMinimumSize(100, 30);
-    keyboardLayoutComboBox->setMaximumHeight(30);
+    keyboardLayoutComboBox->setFixedHeight(30);
+    keyboardLayoutComboBox->setMinimumWidth(100);
     keyboardLayoutComboBox->setToolTip(tr("Select Keyboard Layout"));
-    keyboardLayoutComboBox->show();
-    qDebug() << "Created keyboardLayoutComboBox, visible:" << keyboardLayoutComboBox->isVisible();
 
-    screenScaleButton = new QPushButton(cornerWidget);
-    screenScaleButton->setObjectName("ScreenScaleButton");
-    setButtonIcon(screenScaleButton, ":/images/screen_scale.svg");
-    screenScaleButton->setToolTip(tr("Screen scale"));
-    screenScaleButton->setMinimumSize(30, 30);
-    screenScaleButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    screenScaleButton->show();
-    qDebug() << "Created screenScaleButton, visible:" << screenScaleButton->isVisible();
+    const struct {
+        QPushButton** button;
+        const char* objectName;
+        const char* iconPath;
+        const char* tooltip;
+    } buttons[] = {
+        {&screenScaleButton, "ScreenScaleButton", ":/images/screen_scale.svg", "Screen scale"},
+        {&zoomInButton, "ZoomInButton", ":/images/zoom_in.svg", "Zoom in"},
+        {&zoomOutButton, "ZoomOutButton", ":/images/zoom_out.svg", "Zoom out"},
+        {&zoomReductionButton, "ZoomReductionButton", ":/images/zoom_fit.svg", "Restore original size"},
+        {&virtualKeyboardButton, "virtualKeyboardButton", ":/images/keyboard.svg", "Function key and composite key"},
+        {&captureButton, "captureButton", ":/images/capture.svg", "Full screen capture"},
+        {&fullScreenButton, "fullScreenButton", ":/images/full_screen.svg", "Full screen mode"},
+        {&pasteButton, "pasteButton", ":/images/paste.svg", "Paste text to target"},
+        {&screensaverButton, "screensaverButton", ":/images/screensaver.svg", "Mouse dance"}
+    };
 
-    zoomInButton = new QPushButton(cornerWidget);
-    zoomInButton->setObjectName("ZoomInButton");
-    setButtonIcon(zoomInButton, ":/images/zoom_in.svg");
-    zoomInButton->setToolTip(tr("Zoom in"));
-    zoomInButton->setMinimumSize(30, 30);
-    zoomInButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    zoomInButton->show();
-    qDebug() << "Created zoomInButton, visible:" << zoomInButton->isVisible();
-
-    zoomOutButton = new QPushButton(cornerWidget);
-    zoomOutButton->setObjectName("ZoomOutButton");
-    setButtonIcon(zoomOutButton, ":/images/zoom_out.svg");
-    zoomOutButton->setToolTip(tr("Zoom out"));
-    zoomOutButton->setMinimumSize(30, 30);
-    zoomOutButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    zoomOutButton->show();
-    qDebug() << "Created zoomOutButton, visible:" << zoomOutButton->isVisible();
-
-    zoomReductionButton = new QPushButton(cornerWidget);
-    zoomReductionButton->setObjectName("ZoomReductionButton");
-    setButtonIcon(zoomReductionButton, ":/images/zoom_fit.svg");
-    zoomReductionButton->setToolTip(tr("Restore original size"));
-    zoomReductionButton->setMinimumSize(30, 30);
-    zoomReductionButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    zoomReductionButton->show();
-    qDebug() << "Created zoomReductionButton, visible:" << zoomReductionButton->isVisible();
-
-    virtualKeyboardButton = new QPushButton(cornerWidget);
-    virtualKeyboardButton->setObjectName("virtualKeyboardButton");
-    setButtonIcon(virtualKeyboardButton, ":/images/keyboard.svg");
-    virtualKeyboardButton->setToolTip(tr("Function key and composite key"));
-    virtualKeyboardButton->setMinimumSize(30, 30);
-    virtualKeyboardButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    virtualKeyboardButton->show();
-    qDebug() << "Created virtualKeyboardButton, visible:" << virtualKeyboardButton->isVisible();
-
-    captureButton = new QPushButton(cornerWidget);
-    captureButton->setObjectName("captureButton");
-    setButtonIcon(captureButton, ":/images/capture.svg");
-    captureButton->setToolTip(tr("Full screen capture"));
-    captureButton->setMinimumSize(30, 30);
-    captureButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    captureButton->show();
-    qDebug() << "Created captureButton, visible:" << captureButton->isVisible();
-
-    fullScreenButton = new QPushButton(cornerWidget);
-    fullScreenButton->setObjectName("fullScreenButton");
-    setButtonIcon(fullScreenButton, ":/images/full_screen.svg");
-    fullScreenButton->setToolTip(tr("Full screen mode"));
-    fullScreenButton->setMinimumSize(30, 30);
-    fullScreenButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    fullScreenButton->show();
-    qDebug() << "Created fullScreenButton, visible:" << fullScreenButton->isVisible();
-
-    pasteButton = new QPushButton(cornerWidget);
-    pasteButton->setObjectName("pasteButton");
-    setButtonIcon(pasteButton, ":/images/paste.svg");
-    pasteButton->setToolTip(tr("Paste text to target"));
-    pasteButton->setMinimumSize(30, 30);
-    pasteButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    pasteButton->show();
-    qDebug() << "Created pasteButton, visible:" << pasteButton->isVisible();
-
-    screensaverButton = new QPushButton(cornerWidget);
-    screensaverButton->setObjectName("screensaverButton");
+    for (const auto& btn : buttons) {
+        *btn.button = new QPushButton(cornerWidget);
+        (*btn.button)->setObjectName(btn.objectName);
+        setButtonIcon(*btn.button, btn.iconPath);
+        (*btn.button)->setToolTip(tr(btn.tooltip));
+    }
+    
     screensaverButton->setCheckable(true);
-    setButtonIcon(screensaverButton, ":/images/screensaver.svg");
-    screensaverButton->setToolTip(tr("Mouse dance"));
-    screensaverButton->setMinimumSize(30, 30);
-    screensaverButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    screensaverButton->show();
-    qDebug() << "Created screensaverButton, visible:" << screensaverButton->isVisible();
 
     toggleSwitch->setFixedSize(78, 28);
-    toggleSwitch->setMinimumSize(78, 28);
-    toggleSwitch->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    toggleSwitch->show();
-    qDebug() << "Created toggleSwitch, visible:" << toggleSwitch->isVisible();
 
     horizontalLayout->addWidget(keyboardLayoutComboBox);
     horizontalLayout->addWidget(screenScaleButton);
@@ -163,8 +95,6 @@ void CornerWidgetManager::createWidgets()
     horizontalLayout->addWidget(pasteButton);
     horizontalLayout->addWidget(screensaverButton);
     horizontalLayout->addWidget(toggleSwitch);
-
-    qDebug() << "Widgets added to horizontalLayout";
 }
 
 void CornerWidgetManager::setButtonIcon(QPushButton *button, const QString &iconPath)
@@ -177,18 +107,6 @@ void CornerWidgetManager::setButtonIcon(QPushButton *button, const QString &icon
 
 void CornerWidgetManager::setupConnections()
 {
-    Q_ASSERT(zoomInButton);
-    Q_ASSERT(zoomOutButton);
-    Q_ASSERT(zoomReductionButton);
-    Q_ASSERT(screenScaleButton);
-    Q_ASSERT(virtualKeyboardButton);
-    Q_ASSERT(captureButton);
-    Q_ASSERT(fullScreenButton);
-    Q_ASSERT(pasteButton);
-    Q_ASSERT(screensaverButton);
-    Q_ASSERT(toggleSwitch);
-    Q_ASSERT(keyboardLayoutComboBox);
-
     connect(zoomInButton, &QPushButton::clicked, this, &CornerWidgetManager::zoomInClicked);
     connect(zoomOutButton, &QPushButton::clicked, this, &CornerWidgetManager::zoomOutClicked);
     connect(zoomReductionButton, &QPushButton::clicked, this, &CornerWidgetManager::zoomReductionClicked);
@@ -218,7 +136,7 @@ void CornerWidgetManager::updateButtonVisibility(int windowWidth)
     qDebug() << "Entering updateButtonVisibility, windowWidth:" << windowWidth << ", layoutThreshold:" << layoutThreshold;
 
     // Define the step size for hiding buttons
-    const int widthStep = 100; // Increased to make hiding more gradual
+    const int widthStep = 50; // Increased to make hiding more gradual
 
     // List of widgets in hiding order (first to hide is first in the list)
     QList<QWidget*> widgets = {

@@ -17,7 +17,6 @@ public:
 
     QWidget* getCornerWidget() const;
     void setMenuBar(QMenuBar *menuBar);
-    void updateButtonVisibility(int windowWidth);
     void updatePosition(int windowWidth, int menuBarHeight, bool isFullScreen);
     void initializeKeyboardLayouts(const QStringList &layouts, const QString &defaultLayout);
     QPushButton *screensaverButton;

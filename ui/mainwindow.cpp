@@ -1455,33 +1455,34 @@ void MainWindow::showEnvironmentSetupDialog() {
 
 void MainWindow::updateFirmware() {
     // Check if it's latest firmware
-    if (VideoHid::getInstance().isLatestFirmware()) {
+    std::string currentFirmwareVersion = VideoHid::getInstance().getFirmwareVersion();
+    std::string latestFirmwareVersion = VideoHid::getInstance().getLatestFirmwareVersion();
+    if (VideoHid::getInstance().isLatestFirmware() == FirewareResult::Lastest) {
         std::string currentFirmwareVersion = VideoHid::getInstance().getFirmwareVersion();
         QMessageBox::information(this, tr("Firmware Update"), 
             tr("The firmware is up to date.\nCurrent version: ") + 
             QString::fromStdString(currentFirmwareVersion));
         return;
-    }
+    }else if(VideoHid::getInstance().isLatestFirmware() == FirewareResult::Timeout){
+        QMessageBox::information(this, tr("Firmware fetch timeout"), tr("Failed to check for the latest firmware version.\n"), tr("current version: ") + QString::fromStdString(currentFirmwareVersion) + tr("\nlatest version: ") + QString::fromStdString(latestFirmwareVersion));
+        return;
+    }else if(VideoHid::getInstance().isLatestFirmware() == FirewareResult::Upgradable){
+        // Create and show the confirmation dialog
+        FirmwareUpdateConfirmDialog confirmDialog(this);
+        bool proceed = confirmDialog.showConfirmDialog(currentFirmwareVersion, latestFirmwareVersion);
 
-
-    std::string currentFirmwareVersion = VideoHid::getInstance().getFirmwareVersion();
-    std::string latestFirmwareVersion = VideoHid::getInstance().getLatestFirmwareVersion();
-    
-    // Create and show the confirmation dialog
-    FirmwareUpdateConfirmDialog confirmDialog(this);
-    bool proceed = confirmDialog.showConfirmDialog(currentFirmwareVersion, latestFirmwareVersion);
-
-    if (proceed) {
-        // Stop video and HID operations before firmware update
-        VideoHid::getInstance().stop();
-        SerialPortManager::getInstance().stop();
-        stop();
-        
-        close();
-        // Create and show firmware update dialog
-        FirmwareUpdateDialog *updateDialog = new FirmwareUpdateDialog(this);
-        updateDialog->startUpdate();
-        // The application will be closed by the dialog if the update is successful
-        updateDialog->deleteLater();
+        if (proceed) {
+            // Stop video and HID operations before firmware update
+            VideoHid::getInstance().stop();
+            SerialPortManager::getInstance().stop();
+            stop();
+            
+            close();
+            // Create and show firmware update dialog
+            FirmwareUpdateDialog *updateDialog = new FirmwareUpdateDialog(this);
+            updateDialog->startUpdate();
+            // The application will be closed by the dialog if the update is successful
+            updateDialog->deleteLater();
+        }
     }
 }

@@ -183,6 +183,18 @@ jobs:
           path: |
             ${{ env.SOURCE_DIR }}\Output\openterfaceQT.windows.amd64.installer.exe
           if-no-files-found: error
+      
+      - name: Submit signing request
+        id: sign
+        uses: signpath/github-action-submit-signing-request@v1.1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: Openterface_Connect_window
+          signing-policy-slug: Openterface_Connect_window
+          github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: ${{ env.SOURCE_DIR }}\Output
 
       - name: Commit and push version update
         if: success() && (github.event.inputs.increase_version == 'true' || github.event.inputs.increase_major == 'true' || github.event.inputs.increase_minor == 'true')

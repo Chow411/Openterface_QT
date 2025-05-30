@@ -177,6 +177,7 @@ jobs:
                    installer.nsi
 
       - name: Save build artifacts
+        id: upload-unsigned-artifact
         uses: actions/upload-artifact@v4
         with:
           name: openterfaceQT.windows.amd64.installer
@@ -195,6 +196,15 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: ${{ env.SOURCE_DIR }}\Output
+
+      - name: Download signed artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: signed-artifact-${{ steps.sign.outputs.signing-request-id }}
+          path: ${{ env.SOURCE_DIR }}/Output
+
+      - name: Debug artifact existence
+        run: dir ${{ env.SOURCE_DIR }}/Output
 
       - name: Commit and push version update
         if: success() && (github.event.inputs.increase_version == 'true' || github.event.inputs.increase_major == 'true' || github.event.inputs.increase_minor == 'true')

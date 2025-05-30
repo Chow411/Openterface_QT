@@ -176,6 +176,9 @@ jobs:
                    /DMyAppExeName=${{ env.EXE_NAME }} ^
                    installer.nsi
 
+      - name: Debug artifact existence
+        run: dir ${{ env.SOURCE_DIR }}/Output
+
       - name: Save build artifacts
         id: upload-unsigned-artifact
         uses: actions/upload-artifact@v4

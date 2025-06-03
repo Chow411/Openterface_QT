@@ -186,11 +186,6 @@
             # Copy icon
             cp ${{ env.SOURCE_DIR }}/images/icon_256.png AppDir/usr/share/icons/hicolor/256x256/apps/openterfaceQT.png
             
-            # Copy config files if needed
-            mkdir -p AppDir/usr/share/openterfaceQT/config/{keyboards,languages}
-            cp -r ${{ runner.temp }}/build/config/keyboards/* AppDir/usr/share/openterfaceQT/config/keyboards/ || true
-            cp -r ${{ runner.temp }}/build/config/languages/* AppDir/usr/share/openterfaceQT/config/languages/ || true
-            
             # Copy desktop file from packaging/appimage folder
             cp ${{ env.SOURCE_DIR }}/packaging/appimage/openterfaceQT.desktop AppDir/usr/share/applications/
             

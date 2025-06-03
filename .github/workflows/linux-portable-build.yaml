@@ -196,31 +196,7 @@
                 -e "s/\${DATE}/$TODAY/g" \
                 ${{ env.SOURCE_DIR }}/packaging/appimage/openterfaceQT.appdata.xml > AppDir/usr/share/metainfo/openterfaceQT.appdata.xml
             
-            # Set environment variables for linuxdeploy
-            export QT_PLUGIN_PATH=/opt/Qt6/plugins
-            export LD_LIBRARY_PATH=/opt/Qt6/lib:$LD_LIBRARY_PATH
-            export OUTPUT="openterfaceQT.linux.amd64.AppImage"
-            
-            if [ -f "/opt/Qt6/bin/qmake6" ]; then
-              export QMAKE="/opt/Qt6/bin/qmake6"
-            elif [ -f "/opt/Qt6/bin/qmake" ]; then
-              export QMAKE="/opt/Qt6/bin/qmake"
-            else
-              echo "Searching for qmake in PATH..."
-              export QMAKE=$(which qmake6 || which qmake || echo "")
-            fi
-
-            echo "Using QMAKE: $QMAKE"
-
-            linuxdeploy-x86_64.AppImage \
-              --appdir=AppDir \
-              --plugin=qt \
-              --desktop-file=AppDir/usr/share/applications/openterfaceQT.desktop \
-              --icon-file=AppDir/usr/share/icons/hicolor/256x256/apps/openterfaceQT.png \
-              --output=appimage \
-
-            # Create AppImage using appimagetool directly
-            appimagetool AppDir "openterfaceQT.linux.amd64.AppImage"
+            appimagetool AppDir -n "openterfaceQT.linux.amd64.AppImage"
             
             # Check if AppImage was created
             if [ ! -f "${{ env.ARTIFACT }}.AppImage" ]; then

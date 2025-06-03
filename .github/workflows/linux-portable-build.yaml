@@ -201,6 +201,13 @@
             export LD_LIBRARY_PATH=/opt/Qt6/lib:$LD_LIBRARY_PATH
             export OUTPUT="openterfaceQT.linux.amd64.AppImage"
             
+            linuxdeploy-x86_64.AppImage \
+              --appdir=AppDir \
+              --plugin=qt \
+              --desktop-file=AppDir/usr/share/applications/openterfaceQT.desktop \
+              --icon-file=AppDir/usr/share/icons/hicolor/256x256/apps/openterfaceQT.png \
+              --output=appimage \
+
             # Create AppImage using appimagetool directly
             appimagetool AppDir "openterfaceQT.linux.amd64.AppImage"
             

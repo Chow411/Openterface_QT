@@ -199,7 +199,7 @@
              linuxdeploy-x86_64.AppImage \
                 --appdir=AppDir \
                 --desktop-file=AppDir/usr/share/applications/com.openterface.openterfaceQT.desktop \
-                --icon-file=AppDir/usr/share/icons/hicolor/256x256/apps/openterfaceQT.png \
+                --icon-file=AppDir/usr/share/icons/hicolor/256x256/apps/com.openterface.openterfaceQT.png \
                 --output=appimage
 
             appimagetool AppDir -n "openterfaceQT.linux.amd64.AppImage"

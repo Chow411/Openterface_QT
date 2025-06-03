@@ -184,7 +184,7 @@
             cp ${{ runner.temp }}/build/openterfaceQT AppDir/usr/bin/
             
             # Copy icon
-            cp ${{ env.SOURCE_DIR }}/images/icon_256.png AppDir/usr/share/icons/hicolor/256x256/apps/openterfaceQT.png
+            cp ${{ env.SOURCE_DIR }}/images/icon_256.png AppDir/usr/share/icons/hicolor/256x256/apps/com.openterface.openterfaceQT.png
             
             # Copy desktop file from packaging/appimage folder
             cp ${{ env.SOURCE_DIR }}/com.openterface.openterfaceQT.desktop AppDir/usr/share/applications/

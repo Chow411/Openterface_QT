@@ -202,7 +202,7 @@
                 --icon-file=AppDir/usr/share/icons/hicolor/256x256/apps/com.openterface.openterfaceQT.png \
                 --output=appimage
 
-            appimagetool AppDir "openterfaceQT.linux.amd64.AppImage"
+            appimagetool AppDir "openterfaceQT.linux.amd64.AppImage" --no-fuse
             
             # Check if AppImage was created
             if [ ! -f "openterfaceQT.linux.amd64.AppImage" ]; then

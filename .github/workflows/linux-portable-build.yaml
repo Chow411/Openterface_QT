@@ -200,9 +200,9 @@
                 --appdir=AppDir \
                 --desktop-file=AppDir/usr/share/applications/com.openterface.openterfaceQT.desktop \
                 --icon-file=AppDir/usr/share/icons/hicolor/256x256/apps/com.openterface.openterfaceQT.png \
-                --output=appimage
+                --no-appimage
 
-            appimagetool AppDir "openterfaceQT.linux.amd64.AppImage" --no-fuse
+            appimagetool AppDir "openterfaceQT.linux.amd64.AppImage"
             
             # Check if AppImage was created
             if [ ! -f "openterfaceQT.linux.amd64.AppImage" ]; then

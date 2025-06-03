@@ -87,6 +87,14 @@
               libatspi2.0-dev \
               upx-ucl
 
+              wget -O linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+              wget -O linuxdeploy-plugin-qt-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+              wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+              
+              chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage appimagetool
+              sudo mv linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage appimagetool /usr/local/bin/
+
+
         - name: Analyze original binary size (if exists)
           run: |
             if [ -f ${{ runner.temp }}/build/openterfaceQT ]; then
@@ -161,24 +169,56 @@
         - name: Generate AppImage
           working-directory: ${{ runner.temp }}/build
           run: |
-            echo "Installing linuxdeployqt..."
-            wget -O linuxdeployqt-continuous-x86_64.AppImage "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
-            chmod a+x linuxdeployqt-continuous-x86_64.AppImage
-            
-            echo "Creating AppImage..."
-            mkdir -p package/AppDir/usr/bin
-            mkdir -p package/AppDir/usr/share/openterfaceQT
-            cp openterfaceQT package/AppDir/usr/bin/
-            cp -r ${{ env.SOURCE_DIR }}/config/languages/*.qm package/AppDir/usr/share/openterfaceQT/
-            
-            ./linuxdeployqt-continuous-x86_64.AppImage \
-              package/AppDir/usr/bin/openterfaceQT \
-              -bundle-non-qt-libs \
-              -qmake=/opt/Qt6/bin/qmake \
-              -appimage
-            
-            echo "Moving AppImage to package directory..."
-            mv openterfaceQT*.AppImage package/openterfaceQT.linux.amd64.AppImage
+            mkdir -p AppDir/usr/bin
+            mkdir -p AppDir/usr/share/applications
+            mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+            mkdir -p AppDir/usr/share/metainfo
+
+            cp ${{ env.BUILD_DIR }}/openterfaceQT AppDir/usr/bin/
+            cp ${{ github.workspace }}/images/icon_256.png AppDir/usr/share/icons/hicolor/256x256/apps/openterfaceQT.png
+            cp ${{ github.workspace }}/packaging/appimage/openterfaceQT.desktop AppDir/usr/share/applications/
+            TODAY=$(date +'%Y-%m-%d')
+            sed -e "s/\${VERSION}/${{ env.VERSION }}/g" \
+                -e "s/\${DATE}/$TODAY/g" \
+                ${{ github.workspace }}/packaging/appimage/openterfaceQT.appdata.xml > AppDir/usr/share/metainfo/openterfaceQT.appdata.xml
+            export QMAKE=/opt/Qt6/bin/qmake
+            if [ ! -f "$QMAKE" ]; then
+            echo "ERROR: Could not find qmake at $QMAKE"
+            exit 1
+            fi
+            export QML_SOURCES_PATHS=${{ github.workspace }}/qml
+            export VERSION=${{ env.VERSION }}
+            export OUTPUT="${{ env.ARTIFACT }}-${{ env.VERSION }}-x86_64.AppImage"
+            cat > run_deploy.sh << 'EOF'
+            #!/bin/bash
+            set -x
+            env | grep -E 'QT|QMAKE|QML'
+            linuxdeploy-x86_64.AppImage \
+              --appdir=AppDir \
+              --plugin=qt \
+              --desktop-file=AppDir/usr/share/applications/openterfaceQT.desktop \
+              --icon-file=AppDir/usr/share/icons/hicolor/256x256/apps/openterfaceQT.png \
+              --output=appimage
+            EXIT_CODE=$?
+            echo "linuxdeploy exit code: $EXIT_CODE"
+            ls -la
+            if ! ls -la *.AppImage 2>/dev/null; then
+              echo "Trying direct AppImage creation with appimagetool as fallback..."
+              appimagetool AppDir "openterfaceQT.linux.amd64.AppImage"
+            fi
+            if [ -f "${OUTPUT}" ]; then
+              mv ${OUTPUT} ./openterfaceQT.linux.amd64.AppImage
+            elif ls -la *.AppImage 2>/dev/null; then
+              mv $(ls *.AppImage | head -1) ./openterfaceQT.linux.amd64.AppImage
+            else
+              echo "ERROR: No AppImage file could be created"
+              exit 1
+            fi
+            EOF
+            chmod +x run_deploy.sh
+            ./run_deploy.sh
+            echo "Analyzing AppImage size..."
+            ls -lh openterfaceQT.linux.amd64.AppImage
 
         - name: Save build artifact
           uses: actions/upload-artifact@v4

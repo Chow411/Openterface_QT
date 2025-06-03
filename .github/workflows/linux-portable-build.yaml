@@ -163,7 +163,7 @@
           run: |
             echo "Installing linuxdeployqt..."
             wget -O linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-            chmod a+x linuxdeployqt-continuous-x86_64.AppImage
+            chmod a+x linuxdeploy-x86_64.AppImage
             
             echo "Creating AppImage..."
             mkdir -p package/AppDir/usr/bin
@@ -171,7 +171,7 @@
             cp openterfaceQT package/AppDir/usr/bin/
             cp -r ${{ env.SOURCE_DIR }}/config/languages/*.qm package/AppDir/usr/share/openterfaceQT/
             
-            ./linuxdeployqt-continuous-x86_64.AppImage \
+            ./linuxdeploy-x86_64.AppImage \
               package/AppDir/usr/bin/openterfaceQT \
               -bundle-non-qt-libs \
               -qmake=/opt/Qt6/bin/qmake \

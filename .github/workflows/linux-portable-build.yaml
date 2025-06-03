@@ -204,12 +204,12 @@
             ls -la
             if ! ls -la *.AppImage 2>/dev/null; then
               echo "Trying direct AppImage creation with appimagetool as fallback..."
-              appimagetool AppDir "openterfaceQT.linux.amd64.AppImage"
+              appimagetool AppDir "${{ env.ARTIFACT }}.linux.amd64.AppImage"
             fi
             if [ -f "${OUTPUT}" ]; then
-              mv ${OUTPUT} ./openterfaceQT.linux.amd64.AppImage
+              mv ${OUTPUT} ./${{ env.ARTIFACT }}.linux.amd64.AppImage
             elif ls -la *.AppImage 2>/dev/null; then
-              mv $(ls *.AppImage | head -1) ./openterfaceQT.linux.amd64.AppImage
+              mv $(ls *.AppImage | head -1) ./${{ env.ARTIFACT }}.linux.amd64.AppImage
             else
               echo "ERROR: No AppImage file could be created"
               exit 1
@@ -218,7 +218,7 @@
             chmod +x run_deploy.sh
             ./run_deploy.sh
             echo "Analyzing AppImage size..."
-            ls -lh openterfaceQT.linux.amd64.AppImage
+            ls -lh ${{ env.ARTIFACT }}.linux.amd64.AppImage
 
         - name: Save build artifact
           uses: actions/upload-artifact@v4

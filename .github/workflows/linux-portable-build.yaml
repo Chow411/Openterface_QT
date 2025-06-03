@@ -199,11 +199,10 @@
             # Set environment variables for linuxdeploy
             export QT_PLUGIN_PATH=/opt/Qt6/plugins
             export LD_LIBRARY_PATH=/opt/Qt6/lib:$LD_LIBRARY_PATH
-            export VERSION=$VERSION
-            export OUTPUT="${{ env.ARTIFACT }}-$VERSION-x86_64.AppImage"
+            export OUTPUT="openterfaceQT.linux.amd64.AppImage"
             
             # Create AppImage using appimagetool directly
-            appimagetool AppDir "${{ env.ARTIFACT }}.AppImage"
+            appimagetool AppDir "openterfaceQT.linux.amd64.AppImage"
             
             # Check if AppImage was created
             if [ ! -f "${{ env.ARTIFACT }}.AppImage" ]; then

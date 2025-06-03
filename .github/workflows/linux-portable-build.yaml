@@ -201,6 +201,17 @@
             export LD_LIBRARY_PATH=/opt/Qt6/lib:$LD_LIBRARY_PATH
             export OUTPUT="openterfaceQT.linux.amd64.AppImage"
             
+            if [ -f "/opt/Qt6/bin/qmake6" ]; then
+              export QMAKE="/opt/Qt6/bin/qmake6"
+            elif [ -f "/opt/Qt6/bin/qmake" ]; then
+              export QMAKE="/opt/Qt6/bin/qmake"
+            else
+              echo "Searching for qmake in PATH..."
+              export QMAKE=$(which qmake6 || which qmake || echo "")
+            fi
+
+            echo "Using QMAKE: $QMAKE"
+
             linuxdeploy-x86_64.AppImage \
               --appdir=AppDir \
               --plugin=qt \

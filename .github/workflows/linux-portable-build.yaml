@@ -158,11 +158,33 @@
             
             cp openterfaceQT package/openterfaceQT-portable
   
+        - name: Generate AppImage
+          working-directory: ${{ runner.temp }}/build
+          run: |
+            echo "Installing linuxdeployqt..."
+            wget -c "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+            chmod a+x linuxdeployqt-continuous-x86_64.AppImage
+            
+            echo "Creating AppImage..."
+            mkdir -p package/AppDir/usr/bin
+            mkdir -p package/AppDir/usr/share/openterfaceQT
+            cp openterfaceQT package/AppDir/usr/bin/
+            cp -r ${{ env.SOURCE_DIR }}/config/languages/*.qm package/AppDir/usr/share/openterfaceQT/
+            
+            ./linuxdeployqt-continuous-x86_64.AppImage \
+              package/AppDir/usr/bin/openterfaceQT \
+              -bundle-non-qt-libs \
+              -qmake=/opt/Qt6/bin/qmake \
+              -appimage
+            
+            echo "Moving AppImage to package directory..."
+            mv openterfaceQT*.AppImage package/openterfaceQT.linux.amd64.AppImage
+
         - name: Save build artifact
           uses: actions/upload-artifact@v4
           with:
             name: ${{ env.ARTIFACT }}
             path: |
               ${{ runner.temp }}/build/package/openterfaceQT-portable
-              ${{ runner.temp }}/build/package/config/languages/*.qm
+              ${{ runner.temp }}/build/package/openterfaceQT.linux.amd64.AppImage
             if-no-files-found: error

@@ -162,7 +162,7 @@
           working-directory: ${{ runner.temp }}/build
           run: |
             echo "Installing linuxdeployqt..."
-            wget -c "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+            wget -O linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
             chmod a+x linuxdeployqt-continuous-x86_64.AppImage
             
             echo "Creating AppImage..."

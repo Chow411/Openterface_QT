@@ -187,18 +187,18 @@
             cp ${{ env.SOURCE_DIR }}/images/icon_256.png AppDir/usr/share/icons/hicolor/256x256/apps/openterfaceQT.png
             
             # Copy desktop file from packaging/appimage folder
-            cp ${{ env.SOURCE_DIR }}/packaging/appimage/openterfaceQT.desktop AppDir/usr/share/applications/
+            cp ${{ env.SOURCE_DIR }}/com.openterface.openterfaceQT.desktop AppDir/usr/share/applications/
             
             # Copy and prepare AppStream metadata
             TODAY=$(date +'%Y-%m-%d')
             VERSION=$(grep -oP '#define APP_VERSION "\K[^"]+' ${{ env.SOURCE_DIR }}/resources/version.h)
             sed -e "s/\${VERSION}/$VERSION/g" \
                 -e "s/\${DATE}/$TODAY/g" \
-                ${{ env.SOURCE_DIR }}/packaging/appimage/openterfaceQT.appdata.xml > AppDir/usr/share/metainfo/openterfaceQT.appdata.xml
+                ${{ env.SOURCE_DIR }}/com.openterface.openterfaceQT.metainfo.xml > AppDir/usr/share/metainfo/com.openterface.openterfaceQT.metainfo.xml
             
              linuxdeploy-x86_64.AppImage \
                 --appdir=AppDir \
-                --desktop-file=AppDir/usr/share/applications/openterfaceQT.desktop \
+                --desktop-file=AppDir/usr/share/applications/com.openterface.openterfaceQT.desktop \
                 --icon-file=AppDir/usr/share/icons/hicolor/256x256/apps/openterfaceQT.png \
                 --output=appimage
 

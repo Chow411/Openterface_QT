@@ -191,8 +191,8 @@ jobs:
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: Openterface_Connect_window
-          signing-policy-slug: Openterface_Connect_window
+          project-slug: Openterface_QT
+          signing-policy-slug: test-signing
           github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: ${{ env.SOURCE_DIR }}\Output

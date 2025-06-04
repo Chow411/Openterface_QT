@@ -1341,6 +1341,9 @@ MainWindow::~MainWindow()
     delete m_cornerWidgetManager;
     m_cornerWidgetManager = nullptr;
 
+    delete m_screenScaleDialog;
+    m_screenScaleDialog = nullptr;
+
     qCDebug(log_ui_mainwindow) << "MainWindow destroyed successfully";
 }
 

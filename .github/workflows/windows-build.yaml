@@ -196,7 +196,7 @@ jobs:
           artifact-configuration-slug: Openterface_Connect_win_installer_zip
           github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
           wait-for-completion: true
-          output-artifact-directory: ${{ env.SOURCE_DIR }}\Output
+          output-artifact-directory: .\Output\
 
       - name: Download signed artifact
         uses: actions/download-artifact@v4

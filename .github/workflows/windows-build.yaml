@@ -199,6 +199,7 @@ jobs:
           output-artifact-directory: .\Output\
       
       - name: List available artifacts
+        shell: pwsh
         run: |
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                -H "Accept: application/vnd.github+json" \

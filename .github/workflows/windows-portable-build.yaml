@@ -164,7 +164,7 @@
             artifact-configuration-slug: Openterface_Connect_window_portable
             github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
             wait-for-completion: true
-            output-artifact-directory: ${{ env.SOURCE_DIR }}/Output
+            output-artifact-directory: .\Output\signed
         
         - name: Upload signed artifact
           uses: actions/upload-artifact@v4

@@ -1216,6 +1216,9 @@ void MainWindow::checkMousePosition()
 }
 
 void MainWindow::onVideoSettingsChanged() {
+    if (m_cameraManager) {
+        m_cameraManager->setVideoOutput(videoPane);
+    }
     int inputWidth = GlobalVar::instance().getInputWidth();
     int inputHeight = GlobalVar::instance().getInputHeight();
     int captureWidth = GlobalVar::instance().getCaptureWidth();

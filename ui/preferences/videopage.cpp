@@ -129,16 +129,16 @@ void VideoPage::setupUI()
     QComboBox *pixelFormatBox = new QComboBox();
     pixelFormatBox->setObjectName("pixelFormatBox");
 
-    QLabel *hintLabel = new QLabel(tr("Note: The video may go black after OK or Apply. Please unplug and re-plug the host cable."));
+    QLabel *hintLabel = new QLabel(tr("Note: On linx the video may go black after OK or Apply. Please unplug and re-plug the host cable."));
 
     // Add Capture Resolution elements to the layout
+    videoLayout->addWidget(hintLabel);
     videoLayout->addWidget(resolutionsLabel);
     videoLayout->addWidget(videoFormatBox);
     videoLayout->addWidget(framerateLabel);
     videoLayout->addLayout(hBoxLayout);
     videoLayout->addWidget(formatLabel);
     videoLayout->addWidget(pixelFormatBox);
-    videoLayout->addWidget(hintLabel);
     videoLayout->addStretch();
 
     // Connect the checkbox state change to the slot

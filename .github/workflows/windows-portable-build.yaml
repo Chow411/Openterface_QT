@@ -48,15 +48,6 @@ jobs:
           restore-keys: |
             mingw-ninja-windows-static
 
-      - name: Cache vcpkg
-        id: cache-vcpkg
-        uses: actions/cache@v3
-        with:
-          path: C:\vcpkg
-          key: vcpkg-mingw-static-openssl-v2
-          restore-keys: |
-            vcpkg-mingw-static-openssl-v2
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

@@ -1,4 +1,4 @@
-name: Portable Build for windows
+name: Portable Build for Windows
 
 on:
   push:
@@ -48,6 +48,15 @@ jobs:
           restore-keys: |
             mingw-ninja-windows-static
 
+      - name: Cache vcpkg
+        id: cache-vcpkg
+        uses: actions/cache@v3
+        with:
+          path: C:\vcpkg
+          key: vcpkg-mingw-static-openssl-${{ hashFiles('C:/vcpkg/ports/openssl/portfile.cmake') }}-v2
+          restore-keys: |
+            vcpkg-mingw-static-openssl-
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -76,15 +85,38 @@ jobs:
             git clone https://github.com/microsoft/vcpkg.git %VCPKG_DIR%
             cd %VCPKG_DIR%
             call bootstrap-vcpkg.bat
+          ) else (
+            echo "vcpkg directory already exists, updating..."
+            cd %VCPKG_DIR%
+            git pull
+            call bootstrap-vcpkg.bat
           )
-          echo "Installing OpenSSL static libraries"
+          echo "Installing OpenSSL and zlib static libraries"
           %VCPKG_DIR%\vcpkg update
           %VCPKG_DIR%\vcpkg install openssl:x64-mingw-static zlib:x64-mingw-static --triplet x64-mingw-static --host-triplet x64-mingw-static --clean-after-build
+          if errorlevel 1 (
+            echo "Error: vcpkg install failed"
+            dir %VCPKG_DIR%\installed\x64-mingw-static
+            exit 1
+          )
+          echo "Verifying OpenSSL installation"
+          if not exist "%OPENSSL_DIR%\lib" (
+            echo "Error: OpenSSL lib directory not found at %OPENSSL_DIR%\lib"
+            exit 1
+          )
+          dir %OPENSSL_DIR%\lib
           %VCPKG_DIR%\vcpkg integrate install
 
       - name: check OpenSSL installation
         run: |
+          echo "Checking OpenSSL directory: %OPENSSL_DIR%"
+          dir %VCPKG_DIR%\installed
+          dir %OPENSSL_DIR%
           dir %OPENSSL_DIR%\lib
+          if not exist "%OPENSSL_DIR%\lib" (
+            echo "Error: OpenSSL lib directory not found"
+            exit 1
+          )
 
       - name: Build Qt Statically
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -148,9 +180,9 @@ jobs:
           C:\Qt6\bin\qmake -query
           set PATH=C:\Qt6\bin;C:\mingw64\bin;%PATH%
           set INCLUDE=C:\Qt6\include;%OPENSSL_DIR%\include;%INCLUDE%
+          set LIB=%OPENSSL_DIR%\lib;%LIB%
           
           echo "Building with qmake..."
-          
           qmake -r "${{ env.SOURCE_DIR }}\openterfaceQT.pro" "CONFIG+=static staticlib" "QMAKE_LFLAGS+=-static -L%OPENSSL_DIR%\lib -lssl -lcrypto -lws2_32 -lcrypt32" || (echo "qmake failed. Please check the .pro file and paths." && exit 1)
           echo "Building with mingw32-make..."
           set MINGW_STATIC_BUILD=1

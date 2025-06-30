@@ -124,8 +124,6 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
                             // cameraAdjust(new CameraAdjust(this))
 {
     Q_UNUSED(parent);
-    setAttribute(Qt::WA_QuitOnClose, true);
-    setAttribute(Qt::WA_DeleteOnClose, true);
 
     qCDebug(log_ui_mainwindow) << "Init camera...";
     
@@ -1089,16 +1087,6 @@ void MainWindow::closeEvent(QCloseEvent *event)
         m_applicationExiting = true;
         event->ignore();
     } else {
-        stop();
-        if (firmwareManagerDialog) {
-            firmwareManagerDialog->close();
-        }
-        if (settingDialog) {
-            settingDialog->close();
-        }
-        if (serialPortDebugDialog) {
-            serialPortDebugDialog->close();
-        }
         event->accept();
     }
 }

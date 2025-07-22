@@ -13,6 +13,7 @@
 #include "../../device/DeviceInfo.h"
 #include "../../device/HotplugMonitor.h"
 
+
 class DeviceManager;
 class SerialPortManager;
 class CameraManager;

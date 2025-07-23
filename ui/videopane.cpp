@@ -25,30 +25,48 @@
 #include "inputhandler.h"
 #include "../global.h"
 
-#include <QPainter>
-#include <QMouseEvent>
+#include <QtWidgets>
+#include <QtMultimedia>
+#include <QtMultimediaWidgets>
 #include <QDebug>
-#include <QGuiApplication>
-#include <QScreen>
 #include <QTimer>
 
-VideoPane::VideoPane(QWidget *parent) : QVideoWidget(parent), escTimer(new QTimer(this)), m_inputHandler(new InputHandler(this, this)), m_isCameraSwitching(false)
+VideoPane::VideoPane(QWidget *parent) : QGraphicsView(parent), 
+    escTimer(new QTimer(this)), 
+    m_inputHandler(new InputHandler(this, this)), 
+    m_isCameraSwitching(false),
+    m_scene(new QGraphicsScene(this)),
+    m_videoItem(nullptr),
+    m_pixmapItem(nullptr),
+    m_aspectRatioMode(Qt::KeepAspectRatio),
+    m_scaleFactor(1.0),
+    m_maintainAspectRatio(true)
 {
     qDebug() << "VideoPane init...";
-    QWidget* childWidget = qobject_cast<QWidget*>(this->children()[0]);
-    if(childWidget) {
-        qDebug() << "Child widget:" << childWidget << "type:" << childWidget->metaObject()->className();
-        childWidget->setMouseTracking(true);
-        // childWidget->setAttribute(Qt::WA_TransparentForMouseEvents);
-        childWidget->setStyleSheet("background-color: rgba(0, 0, 0, 50);"); // 50 is the alpha value (0-255), adjust as needed
-        childWidget->setAttribute(Qt::WA_TranslucentBackground);
-    }
-    this->setAspectRatioMode(Qt::IgnoreAspectRatio);
+    
+    // Set up the graphics scene
+    setupScene();
+    
+    // Create and initialize the video item
+    m_videoItem = new QGraphicsVideoItem();
+    m_scene->addItem(m_videoItem);
+    m_videoItem->setZValue(0); // Below pixmap item
+    
+    // Configure the graphics view
+    setScene(m_scene);
+    setDragMode(QGraphicsView::NoDrag);
+    setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    setRenderHint(QPainter::Antialiasing, true);
+    setRenderHint(QPainter::SmoothPixmapTransform, true);
+    setOptimizationFlag(QGraphicsView::DontAdjustForAntialiasing, true);
+    setViewportUpdateMode(QGraphicsView::SmartViewportUpdate);
+    
+    // Mouse and focus settings
     this->setMouseTracking(true);
     this->installEventFilter(m_inputHandler);
     this->setFocusPolicy(Qt::StrongFocus);
-    this->relativeModeEnable = false;
-
+    relativeModeEnable = false;
     // Set up the timer
     connect(escTimer, &QTimer::timeout, this, &VideoPane::showHostMouse);
 }
@@ -129,15 +147,19 @@ void VideoPane::captureCurrentFrame()
 {
     // Try multiple methods to capture the current frame
     if (this->isVisible() && this->size().isValid()) {
-        // Method 1: Grab the widget content
+        // Method 1: Grab the graphics view content
         m_lastFrame = this->grab();
         
-        // Method 2: If grab() failed or returned null, try to get pixmap from render
+        // Method 2: If grab() failed or returned null, try to render the scene
         if (m_lastFrame.isNull() || m_lastFrame.size().isEmpty()) {
             m_lastFrame = QPixmap(this->size());
             m_lastFrame.fill(Qt::black); // Fill with black as fallback
             QPainter painter(&m_lastFrame);
-            this->render(&painter);
+            if (m_scene) {
+                m_scene->render(&painter, this->rect(), this->rect());
+            } else {
+                this->render(&painter);
+            }
         }
         
         qDebug() << "VideoPane: Captured frame" << m_lastFrame.size() << "for preservation during camera switch";
@@ -152,28 +174,246 @@ void VideoPane::captureCurrentFrame()
 void VideoPane::paintEvent(QPaintEvent *event)
 {
     if (m_isCameraSwitching && !m_lastFrame.isNull()) {
-        // During camera switching, paint the last captured frame
-        QPainter painter(this);
-        painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
-        
-        // Scale the frame to fit the widget while maintaining aspect ratio
-        QSize widgetSize = this->size();
-        QSize frameSize = m_lastFrame.size();
-        
-        if (!frameSize.isEmpty() && !widgetSize.isEmpty()) {
-            QRect targetRect = QRect(QPoint(0, 0), frameSize.scaled(widgetSize, Qt::KeepAspectRatio));
-            targetRect.moveCenter(this->rect().center());
-            painter.drawPixmap(targetRect, m_lastFrame);
+        // During camera switching, show preserved frame using pixmap item
+        if (!m_pixmapItem) {
+            m_pixmapItem = m_scene->addPixmap(m_lastFrame);
+            m_pixmapItem->setZValue(1); // Above video item
         } else {
-            // Fallback: draw frame as-is
-            painter.drawPixmap(this->rect(), m_lastFrame);
+            m_pixmapItem->setPixmap(m_lastFrame);
+            m_pixmapItem->setVisible(true);
+        }
+        
+        if (m_videoItem) {
+            m_videoItem->setVisible(false);
         }
         
         qDebug() << "VideoPane: Displaying preserved frame during camera switch";
     } else {
         // Normal video display
-        QVideoWidget::paintEvent(event);
+        if (m_pixmapItem) {
+            m_pixmapItem->setVisible(false);
+        }
+        if (m_videoItem) {
+            m_videoItem->setVisible(true);
+        }
+    }
+    
+    // Call the base class paintEvent
+    QGraphicsView::paintEvent(event);
+}
+
+// QVideoWidget compatibility methods
+void VideoPane::setAspectRatioMode(Qt::AspectRatioMode mode)
+{
+    m_aspectRatioMode = mode;
+    m_maintainAspectRatio = (mode != Qt::IgnoreAspectRatio);
+    updateVideoItemTransform();
+}
+
+Qt::AspectRatioMode VideoPane::aspectRatioMode() const
+{
+    return m_aspectRatioMode;
+}
+
+// QGraphicsView enhancement methods
+void VideoPane::setVideoItem(QGraphicsVideoItem* videoItem)
+{
+    if (m_videoItem) {
+        m_scene->removeItem(m_videoItem);
+    }
+    
+    m_videoItem = videoItem;
+    if (m_videoItem) {
+        m_scene->addItem(m_videoItem);
+        m_videoItem->setZValue(0); // Below pixmap item
+        updateVideoItemTransform();
+    }
+}
+
+QGraphicsVideoItem* VideoPane::videoItem() const
+{
+    return m_videoItem;
+}
+
+void VideoPane::resetZoom()
+{
+    m_scaleFactor = 1.0;
+    resetTransform();
+    updateVideoItemTransform();
+}
+
+void VideoPane::zoomIn(double factor)
+{
+    m_scaleFactor *= factor;
+    scale(factor, factor);
+}
+
+void VideoPane::zoomOut(double factor)
+{
+    m_scaleFactor *= factor;
+    scale(factor, factor);
+}
+
+void VideoPane::fitToWindow()
+{
+    if (m_videoItem) {
+        // Reset any existing transformations
+        resetTransform();
+        m_scaleFactor = 1.0;
+        
+        // Update the video item transform to fit the current view
+        updateVideoItemTransform();
+    }
+}
+
+void VideoPane::actualSize()
+{
+    resetZoom();
+    if (m_videoItem) {
+        centerVideoItem();
     }
 }
 
 
+void VideoPane::resizeEvent(QResizeEvent *event)
+{
+    QGraphicsView::resizeEvent(event);
+    
+    // Update the scene rect to match the viewport size
+    if (m_scene) {
+        m_scene->setSceneRect(viewport()->rect());
+    }
+    
+    updateVideoItemTransform();
+}
+
+// Helper methods
+void VideoPane::updateVideoItemTransform()
+{
+    if (!m_videoItem) return;
+    
+    QRectF itemRect = m_videoItem->boundingRect();
+    QRectF viewRect = viewport()->rect();
+    
+    if (itemRect.isEmpty() || viewRect.isEmpty()) return;
+    qDebug() << "Updating video item transform with itemRect:" << itemRect << "viewRect:" << viewRect;
+    // Reset transform and position first
+    m_videoItem->setTransform(QTransform());
+    m_videoItem->setPos(0, 0);
+    
+    if (m_maintainAspectRatio) {
+        // Calculate scale to fit while maintaining aspect ratio
+        double scaleX = viewRect.width() / itemRect.width();
+        double scaleY = viewRect.height() / itemRect.height();
+        double scale = qMin(scaleX, scaleY);
+        
+        // Apply transformation
+        QTransform transform;
+        transform.scale(scale, scale);
+        m_videoItem->setTransform(transform);
+        
+        // Center the item after scaling
+        QRectF scaledRect = QRectF(0, 0, itemRect.width() * scale, itemRect.height() * scale);
+        double x = (viewRect.width() - scaledRect.width()) / 2.0;
+        double y = (viewRect.height() - scaledRect.height()) / 2.0;
+        m_videoItem->setPos(x, y);
+        qDebug() << "Video item transformed with scale:" << scale << "at position:" << QPointF(x, y);
+    } else {
+        // Stretch to fill (ignore aspect ratio)
+        QTransform transform;
+        transform.scale(viewRect.width() / itemRect.width(), 
+                       viewRect.height() / itemRect.height());
+        m_videoItem->setTransform(transform);
+        m_videoItem->setPos(0, 0);
+    }
+}
+
+void VideoPane::centerVideoItem()
+{
+    if (!m_videoItem) return;
+    
+    QRectF itemRect = m_videoItem->boundingRect();
+    QRectF viewRect = viewport()->rect();
+    
+    // Get the current transform to calculate the scaled size
+    QTransform transform = m_videoItem->transform();
+    QRectF scaledRect = transform.mapRect(itemRect);
+    
+    double x = (viewRect.width() - scaledRect.width()) / 2.0;
+    double y = (viewRect.height() - scaledRect.height()) / 2.0;
+    
+    m_videoItem->setPos(x, y);
+}
+
+void VideoPane::setupScene()
+{
+    if (!m_scene) {
+        m_scene = new QGraphicsScene(this);
+    }
+    
+    m_scene->setBackgroundBrush(QBrush(Qt::black));
+    
+    // Set initial scene size to match viewport
+    m_scene->setSceneRect(viewport()->rect());
+}
+
+
+// Event handlers
+void VideoPane::wheelEvent(QWheelEvent *event)
+{
+    qDebug() << "VideoPane::wheelEvent - angleDelta:" << event->angleDelta();
+    
+    // Call InputHandler's public method to process the event
+    if (m_inputHandler) {
+        m_inputHandler->handleWheelEvent(event);
+    }
+    event->accept();
+}
+
+void VideoPane::mousePressEvent(QMouseEvent *event)
+{
+    qDebug() << "VideoPane::mousePressEvent - pos:" << event->pos();
+    
+    // Emit signal for status bar update
+    emit mouseMoved(event->pos(), "Press");
+    
+    // Call InputHandler's public method to process the event
+    if (m_inputHandler) {
+        m_inputHandler->handleMousePress(event);
+    }
+    
+    // Let the base class handle the event
+    QGraphicsView::mousePressEvent(event);
+}
+
+void VideoPane::mouseMoveEvent(QMouseEvent *event)
+{
+    qDebug() << "VideoPane::mouseMoveEvent - pos:" << event->pos() << "mouse tracking:" << hasMouseTracking();
+    
+    // Emit signal for status bar update
+    emit mouseMoved(event->pos(), "Move");
+    
+    // Call InputHandler's public method to process the event
+    if (m_inputHandler) {
+        m_inputHandler->handleMouseMove(event);
+    }
+    
+    // Let the base class handle the event
+    QGraphicsView::mouseMoveEvent(event);
+}
+
+void VideoPane::mouseReleaseEvent(QMouseEvent *event)
+{
+    qDebug() << "VideoPane::mouseReleaseEvent - pos:" << event->pos();
+    
+    // Emit signal for status bar update
+    emit mouseMoved(event->pos(), "Release");
+    
+    // Call InputHandler's public method to process the event
+    if (m_inputHandler) {
+        m_inputHandler->handleMouseRelease(event);
+    }
+    
+    // Let the base class handle the event
+    QGraphicsView::mouseReleaseEvent(event);
+}

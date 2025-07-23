@@ -9,13 +9,14 @@
 #include "../ui/globalsetting.h"
 #include "../device/DeviceManager.h"
 #include <QVideoWidget>
+#include <QGraphicsVideoItem>
 #include <QTimer>
 #include <QThread>
 
 Q_LOGGING_CATEGORY(log_ui_camera, "opf.ui.camera")
 
 CameraManager::CameraManager(QObject *parent)
-    : QObject(parent), m_videoOutput(nullptr), m_video_width(0), m_video_height(0)
+    : QObject(parent), m_videoOutput(nullptr), m_graphicsVideoOutput(nullptr), m_video_width(0), m_video_height(0)
 {
     qDebug() << "CameraManager init...";
     
@@ -41,6 +42,19 @@ CameraManager::~CameraManager() = default;
 void CameraManager::setCamera(const QCameraDevice &cameraDevice, QVideoWidget* videoOutput)
 {
     qDebug() << "Set Camera to videoOutput: " << videoOutput << ", device name: " << cameraDevice.description();
+    setCameraDevice(cameraDevice);
+
+    setVideoOutput(videoOutput);
+
+    queryResolutions();
+
+    // Set camera format
+    startCamera();
+}
+
+void CameraManager::setCamera(const QCameraDevice &cameraDevice, QGraphicsVideoItem* videoOutput)
+{
+    qDebug() << "Set Camera to graphics videoOutput: " << videoOutput << ", device name: " << cameraDevice.description();
     setCameraDevice(cameraDevice);
 
     setVideoOutput(videoOutput);
@@ -96,10 +110,23 @@ void CameraManager::setVideoOutput(QVideoWidget* videoOutput)
 {
     if (videoOutput) {
         m_videoOutput = videoOutput;
+        m_graphicsVideoOutput = nullptr; // Clear graphics output
         qDebug() << "Setting video output to: " << videoOutput->objectName();
         m_captureSession.setVideoOutput(videoOutput);
     } else {
         qCWarning(log_ui_camera) << "Attempted to set null video output";
+    }
+}
+
+void CameraManager::setVideoOutput(QGraphicsVideoItem* videoOutput)
+{
+    if (videoOutput) {
+        m_graphicsVideoOutput = videoOutput;
+        m_videoOutput = nullptr; // Clear widget output
+        qDebug() << "Setting graphics video output";
+        m_captureSession.setVideoOutput(videoOutput);
+    } else {
+        qCWarning(log_ui_camera) << "Attempted to set null graphics video output";
     }
 }
 
@@ -537,8 +564,11 @@ bool CameraManager::switchToCameraDevice(const QCameraDevice &cameraDevice)
         // Video output should already be set and preserved from previous session
         // Only restore if it's somehow lost
         if (m_videoOutput && m_captureSession.videoOutput() != m_videoOutput) {
-            qDebug() << "Restoring video output";
+            qDebug() << "Restoring widget video output";
             m_captureSession.setVideoOutput(m_videoOutput);
+        } else if (m_graphicsVideoOutput && m_captureSession.videoOutput() != m_graphicsVideoOutput) {
+            qDebug() << "Restoring graphics video output";
+            m_captureSession.setVideoOutput(m_graphicsVideoOutput);
         }
         
         // Restart camera if it was previously active
@@ -941,6 +971,88 @@ bool CameraManager::initializeCameraWithVideoOutput(QVideoWidget* videoOutput)
     
     // Set the video output first if it's different from current
     if (m_videoOutput != videoOutput) {
+        setVideoOutput(videoOutput);
+    }
+    
+    // Check if we already have an active camera device
+    if (hasActiveCameraDevice()) {
+        qDebug() << "Camera already active with device:" << m_currentCameraDevice.description() 
+                 << "at port chain:" << m_currentCameraPortChain;
+        return true;
+    }
+    
+    bool switchSuccess = false;
+    
+    // First priority: Check for port chain in global settings
+    QString portChain = GlobalSetting::instance().getOpenterfacePortChain();
+    
+    if (!portChain.isEmpty()) {
+        qDebug() << "Found port chain in global settings:" << portChain;
+        
+        QCameraDevice matchedCamera = findMatchingCameraDevice(portChain);
+        
+        if (!matchedCamera.isNull()) {
+            switchSuccess = switchToCameraDevice(matchedCamera, portChain);
+            if (switchSuccess) {
+                qDebug() << "✓ Successfully switched to camera using port chain:" << portChain;
+                qDebug() << "✓ Selected camera:" << matchedCamera.description();
+            } else {
+                qCWarning(log_ui_camera) << "Failed to switch to matched camera device:" << matchedCamera.description();
+            }
+        } else {
+            qCDebug(log_ui_camera) << "No matching camera device found for port chain:" << portChain;
+        }
+    } else {
+        qDebug() << "No port chain found in global settings, using fallback methods";
+    }
+    
+    // Fallback: Traditional camera selection logic (without port chain tracking)
+    if (!switchSuccess) {
+        // Enforce camera device description to be "Openterface"
+        QList<QCameraDevice> devices = getAvailableCameraDevices();
+        QCameraDevice openterfaceDevice;
+        for (const QCameraDevice& device : devices) {
+            if (device.description() == "Openterface") {
+                openterfaceDevice = device;
+                break;
+            }
+        }
+
+        if (!openterfaceDevice.isNull()) {
+            switchSuccess = switchToCameraDevice(openterfaceDevice);  // No port chain available for fallback
+            if (switchSuccess) {
+                qDebug() << "Camera switched to device with description 'Openterface' (no port chain tracked)";
+            }
+        } else {
+            qCWarning(log_ui_camera) << "No camera device with description 'Openterface' found";
+        }
+    }
+
+    // Start camera if switch was successful
+    if (switchSuccess) {
+        startCamera();
+    }
+
+    // If we still don't have a camera device, return false
+    if (m_currentCameraDevice.isNull()) {
+        qCWarning(log_ui_camera) << "No camera device available for initialization";
+        return false;
+    }
+
+    return switchSuccess;
+}
+
+bool CameraManager::initializeCameraWithVideoOutput(QGraphicsVideoItem* videoOutput)
+{
+    qDebug() << "Initializing camera with graphics video output";
+    
+    if (!videoOutput) {
+        qCWarning(log_ui_camera) << "Cannot initialize camera with null graphics video output";
+        return false;
+    }
+    
+    // Set the video output first if it's different from current
+    if (m_graphicsVideoOutput != videoOutput) {
         setVideoOutput(videoOutput);
     }
     

@@ -114,7 +114,6 @@ QPixmap recolorSvg(const QString &svgPath, const QColor &color, const QSize &siz
 MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(new Ui::MainWindow),
                             m_audioManager(new AudioManager(this)),
                             videoPane(new VideoPane(this)),
-                            scrollArea(new QScrollArea(this)),
                             stackedLayout(new QStackedLayout(this)),
                             toolbarManager(new ToolbarManager(this)),
                             toggleSwitch(new ToggleSwitch(this)),
@@ -220,16 +219,12 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
     HelpPane *helpPane = new HelpPane;
     stackedLayout->addWidget(helpPane);
     
-    // Set size policy and minimum size for videoPane
-    // videoPane->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    videoPane->setMinimumSize(this->width(),
-    this->height() - ui->statusbar->height() - ui->menubar->height()); // must minus the statusbar and menubar height
-
-    scrollArea->setWidget(videoPane);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setBackgroundRole(QPalette::Dark);
-    stackedLayout->addWidget(scrollArea);
+    // Set size policy and minimum size for videoPane - use proper sizing
+    videoPane->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    videoPane->setMinimumSize(640, 480); // Set reasonable minimum size
+    
+    // Add videoPane directly to stacked layout without scroll area
+    stackedLayout->addWidget(videoPane);
 
     stackedLayout->setCurrentIndex(0);
 
@@ -301,6 +296,10 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
             videoPane, &VideoPane::onCameraDeviceSwitching);
     connect(m_cameraManager, &CameraManager::cameraDeviceSwitchComplete,
             videoPane, &VideoPane::onCameraDeviceSwitchComplete);
+    
+    // Connect VideoPane mouse events to status bar
+    connect(videoPane, &VideoPane::mouseMoved,
+            m_statusBarManager, &StatusBarManager::onLastMouseLocation);
     connect(&VideoHid::getInstance(), &VideoHid::inputResolutionChanged, this, &MainWindow::onInputResolutionChanged);
     connect(&VideoHid::getInstance(), &VideoHid::resolutionChangeUpdate, this, &MainWindow::onResolutionChange);
 
@@ -316,7 +315,7 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
     // Initialize camera with video output for proper startup
     qCDebug(log_ui_mainwindow) << "Initializing camera with video output...";
     QTimer::singleShot(200, this, [this]() {
-        bool success = m_cameraManager->initializeCameraWithVideoOutput(videoPane);
+        bool success = m_cameraManager->initializeCameraWithVideoOutput(videoPane->getVideoItem());
         if (success) {
             qDebug() << "✓ Camera successfully initialized with video output";
         } else {
@@ -330,8 +329,6 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
 
     // Connect zoom buttons
     
-    scrollArea->ensureWidgetVisible(videoPane);
-
     // Set the window title with the version number
     qDebug() << "Set window title" << APP_VERSION;
     QString windowTitle = QString("Openterface Mini-KVM - %1").arg(APP_VERSION);
@@ -555,17 +552,15 @@ void MainWindow::fullScreen(){
         ui->statusbar->hide();
         // Calculate the horizontal offset after resizing
         
-        // Resize the videoPane and scrollArea first
+        // Resize and position the videoPane
         videoPane->setMinimumSize(videoAvailibleWidth, videoAvailibleHeight);
         videoPane->resize(videoAvailibleWidth, videoAvailibleHeight);
-        scrollArea->resize(videoAvailibleWidth, videoAvailibleHeight);
         qCDebug(log_ui_mainwindow) << "Resize to Width " << videoAvailibleWidth << "\tHeight: " << videoAvailibleHeight;
-        // Move the videoPane and scrollArea to the center
+        // Move the videoPane to the center
         fullScreenState = true;
         this->showFullScreen();
         qCDebug(log_ui_mainwindow) << "offset: " << horizontalOffset;
         videoPane->move(horizontalOffset, videoPane->y());
-        scrollArea->move(horizontalOffset, videoPane->y());
     } else {
         this->showNormal();
         ui->statusbar->show();
@@ -576,37 +571,24 @@ void MainWindow::fullScreen(){
 
 void MainWindow::onZoomIn()
 {
-    factorScale = 1.1 * factorScale;
-    QSize currentSize = videoPane->size() * 1.1;
-    videoPane->resize(currentSize.width(), currentSize.height());
-    qDebug() << "video pane size:" << videoPane->geometry();
-    if (videoPane->width() > scrollArea->width() || videoPane->height() > scrollArea->height()) {
-        scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-        scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    }
-
+    // Use VideoPane's built-in zoom functionality
+    videoPane->zoomIn(1.1);
+    
     mouseEdgeTimer->start(edgeDuration); // Check every edge Duration
 }
 
 void MainWindow::onZoomOut()
 {
     if (videoPane->width() != this->width()){
-        factorScale = 0.9 * factorScale;
-        QSize currentSize = videoPane->size() * 0.9;
-        videoPane->resize(currentSize.width(), currentSize.height());
-        if (videoPane->width() <= scrollArea->width() && videoPane->height() <= scrollArea->height()) {
-            scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-            scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-        }
+        // Use VideoPane's built-in zoom functionality
+        videoPane->zoomOut(0.9);
     }
-
 }
 
 void MainWindow::onZoomReduction()
 {
-    videoPane->resize(this->width() * 0.9, (this->height() - ui->statusbar->height() - ui->menubar->height()) * 0.9);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    // Use VideoPane's fit to window functionality
+    videoPane->fitToWindow();
     if (mouseEdgeTimer->isActive()) {
         mouseEdgeTimer->stop();
     }
@@ -740,9 +722,7 @@ void MainWindow::doResize(){
         // Apply changes to UI components
         videoPane->setMinimumSize(newVideoWidth, newVideoHeight);
         videoPane->resize(newVideoWidth, newVideoHeight);
-        scrollArea->resize(newVideoWidth, newVideoHeight);
-        videoPane->move(horizontalOffset, videoPane->y());
-        scrollArea->move(horizontalOffset, videoPane->y());
+        // videoPane->move(horizontalOffset, videoPane->y());
         
         // Resize main window if necessary
         if (currentWidth != availableWidth && currentHeight != availableHeight) {
@@ -768,7 +748,6 @@ void MainWindow::doResize(){
         else{
             videoPane->setMinimumSize(currentWidth, adjustedContentHeight);
             videoPane->resize(currentWidth, adjustedContentHeight);
-            scrollArea->resize(currentWidth, adjustedContentHeight);
             resize(currentWidth, contentHeight);
         }
         
@@ -818,10 +797,10 @@ void MainWindow::updateScrollbars() {
         deltaY = 10; // Adjust step size as needed
     }
 
-    // Update scrollbars
-    scrollArea->horizontalScrollBar()->setValue(scrollArea->horizontalScrollBar()->value() + deltaX);
-    scrollArea->verticalScrollBar()->setValue(scrollArea->verticalScrollBar()->value() + deltaY);
+    // Note: scrollbars removed - VideoPane handles zooming internally via QGraphicsView
+    // No need to update scrollbars since VideoPane manages its own scroll behavior
 }
+
 
 void MainWindow::onActionRelativeTriggered()
 {
@@ -1399,46 +1378,23 @@ void MainWindow::onSwitchableUsbToggle(const bool isToTarget) {
 
 void MainWindow::checkMousePosition()
 {
-    if (!scrollArea || !videoPane) return;
+    if (!videoPane) return;
 
-    QPoint mousePos = mapFromGlobal(QCursor::pos());
-    QRect viewRect = scrollArea->viewport()->rect();
-
-    int deltaX = 0;
-    int deltaY = 0;
-
-    // Calculate the distance from the edge
-    int leftDistance = mousePos.x() - viewRect.left();
-    int rightDistance = viewRect.right() - mousePos.x();
-    int topDistance = mousePos.y() - viewRect.top();
-    int bottomDistance = viewRect.bottom() - mousePos.y();
-
-    // Adjust the scroll speed based on the distance from the edge
-    if (leftDistance <= edgeThreshold) {
-        deltaX = -maxScrollSpeed * (edgeThreshold - leftDistance) / edgeThreshold;
-    } else if (rightDistance <= edgeThreshold) {
-        deltaX = maxScrollSpeed * (edgeThreshold - rightDistance) / edgeThreshold;
-    }
-
-    if (topDistance <= edgeThreshold) {
-        deltaY = -maxScrollSpeed * (edgeThreshold - topDistance) / edgeThreshold;
-    } else if (bottomDistance <= edgeThreshold) {
-        deltaY = maxScrollSpeed * (edgeThreshold - bottomDistance) / edgeThreshold;
-    }
-
-    if (deltaX != 0 || deltaY != 0) {
-        scrollArea->horizontalScrollBar()->setValue(scrollArea->horizontalScrollBar()->value() + deltaX);
-        scrollArea->verticalScrollBar()->setValue(scrollArea->verticalScrollBar()->value() + deltaY);
-    }
+    // Since VideoPane now handles its own scrolling via QGraphicsView,
+    // we don't need to manually handle scroll area edge scrolling.
+    // The VideoPane's built-in zoom and pan functionality will handle this.
+    
+    // This method can be simplified or removed entirely if no longer needed
+    // for other mouse position tracking purposes.
 }
 
 void MainWindow::onVideoSettingsChanged() {
     if (m_cameraManager) {
-        // Reinitialize camera with video output to ensure proper connection
-        bool success = m_cameraManager->initializeCameraWithVideoOutput(videoPane);
+        // Reinitialize camera with graphics video output to ensure proper connection
+        bool success = m_cameraManager->initializeCameraWithVideoOutput(videoPane->getVideoItem());
         if (!success) {
             // Fallback to just setting video output
-            m_cameraManager->setVideoOutput(videoPane);
+            m_cameraManager->setVideoOutput(videoPane->getVideoItem());
         }
     }
     int inputWidth = GlobalVar::instance().getInputWidth();
@@ -1509,8 +1465,6 @@ void MainWindow::onInputResolutionChanged()
     videoPane->setMinimumSize(videoPane->width(), contentHeight);
     videoPane->resize(videoPane->width(), contentHeight);
     
-    // Ensure scrollArea is also resized appropriately
-    scrollArea->resize(videoPane->width(), contentHeight);
 }
 
 void MainWindow::showScriptTool()
@@ -1596,7 +1550,7 @@ void MainWindow::onToolbarVisibilityChanged(bool visible) {
 }
 
 void MainWindow::animateVideoPane() {
-    if (!videoPane || !scrollArea) {
+    if (!videoPane) {
         setUpdatesEnabled(true);
         blockSignals(false);
         return;
@@ -1604,7 +1558,6 @@ void MainWindow::animateVideoPane() {
 
     // Get toolbar visibility and window state
     bool isToolbarVisible = toolbarManager->getToolbar()->isVisible();
-    // bool isMaximized = windowState() & Qt::WindowMaximized;
 
     // Calculate content height based on toolbar visibility
     int contentHeight;
@@ -1623,27 +1576,24 @@ void MainWindow::animateVideoPane() {
         contentWidth = static_cast<int>(contentHeight * aspect_ratio);
     }
 
-    // If window is not maximized and toolbar is invisible, resize the panes
-    
+    // Resize the video pane
     videoPane->setMinimumSize(contentWidth, contentHeight);
     videoPane->resize(contentWidth, contentHeight);
-    scrollArea->resize(contentWidth, contentHeight);
-    
 
     if (this->width() > videoPane->width()) {
         // Calculate new position
         int horizontalOffset = (this->width() - videoPane->width()) / 2;
         
-        // Also animate the scrollArea
-        QPropertyAnimation *scrollAnimation = new QPropertyAnimation(scrollArea, "pos");
-        scrollAnimation->setDuration(150);
-        scrollAnimation->setStartValue(scrollArea->pos());
-        scrollAnimation->setEndValue(QPoint(horizontalOffset, scrollArea->y()));
-        scrollAnimation->setEasingCurve(QEasingCurve::OutCubic);
+        // Animate the videoPane position
+        QPropertyAnimation *videoAnimation = new QPropertyAnimation(videoPane, "pos");
+        videoAnimation->setDuration(150);
+        videoAnimation->setStartValue(videoPane->pos());
+        videoAnimation->setEndValue(QPoint(horizontalOffset, videoPane->y()));
+        videoAnimation->setEasingCurve(QEasingCurve::OutCubic);
 
-        // Create animation group
+        // Create animation group with just video animation
         QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
-        group->addAnimation(scrollAnimation);
+        group->addAnimation(videoAnimation);
         
         // Cleanup after animation
         connect(group, &QParallelAnimationGroup::finished, this, [this]() {

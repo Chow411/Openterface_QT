@@ -54,6 +54,14 @@ private:
                                      QMap<QString, DeviceInfo>& deviceMap, 
                                      const QString& generation);
     
+    // Generation 2 (Companion device) helper methods
+    QString findSerialPortByCompanionDeviceLinux(const UdevDeviceData& companionDevice, const QList<UdevDeviceData>& serialDevices);
+    void findAndAssociateInterfaceDevicesLinux(DeviceInfo& deviceInfo, const UdevDeviceData& companionDevice);
+    QString calculateExpectedSerialHubPortLinux(const QString& companionHubPort);
+    QString extractHubPortFromDevicePortLinux(const QString& devicePort);
+    bool arePortChainsRelatedLinux(const QString& portChain1, const QString& portChain2);
+    bool isSerialDeviceAssociatedWithCompanionLinux(const UdevDeviceData& serialDevice, const UdevDeviceData& companionDevice);
+    
     // udev context
     struct udev* m_udev;
 #endif

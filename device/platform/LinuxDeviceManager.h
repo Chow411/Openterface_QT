@@ -6,6 +6,9 @@
 #include <QLoggingCategory>
 #include <QDateTime>
 #include <QVariantMap>
+#include <QFuture>
+#include <QFutureWatcher>
+#include <QtConcurrent>
 
 #ifdef HAVE_LIBUDEV
 struct udev;
@@ -26,6 +29,17 @@ public:
     QString getPlatformName() const override { return "Linux"; }
     void clearCache() override;
     
+    // Async device discovery methods
+    void discoverDevicesAsync();
+    bool isDiscoveryInProgress() const { return m_discoveryInProgress; }
+    
+signals:
+    void devicesDiscovered(const QList<DeviceInfo>& devices);
+    void discoveryError(const QString& error);
+    
+private slots:
+    void onAsyncDiscoveryFinished();
+    
 private:
 #ifdef HAVE_LIBUDEV
     struct UdevDeviceData {
@@ -34,6 +48,9 @@ private:
         QString parentSyspath;
         QVariantMap properties;
     };
+    
+    // Blocking device discovery (for use in background thread)
+    QList<DeviceInfo> discoverDevicesBlocking();
     
     // libudev-based device discovery
     QList<UdevDeviceData> findUdevDevicesByVidPid(const QString& subsystem, const QString& vid, const QString& pid);
@@ -70,6 +87,10 @@ private:
     QList<DeviceInfo> m_cachedDevices;
     QDateTime m_lastCacheUpdate;
     static const int CACHE_TIMEOUT_MS = 1000; // 1 second cache
+    
+    // Async discovery
+    QFutureWatcher<QList<DeviceInfo>>* m_futureWatcher;
+    bool m_discoveryInProgress;
 };
 
 #endif // LINUXDEVICEMANAGER_H

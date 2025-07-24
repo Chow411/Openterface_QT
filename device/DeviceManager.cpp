@@ -93,6 +93,7 @@ void DeviceManager::discoverDevicesAsync()
         return;
     }
     
+#ifdef __linux__
     // Check if the platform manager supports async discovery
     if (auto* linuxManager = qobject_cast<LinuxDeviceManager*>(m_platformManager)) {
         // Connect to Linux-specific async discovery signals
@@ -111,7 +112,9 @@ void DeviceManager::discoverDevicesAsync()
                 }, Qt::UniqueConnection);
         
         linuxManager->discoverDevicesAsync();
-    } else {
+    } else
+#endif
+    {
         // For other platforms, fall back to synchronous discovery
         // but run it in a background thread to avoid blocking
         QtConcurrent::run([this]() {

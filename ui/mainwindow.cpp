@@ -221,7 +221,7 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
     
     // Set size policy and minimum size for videoPane - use proper sizing
     videoPane->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    videoPane->setMinimumSize(640, 480); // Set reasonable minimum size
+    // videoPane->setMinimumSize(640, 480); // Set reasonable minimum size
     
     // Add videoPane directly to stacked layout without scroll area
     stackedLayout->addWidget(videoPane);
@@ -553,7 +553,7 @@ void MainWindow::fullScreen(){
         // Calculate the horizontal offset after resizing
         
         // Resize and position the videoPane
-        videoPane->setMinimumSize(videoAvailibleWidth, videoAvailibleHeight);
+        // videoPane->setMinimumSize(videoAvailibleWidth, videoAvailibleHeight);
         videoPane->resize(videoAvailibleWidth, videoAvailibleHeight);
         qCDebug(log_ui_mainwindow) << "Resize to Width " << videoAvailibleWidth << "\tHeight: " << videoAvailibleHeight;
         // Move the videoPane to the center
@@ -720,9 +720,9 @@ void MainWindow::doResize(){
         int horizontalOffset = (currentWidth - newVideoWidth) / 2;
 
         // Apply changes to UI components
-        videoPane->setMinimumSize(newVideoWidth, newVideoHeight);
+        // videoPane->setMinimumSize(newVideoWidth, newVideoHeight);
         videoPane->resize(newVideoWidth, newVideoHeight);
-        // videoPane->move(horizontalOffset, videoPane->y());
+        videoPane->move(horizontalOffset, videoPane->y());
         
         // Resize main window if necessary
         if (currentWidth != availableWidth && currentHeight != availableHeight) {
@@ -739,14 +739,13 @@ void MainWindow::doResize(){
             int offsetX = static_cast<int>((videoPane->width()-currentWidth) /2);
             int offsetY = static_cast<int>((videoPane->height()-adjustedContentHeight) /2);
             int contentwidth = static_cast<int>(adjustedContentHeight * captureAspectRatio);
-            videoPane->setMinimumSize(contentwidth, adjustedContentHeight);
+            // videoPane->setMinimumSize(contentwidth, adjustedContentHeight);
             videoPane->resize(contentwidth, adjustedContentHeight);
             qDebug() << "setDisplayRegion Resize videoPane to width: " << currentWidth << " height: " << currentHeight << " offset: " << offsetX << offsetY << "videoPane width: " << videoPane->width();
             setMinimumSize(100, 500);
             resize(currentWidth, currentHeight);
-        }
-        else{
-            videoPane->setMinimumSize(currentWidth, adjustedContentHeight);
+        }else{
+            // videoPane->setMinimumSize(currentWidth, adjustedContentHeight);
             videoPane->resize(currentWidth, adjustedContentHeight);
             resize(currentWidth, contentHeight);
         }
@@ -1462,7 +1461,7 @@ void MainWindow::onInputResolutionChanged()
     qDebug() << "contentHeight: " << contentHeight;
     
     // Set the videoPane to use the full available width and height
-    videoPane->setMinimumSize(videoPane->width(), contentHeight);
+    // videoPane->setMinimumSize(videoPane->width(), contentHeight);
     videoPane->resize(videoPane->width(), contentHeight);
     
 }
@@ -1577,7 +1576,7 @@ void MainWindow::animateVideoPane() {
     }
 
     // Resize the video pane
-    videoPane->setMinimumSize(contentWidth, contentHeight);
+    // videoPane->setMinimumSize(contentWidth, contentHeight);
     videoPane->resize(contentWidth, contentHeight);
 
     if (this->width() > videoPane->width()) {

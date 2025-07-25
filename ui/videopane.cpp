@@ -368,6 +368,48 @@ void VideoPane::setupScene()
     m_scene->setSceneRect(viewport()->rect());
 }
 
+QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
+{
+    if (!m_videoItem) {
+        return viewportPos;
+    }
+    
+    // Convert viewport coordinates to scene coordinates
+    QPointF scenePos = mapToScene(viewportPos);
+    
+    // Map scene coordinates to video item coordinates
+    QPointF itemPos = m_videoItem->mapFromScene(scenePos);
+    
+    // Get the video item's bounding rect
+    QRectF itemRect = m_videoItem->boundingRect();
+    
+    // Normalize coordinates to 0-1 range based on the video content area
+    double normalizedX = 0.0;
+    double normalizedY = 0.0;
+    
+    if (itemRect.width() > 0 && itemRect.height() > 0) {
+        // Account for any offset in the bounding rect
+        double relativeX = (itemPos.x() - itemRect.x()) / itemRect.width();
+        double relativeY = (itemPos.y() - itemRect.y()) / itemRect.height();
+        
+        // Clamp to 0-1 range
+        normalizedX = qBound(0.0, relativeX, 1.0);
+        normalizedY = qBound(0.0, relativeY, 1.0);
+    }
+    
+    // Convert normalized coordinates back to viewport coordinates for the logical video area
+    QRectF viewRect = viewport()->rect();
+    int transformedX = static_cast<int>(normalizedX * viewRect.width());
+    int transformedY = static_cast<int>(normalizedY * viewRect.height());
+    
+    qDebug() << "VideoPane: Transformed mouse pos from" << viewportPos 
+             << "to" << QPoint(transformedX, transformedY)
+             << "via scene:" << scenePos << "item:" << itemPos 
+             << "normalized:" << normalizedX << normalizedY;
+    
+    return QPoint(transformedX, transformedY);
+}
+
 
 // Event handlers
 void VideoPane::wheelEvent(QWheelEvent *event)
@@ -385,12 +427,17 @@ void VideoPane::mousePressEvent(QMouseEvent *event)
 {
     qDebug() << "VideoPane::mousePressEvent - pos:" << event->pos();
     
+    // Transform the mouse position to account for zoom and pan
+    QPoint transformedPos = getTransformedMousePosition(event->pos());
+    QMouseEvent transformedEvent(event->type(), transformedPos, event->globalPos(), 
+                                event->button(), event->buttons(), event->modifiers());
+    
     // Emit signal for status bar update
-    emit mouseMoved(event->pos(), "Press");
+    emit mouseMoved(transformedPos, "Press");
     
     // Call InputHandler's public method to process the event
     if (m_inputHandler) {
-        m_inputHandler->handleMousePress(event);
+        m_inputHandler->handleMousePress(&transformedEvent);
     }
     
     // Let the base class handle the event
@@ -401,12 +448,17 @@ void VideoPane::mouseMoveEvent(QMouseEvent *event)
 {
     qDebug() << "VideoPane::mouseMoveEvent - pos:" << event->pos() << "mouse tracking:" << hasMouseTracking();
     
+    // Transform the mouse position to account for zoom and pan
+    QPoint transformedPos = getTransformedMousePosition(event->pos());
+    QMouseEvent transformedEvent(event->type(), transformedPos, event->globalPos(), 
+                                event->button(), event->buttons(), event->modifiers());
+    
     // Emit signal for status bar update
-    emit mouseMoved(event->pos(), "Move");
+    emit mouseMoved(transformedPos, "Move");
     
     // Call InputHandler's public method to process the event
     if (m_inputHandler) {
-        m_inputHandler->handleMouseMove(event);
+        m_inputHandler->handleMouseMove(&transformedEvent);
     }
     
     // Let the base class handle the event
@@ -417,12 +469,17 @@ void VideoPane::mouseReleaseEvent(QMouseEvent *event)
 {
     qDebug() << "VideoPane::mouseReleaseEvent - pos:" << event->pos();
     
+    // Transform the mouse position to account for zoom and pan
+    QPoint transformedPos = getTransformedMousePosition(event->pos());
+    QMouseEvent transformedEvent(event->type(), transformedPos, event->globalPos(), 
+                                event->button(), event->buttons(), event->modifiers());
+    
     // Emit signal for status bar update
-    emit mouseMoved(event->pos(), "Release");
+    emit mouseMoved(transformedPos, "Release");
     
     // Call InputHandler's public method to process the event
     if (m_inputHandler) {
-        m_inputHandler->handleMouseRelease(event);
+        m_inputHandler->handleMouseRelease(&transformedEvent);
     }
     
     // Let the base class handle the event

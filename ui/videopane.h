@@ -111,6 +111,7 @@ private:
     void updateVideoItemTransform();
     void centerVideoItem();
     void setupScene();
+    QPoint getTransformedMousePosition(const QPoint& viewportPos);
 };
 
 #endif

@@ -37,6 +37,7 @@ class VideoPane : public QGraphicsView
 
 public:
     explicit VideoPane(QWidget *parent = nullptr);
+    ~VideoPane();
 
     void showHostMouse();
     void hideHostMouse();

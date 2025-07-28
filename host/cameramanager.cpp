@@ -113,6 +113,13 @@ void CameraManager::setVideoOutput(QVideoWidget* videoOutput)
         m_graphicsVideoOutput = nullptr; // Clear graphics output
         qDebug() << "Setting video output to: " << videoOutput->objectName();
         m_captureSession.setVideoOutput(videoOutput);
+        
+        // Verify the connection was successful
+        if (m_captureSession.videoOutput() == videoOutput) {
+            qDebug() << "Widget video output successfully connected to capture session";
+        } else {
+            qCWarning(log_ui_camera) << "Failed to connect widget video output to capture session";
+        }
     } else {
         qCWarning(log_ui_camera) << "Attempted to set null video output";
     }
@@ -125,6 +132,13 @@ void CameraManager::setVideoOutput(QGraphicsVideoItem* videoOutput)
         m_videoOutput = nullptr; // Clear widget output
         qDebug() << "Setting graphics video output";
         m_captureSession.setVideoOutput(videoOutput);
+        
+        // Verify the connection was successful
+        if (m_captureSession.videoOutput() == videoOutput) {
+            qDebug() << "Graphics video output successfully connected to capture session";
+        } else {
+            qCWarning(log_ui_camera) << "Failed to connect graphics video output to capture session";
+        }
     } else {
         qCWarning(log_ui_camera) << "Attempted to set null graphics video output";
     }
@@ -143,15 +157,30 @@ void CameraManager::startCamera()
             }
             
             qDebug() << "Starting camera:" << m_camera->cameraDevice().description();
+            
+            // Ensure video output is connected before starting camera
+            if (m_videoOutput) {
+                qDebug() << "Ensuring widget video output is connected before starting camera";
+                m_captureSession.setVideoOutput(m_videoOutput);
+            } else if (m_graphicsVideoOutput) {
+                qDebug() << "Ensuring graphics video output is connected before starting camera";
+                m_captureSession.setVideoOutput(m_graphicsVideoOutput);
+            }
+            
             m_camera->start();
             
             // Minimal wait time to reduce transition delay
             QThread::msleep(25);
             
-            // Emit active state change as soon as camera starts
-            emit cameraActiveChanged(true);
+            // Verify camera started
+            if (m_camera->isActive()) {
+                qDebug() << "Camera started successfully and is active";
+                // Emit active state change as soon as camera starts
+                emit cameraActiveChanged(true);
+            } else {
+                qCWarning(log_ui_camera) << "Camera start command sent but camera is not active";
+            }
             
-            qDebug() << "Camera started successfully";
         } else {
             qCWarning(log_ui_camera) << "Camera is null, cannot start";
             return;
@@ -561,14 +590,16 @@ bool CameraManager::switchToCameraDevice(const QCameraDevice &cameraDevice)
         m_captureSession.setCamera(m_camera.get());
         m_captureSession.setImageCapture(m_imageCapture.get());
         
-        // Video output should already be set and preserved from previous session
-        // Only restore if it's somehow lost
-        if (m_videoOutput && m_captureSession.videoOutput() != m_videoOutput) {
-            qDebug() << "Restoring widget video output";
+        // IMPORTANT: Always re-establish video output connection after camera change
+        // This ensures the new camera feed is properly displayed
+        if (m_videoOutput) {
+            qDebug() << "Re-establishing widget video output connection after camera switch";
             m_captureSession.setVideoOutput(m_videoOutput);
-        } else if (m_graphicsVideoOutput && m_captureSession.videoOutput() != m_graphicsVideoOutput) {
-            qDebug() << "Restoring graphics video output";
+        } else if (m_graphicsVideoOutput) {
+            qDebug() << "Re-establishing graphics video output connection after camera switch";
             m_captureSession.setVideoOutput(m_graphicsVideoOutput);
+        } else {
+            qCWarning(log_ui_camera) << "No video output available to connect new camera";
         }
         
         // Restart camera if it was previously active
@@ -578,6 +609,9 @@ bool CameraManager::switchToCameraDevice(const QCameraDevice &cameraDevice)
             
             // Give a brief moment for the camera to start before declaring success
             QThread::msleep(25);
+            
+            // Force refresh of video output to ensure new camera feed is displayed
+            refreshVideoOutput();
         }
         
         // Update settings to remember the new device
@@ -604,8 +638,11 @@ bool CameraManager::switchToCameraDevice(const QCameraDevice &cameraDevice)
             emit cameraDeviceDisconnected(previousDevice);
         }
         
-        // Emit completion signal for UI feedback
-        emit cameraDeviceSwitchComplete(cameraDevice.description());
+        // Emit completion signal for UI feedback with slight delay to ensure camera is ready
+        QTimer::singleShot(100, this, [this, cameraDevice]() {
+            emit cameraDeviceSwitchComplete(cameraDevice.description());
+            qDebug() << "Camera switch completion signal sent for:" << cameraDevice.description();
+        });
         
         qDebug() << "Camera device switch successful to:" << newCameraID << cameraDevice.description();
         return true;
@@ -1219,7 +1256,7 @@ bool CameraManager::tryAutoSwitchToNewDevice(const QString& portChain)
     bool switchSuccess = switchToCameraDevice(matchedCamera, portChain);
     
     if (switchSuccess) {
-        qDebug() << "✓ Successfully auto-switched to new camera device:" << matchedCamera.description() << "at port chain:" << portChain;
+        qDebug() << "Successfully auto-switched to new camera device:" << matchedCamera.description() << "at port chain:" << portChain;
         
         // Start the camera if video output is available
         if (m_videoOutput) {
@@ -1269,5 +1306,50 @@ bool CameraManager::switchToCameraDeviceByPortChain(const QString &portChain)
     } catch (...) {
         qCritical() << "Unknown exception in switchToCameraDeviceByPortChain";
         return false;
+    }
+}
+
+void CameraManager::refreshVideoOutput()
+{
+    qDebug() << "Refreshing video output connection";
+    
+    try {
+        // Force re-establishment of video output connection to ensure new camera feed is displayed
+        if (m_videoOutput) {
+            qDebug() << "Forcing widget video output refresh";
+            // Temporarily disconnect and reconnect to force refresh
+            m_captureSession.setVideoOutput(nullptr);
+            QThread::msleep(10); // Brief pause
+            m_captureSession.setVideoOutput(m_videoOutput);
+            
+            // Verify reconnection
+            if (m_captureSession.videoOutput() == m_videoOutput) {
+                qDebug() << "Widget video output refresh successful";
+            } else {
+                qCWarning(log_ui_camera) << "Widget video output refresh failed";
+            }
+        } else if (m_graphicsVideoOutput) {
+            qDebug() << "Forcing graphics video output refresh";
+            // Temporarily disconnect and reconnect to force refresh
+            m_captureSession.setVideoOutput(nullptr);
+            QThread::msleep(10); // Brief pause
+            m_captureSession.setVideoOutput(m_graphicsVideoOutput);
+            
+            // Verify reconnection
+            if (m_captureSession.videoOutput() == m_graphicsVideoOutput) {
+                qDebug() << "Graphics video output refresh successful";
+            } else {
+                qCWarning(log_ui_camera) << "Graphics video output refresh failed";
+            }
+        } else {
+            qCWarning(log_ui_camera) << "No video output available to refresh";
+        }
+        
+        qDebug() << "Video output refresh completed";
+        
+    } catch (const std::exception& e) {
+        qCritical() << "Exception refreshing video output:" << e.what();
+    } catch (...) {
+        qCritical() << "Unknown exception refreshing video output";
     }
 }

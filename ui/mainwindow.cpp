@@ -182,6 +182,7 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
                     bool deactivated = m_cameraManager->deactivateCameraByPortChain(device.portChain);
                     if (deactivated) {
                         qCInfo(log_ui_mainwindow) << "✓ Camera deactivated for unplugged device at port:" << device.portChain;
+                        stackedLayout->setCurrentIndex(0);
                     } else {
                         qCDebug(log_ui_mainwindow) << "Camera deactivation skipped or not needed for port:" << device.portChain;
                     }
@@ -201,6 +202,7 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
                     bool switchSuccess = m_cameraManager->tryAutoSwitchToNewDevice(device.portChain);
                     if (switchSuccess) {
                         qCInfo(log_ui_mainwindow) << "✓ Camera auto-switched to new device at port:" << device.portChain;
+                        stackedLayout->setCurrentIndex(stackedLayout->indexOf(videoPane));
                     } else {
                         qCDebug(log_ui_mainwindow) << "Camera auto-switch skipped or failed for port:" << device.portChain;
                     }
@@ -1480,15 +1482,16 @@ void MainWindow::showScriptTool()
 // run the sematic analyzer
 void MainWindow::handleSyntaxTree(std::shared_ptr<ASTNode> syntaxTree) {
     QPointer<QObject> senderObj = sender();
-    taskmanager->addTask([this, syntaxTree, senderObj]() {
-        if (!senderObj) return;
-        bool runStatus = semanticAnalyzer->analyze(syntaxTree.get());
+    QPointer<MainWindow> thisPtr(this); // Add protection for this pointer
+    taskmanager->addTask([thisPtr, syntaxTree, senderObj]() {
+        if (!senderObj || !thisPtr) return; // Check both pointers
+        bool runStatus = thisPtr->semanticAnalyzer->analyze(syntaxTree.get());
         qCDebug(log_ui_mainwindow) << "Script run status: " << runStatus;
-        emit emitScriptStatus(runStatus);
+        emit thisPtr->emitScriptStatus(runStatus);
         
-        if (senderObj == tcpServer) {
+        if (senderObj == thisPtr->tcpServer) {
             qCDebug(log_ui_mainwindow) << "run finish: " << runStatus;
-            emit emitTCPCommandStatus(runStatus);
+            emit thisPtr->emitTCPCommandStatus(runStatus);
         }
     });
 } 
@@ -1497,33 +1500,115 @@ MainWindow::~MainWindow()
 {
     qCDebug(log_ui_mainwindow) << "MainWindow destructor called";
     
-    // Stop all camera operations
+    // 0. CRITICAL: Stop any running animations before cleanup
+    QList<QPropertyAnimation*> animations = this->findChildren<QPropertyAnimation*>();
+    for (QPropertyAnimation* animation : animations) {
+        animation->stop();
+        animation->deleteLater();
+    }
+    
+    QList<QParallelAnimationGroup*> animationGroups = this->findChildren<QParallelAnimationGroup*>();
+    for (QParallelAnimationGroup* group : animationGroups) {
+        group->stop();
+        group->deleteLater();
+    }
+    
+    // Process any pending events to ensure cleanup
+    QCoreApplication::processEvents();
+    
+    // 1. Stop all operations first
     stop();
     
-    // Delete UI
+    // 2. Stop camera operations and disconnect signals
+    if (m_cameraManager) {
+        disconnect(m_cameraManager);
+        m_cameraManager->stopCamera();
+        m_cameraManager->deleteLater();
+        m_cameraManager = nullptr;
+    }
+    
+    // 3. Clean up managers in dependency order
+    if (m_versionInfoManager) {
+        m_versionInfoManager->deleteLater();
+        m_versionInfoManager = nullptr;
+        qCDebug(log_ui_mainwindow) << "m_versionInfoManager destroyed successfully";
+    }
+    
+    if (m_screenSaverManager) {
+        m_screenSaverManager->deleteLater();
+        m_screenSaverManager = nullptr;
+        qCDebug(log_ui_mainwindow) << "m_screenSaverManager destroyed successfully";
+    }
+    
+    if (m_cornerWidgetManager) {
+        m_cornerWidgetManager->deleteLater();
+        m_cornerWidgetManager = nullptr;
+        qCDebug(log_ui_mainwindow) << "m_cornerWidgetManager destroyed successfully";
+    }
+
+    if (m_screenScaleDialog) {
+        m_screenScaleDialog->deleteLater();
+        m_screenScaleDialog = nullptr;
+        qCDebug(log_ui_mainwindow) << "m_screenScaleDialog destroyed successfully";
+    }
+
+    if (firmwareManagerDialog) {
+        firmwareManagerDialog->deleteLater();
+        firmwareManagerDialog = nullptr;
+        qCDebug(log_ui_mainwindow) << "firmwareManagerDialog destroyed successfully";
+    }
+    
+    // 4. Clean up video pane and related objects - Use direct delete to ensure immediate cleanup
+    if (videoPane) {
+        // Remove videoPane from any layouts first
+        if (stackedLayout) {
+            stackedLayout->removeWidget(videoPane);
+        }
+        delete videoPane; // Direct delete instead of deleteLater
+        videoPane = nullptr;
+        qCDebug(log_ui_mainwindow) << "videoPane destroyed successfully";
+    }
+    
+    if (stackedLayout) {
+        stackedLayout->deleteLater();
+        stackedLayout = nullptr;
+    }
+    
+    // 5. Clean up other components
+    if (mouseEdgeTimer) {
+        mouseEdgeTimer->stop();
+        mouseEdgeTimer->deleteLater();
+        mouseEdgeTimer = nullptr;
+        qCDebug(log_ui_mainwindow) << "mouseEdgeTimer destroyed successfully";
+    }
+    
+    if (toolbarManager) {
+        toolbarManager->deleteLater();
+        toolbarManager = nullptr;
+        qCDebug(log_ui_mainwindow) << "toolbarManager destroyed successfully";
+    }
+    
+    if (toggleSwitch) {
+        toggleSwitch->deleteLater();
+        toggleSwitch = nullptr;
+        qCDebug(log_ui_mainwindow) << "toggleSwitch destroyed successfully";
+    }
+    
+    if (m_audioManager) {
+        m_audioManager->deleteLater();
+        m_audioManager = nullptr;
+        qCDebug(log_ui_mainwindow) << "m_audioManager destroyed successfully";
+    }
+    
+    // 6. Clean up static instances
+    VideoHid::getInstance().stop();
+    SerialPortManager::getInstance().stop();
+    
+    // 7. Delete UI last
     if (ui) {
         delete ui;
         ui = nullptr;
     }
-
-    m_cameraManager->stopCamera();
-    delete m_cameraManager;
-    m_cameraManager = nullptr;
-    
-    delete m_versionInfoManager;
-    m_versionInfoManager = nullptr;
-    
-    delete m_screenSaverManager;
-    m_screenSaverManager = nullptr;
-    
-    delete m_cornerWidgetManager;
-    m_cornerWidgetManager = nullptr;
-
-    delete m_screenScaleDialog;
-    m_screenScaleDialog = nullptr;
-
-    delete firmwareManagerDialog;
-    firmwareManagerDialog = nullptr;
 
     qCDebug(log_ui_mainwindow) << "MainWindow destroyed successfully";
 }
@@ -1544,12 +1629,16 @@ void MainWindow::onToolbarVisibilityChanged(bool visible) {
     
 
     // Use QTimer to delay the video pane repositioning
-    QTimer::singleShot(0, this, &MainWindow::animateVideoPane);
+    // Safety check: Don't schedule animation if window is being destroyed
+    if (videoPane && this->isVisible() && !this->testAttribute(Qt::WA_DeleteOnClose)) {
+        QTimer::singleShot(0, this, &MainWindow::animateVideoPane);
+    }
     
 }
 
 void MainWindow::animateVideoPane() {
-    if (!videoPane) {
+    // Safety check: Don't animate if window is being destroyed
+    if (!videoPane || !this->isVisible() || this->testAttribute(Qt::WA_DeleteOnClose)) {
         setUpdatesEnabled(true);
         blockSignals(false);
         return;
@@ -1583,25 +1672,37 @@ void MainWindow::animateVideoPane() {
         // Calculate new position
         int horizontalOffset = (this->width() - videoPane->width()) / 2;
         
-        // Animate the videoPane position
-        QPropertyAnimation *videoAnimation = new QPropertyAnimation(videoPane, "pos");
-        videoAnimation->setDuration(150);
-        videoAnimation->setStartValue(videoPane->pos());
-        videoAnimation->setEndValue(QPoint(horizontalOffset, videoPane->y()));
-        videoAnimation->setEasingCurve(QEasingCurve::OutCubic);
+        // Safety check: Only create animation if videoPane is still valid and window is visible
+        if (videoPane && this->isVisible() && !this->testAttribute(Qt::WA_DeleteOnClose)) {
+            // Animate the videoPane position
+            QPropertyAnimation *videoAnimation = new QPropertyAnimation(videoPane, "pos");
+            videoAnimation->setDuration(150);
+            videoAnimation->setStartValue(videoPane->pos());
+            videoAnimation->setEndValue(QPoint(horizontalOffset, videoPane->y()));
+            videoAnimation->setEasingCurve(QEasingCurve::OutCubic);
 
-        // Create animation group with just video animation
-        QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
-        group->addAnimation(videoAnimation);
-        
-        // Cleanup after animation
-        connect(group, &QParallelAnimationGroup::finished, this, [this]() {
+            // Create animation group with just video animation
+            QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
+            group->addAnimation(videoAnimation);
+            
+            // Cleanup after animation
+            connect(group, &QParallelAnimationGroup::finished, this, [this]() {
+                if (this && this->isVisible() && !this->testAttribute(Qt::WA_DeleteOnClose)) {
+                    setUpdatesEnabled(true);
+                    blockSignals(false);
+                    update();
+                }
+            });
+            
+            group->start(QAbstractAnimation::DeleteWhenStopped);
+        } else {
+            // If animation can't be created safely, just move immediately
+            if (videoPane) {
+                videoPane->move(horizontalOffset, videoPane->y());
+            }
             setUpdatesEnabled(true);
             blockSignals(false);
-            update();
-        });
-        
-        group->start(QAbstractAnimation::DeleteWhenStopped);
+        }
     } else {
         setUpdatesEnabled(true);
         blockSignals(false);

@@ -107,6 +107,9 @@ public:
     QStringList getAvailableCameraDeviceIds() const;
     void displayAllCameraDeviceIds() const;
     
+    // Video output refresh and hotplug support
+    void refreshVideoOutput();
+    
     bool switchToCameraDeviceByPortChain(const QString &portChain);
     
 signals:

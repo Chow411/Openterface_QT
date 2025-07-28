@@ -71,6 +71,49 @@ VideoPane::VideoPane(QWidget *parent) : QGraphicsView(parent),
     connect(escTimer, &QTimer::timeout, this, &VideoPane::showHostMouse);
 }
 
+VideoPane::~VideoPane()
+{
+    qDebug() << "VideoPane destructor started";
+    
+    // 1. FIRST: Remove event filter and stop input handler to prevent event processing
+    if (m_inputHandler) {
+        removeEventFilter(m_inputHandler);
+        m_inputHandler->deleteLater(); // Use deleteLater for safer cleanup
+        m_inputHandler = nullptr;
+    }
+    
+    // 2. Stop timers
+    if (escTimer) {
+        escTimer->stop();
+        escTimer->deleteLater();
+        escTimer = nullptr;
+    }
+    
+    // 3. Disconnect all signals to prevent callbacks during destruction
+    disconnect();
+    
+    // 4. Clean up graphics items in correct order
+    if (m_scene) {
+        // Remove items from scene before deleting them
+        if (m_videoItem) {
+            m_scene->removeItem(m_videoItem);
+            m_videoItem->deleteLater(); // Use deleteLater for graphics items
+            m_videoItem = nullptr;
+        }
+        if (m_pixmapItem) {
+            m_scene->removeItem(m_pixmapItem);
+            m_pixmapItem = nullptr;
+        }
+        
+        // Clear and delete scene
+        m_scene->clear();
+        m_scene->deleteLater();
+        m_scene = nullptr;
+    }
+
+    qDebug() << "VideoPane destructor completed";
+}
+
 /*
     * This function is called when the focus is on the video pane and the user presses the Tab key.
     * This function is overridden to prevent the focus from moving to the next widget.
@@ -139,8 +182,21 @@ void VideoPane::onCameraDeviceSwitchComplete(const QString& device)
     // Clear the captured frame
     m_lastFrame = QPixmap();
     
+    // Ensure video item is visible and pixmap item is hidden
+    if (m_videoItem) {
+        m_videoItem->setVisible(true);
+        qDebug() << "VideoPane: Video item made visible for new camera feed";
+    }
+    
+    if (m_pixmapItem) {
+        m_pixmapItem->setVisible(false);
+        qDebug() << "VideoPane: Pixmap item hidden to show live video";
+    }
+    
     // Force a repaint to resume normal video display
     update();
+    
+    qDebug() << "VideoPane: Ready to display new camera feed";
 }
 
 void VideoPane::captureCurrentFrame()

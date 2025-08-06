@@ -25,14 +25,27 @@ if %errorlevel% neq 0 (
 )
 
 REM Check for OpenSSL static libraries
+echo "Checking OpenSSL static libraries for Windows 11 compatibility..."
 dir "%OPENSSL_LIB_DIR%"
 if not exist "%OPENSSL_LIB_DIR%\libcrypto.a" (
     echo OpenSSL static library libcrypto.a not found in %OPENSSL_LIB_DIR%. Please install OpenSSL static libraries.
+    echo For Windows 11, ensure you're using the latest vcpkg version:
+    echo   vcpkg install openssl:x64-mingw-static --triplet x64-mingw-static
     exit /b 1
 )
 if not exist "%OPENSSL_LIB_DIR%\libssl.a" (
     echo OpenSSL static library libssl.a not found in %OPENSSL_LIB_DIR%. Please install OpenSSL static libraries.
+    echo For Windows 11, ensure you're using the latest vcpkg version:
+    echo   vcpkg install openssl:x64-mingw-static --triplet x64-mingw-static
     exit /b 1
+)
+
+REM Verify OpenSSL version for Windows 11 compatibility
+echo "Verifying OpenSSL version for Windows 11 compatibility..."
+if exist "%OPENSSL_INCLUDE_DIR%\openssl\opensslv.h" (
+    findstr "OPENSSL_VERSION_TEXT" "%OPENSSL_INCLUDE_DIR%\openssl\opensslv.h"
+) else (
+    echo Warning: Could not verify OpenSSL version
 )
 
 REM Create build directory
@@ -62,13 +75,15 @@ cmake -G "Ninja" ^
     -DFEATURE_icu=OFF ^
     -DFEATURE_opengl=ON ^
     -DFEATURE_openssl=ON ^
-    -DOPENSSL_DIR="%OPENSSL_DIR%" ^
+    -DOPENSSL_ROOT_DIR="%OPENSSL_DIR%" ^
     -DOPENSSL_INCLUDE_DIR="%OPENSSL_INCLUDE_DIR%" ^
-    -DOPENSSL_LIB_DIR="%OPENSSL_LIB_DIR%" ^
-    -DCMAKE_C_FLAGS="-I%OPENSSL_INCLUDE_DIR%" ^
-    -DCMAKE_CXX_FLAGS="-I%OPENSSL_INCLUDE_DIR%" ^
-    -DOPENSSL_LIBRARIES="%OPENSSL_LIB_DIR%\libssl.a;%OPENSSL_LIB_DIR%\libcrypto.a;-lws2_32;-lcrypt32" ^
+    -DOPENSSL_CRYPTO_LIBRARY="%OPENSSL_LIB_DIR%\libcrypto.a" ^
+    -DOPENSSL_SSL_LIBRARY="%OPENSSL_LIB_DIR%\libssl.a" ^
+    -DCMAKE_C_FLAGS="-I%OPENSSL_INCLUDE_DIR% -DOPENSSL_STATIC_LINK" ^
+    -DCMAKE_CXX_FLAGS="-I%OPENSSL_INCLUDE_DIR% -DOPENSSL_STATIC_LINK" ^
+    -DCMAKE_EXE_LINKER_FLAGS="-L%OPENSSL_LIB_DIR% -lssl -lcrypto -lws2_32 -lcrypt32 -ladvapi32 -luser32 -lgdi32" ^
     -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%\scripts\buildsystems\vcpkg.cmake" ^
+    -DVCPKG_TARGET_TRIPLET=x64-mingw-static ^
     ..
 ninja
 ninja install

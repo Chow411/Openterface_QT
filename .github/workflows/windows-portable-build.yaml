@@ -86,10 +86,20 @@ jobs:
             cd %VCPKG_DIR%
             call bootstrap-vcpkg.bat
           )
-          echo "Installing OpenSSL static libraries"
+          echo "Installing OpenSSL static libraries with Windows 11 compatibility"
           %VCPKG_DIR%\vcpkg update
           %VCPKG_DIR%\vcpkg install openssl:x64-mingw-static zlib:x64-mingw-static --triplet x64-mingw-static --host-triplet x64-mingw-static --clean-after-build
           %VCPKG_DIR%\vcpkg integrate install
+          
+          echo "Verifying OpenSSL installation for Windows 11 compatibility"
+          if not exist "%OPENSSL_DIR%\lib\libssl.a" (
+            echo "Error: OpenSSL static library not found"
+            exit 1
+          )
+          if not exist "%OPENSSL_DIR%\lib\libcrypto.a" (
+            echo "Error: OpenSSL crypto library not found"
+            exit 1
+          )
 
       - name: check OpenSSL installation
         run: |
@@ -122,12 +132,16 @@ jobs:
             echo "Static build configuration already present in .pro file."
           )
           
-          echo "QMAKE_LFLAGS += -static -static-libgcc -static-libstdc++ -static-libgfortran -L%OPENSSL_DIR%\lib -lssl -lcrypto -lws2_32 -lcrypt32" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
-          echo "QMAKE_CXXFLAGS += -static -static-libgcc -static-libstdc++ -I%OPENSSL_DIR%\include" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
+          echo "Adding Windows 11 compatible OpenSSL linking flags"
+          echo "QMAKE_LFLAGS += -static -static-libgcc -static-libstdc++ -static-libgfortran" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
+          echo "QMAKE_CXXFLAGS += -static -static-libgcc -static-libstdc++" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
           echo "QMAKE_LINK = g++ -Wl,-subsystem,windows" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
           echo "CONFIG += static staticlib" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
+          
+          echo "Ensuring OpenSSL static linking is properly configured"
+          echo "DEFINES += OPENSSL_STATIC_LINK" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
           echo "INCLUDEPATH += %OPENSSL_DIR%\include" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
-          echo "LIBS += -L%OPENSSL_DIR%\lib -lssl -lcrypto -lws2_32 -lcrypt32" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
+          echo "LIBS += -L%OPENSSL_DIR%\lib -lssl -lcrypto -lws2_32 -lcrypt32 -ladvapi32 -luser32 -lgdi32" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
 
       - name: Prepare Driver Files
         run: |

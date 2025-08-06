@@ -158,6 +158,33 @@ win32 {
     INCLUDEPATH += $$PWD/lib
     LIBS += -L$$PWD/lib -llibusb-1.0 -loleaut32 -lwinpthread
 
+    # OpenSSL static linking configuration for HTTPS support
+    # Required for QNetworkAccessManager HTTPS requests (e.g., update checking)
+    contains(CONFIG, static) {
+        # Static build configuration with OpenSSL
+        DEFINES += OPENSSL_STATIC_LINK
+        
+        # Check for vcpkg OpenSSL installation
+        exists(C:/vcpkg/installed/x64-mingw-static/lib/libssl.a) {
+            INCLUDEPATH += C:/vcpkg/installed/x64-mingw-static/include
+            LIBS += -LC:/vcpkg/installed/x64-mingw-static/lib -lssl -lcrypto
+            message("Using vcpkg OpenSSL static libraries")
+        } else:exists(C:/openssl/lib/libssl.a) {
+            # Alternative OpenSSL location
+            INCLUDEPATH += C:/openssl/include
+            LIBS += -LC:/openssl/lib -lssl -lcrypto
+            message("Using alternative OpenSSL static libraries")
+        } else {
+            warning("OpenSSL static libraries not found. HTTPS functionality may not work.")
+        }
+        
+        # Additional Windows libraries required for OpenSSL static linking
+        LIBS += -lws2_32 -lcrypt32 -ladvapi32 -luser32 -lgdi32
+    } else {
+        # Dynamic build - Qt should handle OpenSSL automatically
+        message("Dynamic build - relying on Qt's OpenSSL handling")
+    }
+
     RESOURCES += driver/windows/drivers.qrc
 }
 

@@ -11,3 +11,4 @@ build-script/temp/*
 .DS_Store
 .flatpak-builder/*
 .build-dir/*
+test_build/*

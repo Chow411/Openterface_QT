@@ -10,6 +10,19 @@ TEMPLATE = app
 QT       += core gui multimedia multimediawidgets serialport concurrent svg network dbus
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
+# Configuration options
+CONFIG += ffmpeg_camera_support
+
+# FFmpeg camera support (Linux only)
+ffmpeg_camera_support {
+    unix:!macx {
+        DEFINES += FFMPEG_CAMERA_SUPPORT
+        message("FFmpeg camera support enabled")
+    } else {
+        message("FFmpeg camera support is only available on Linux")
+    }
+}
+
 SOURCES += main.cpp \
     device/DeviceInfo.cpp \
     device/DeviceManager.cpp \
@@ -67,6 +80,14 @@ SOURCES += main.cpp \
     ui/screensavermanager.cpp \
     ui/screenscale.cpp \
     ui/cornerwidget/cornerwidgetmanager.cpp
+
+# FFmpeg camera support files (Linux only)
+ffmpeg_camera_support {
+    unix:!macx {
+        SOURCES += host/ffmpegcamerathread.cpp \
+                   host/ffmpegintegratecameramanager.cpp
+    }
+}
 
 
 HEADERS  += \
@@ -131,6 +152,15 @@ HEADERS  += \
     ui/screensavermanager.h \
     ui/screenscale.h \
     ui/cornerwidget/cornerwidgetmanager.h
+
+# FFmpeg camera support headers (Linux only)
+ffmpeg_camera_support {
+    unix:!macx {
+        HEADERS += host/ffmpegcamerathread.h \
+                   host/ffmpegintegratecameramanager.h \
+                   host/ffmpeg_camera_integration.h
+    }
+}
 
 FORMS    += \
     ui/mainwindow.ui \
@@ -203,7 +233,19 @@ unix {
         DEFINES += HAVE_LIBUDEV
         LIBS += -ludev
     }
-
+    
+    # FFmpeg libraries for camera capture (only if support is enabled)
+    ffmpeg_camera_support {
+        CONFIG += link_pkgconfig
+        PKGCONFIG += libavformat libavcodec libavutil libswscale libswresample
+        
+        # Alternative FFmpeg linking if pkg-config is not available
+        # INCLUDEPATH += /usr/local/include
+        # LIBS += -L/usr/local/lib -lavformat -lavcodec -lavutil -lswscale -lswresample
+        
+        message("Adding FFmpeg libraries for camera support")
+    }
+    
     RESOURCES += driver/linux/drivers.qrc
 }
 

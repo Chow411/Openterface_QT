@@ -12,11 +12,19 @@
 #include <QGraphicsVideoItem>
 #include <QTimer>
 #include <QThread>
+#ifdef FFMPEG_CAMERA_SUPPORT
+#include "ffmpegintegratecameramanager.h"
+#endif
 
 Q_LOGGING_CATEGORY(log_ui_camera, "opf.ui.camera")
 
 CameraManager::CameraManager(QObject *parent)
-    : QObject(parent), m_videoOutput(nullptr), m_graphicsVideoOutput(nullptr), m_video_width(0), m_video_height(0)
+    : QObject(parent), m_videoOutput(nullptr), m_graphicsVideoOutput(nullptr), m_video_width(0), m_video_height(0),
+#ifdef FFMPEG_CAMERA_SUPPORT
+      m_currentBackend(FFmpeg) // Default to FFmpeg backend on Linux if available
+#else
+      m_currentBackend(QtMultimedia) // Fall back to Qt Multimedia if FFmpeg not available
+#endif
 {
     qDebug() << "CameraManager init...";
     
@@ -25,10 +33,45 @@ CameraManager::CameraManager(QObject *parent)
     m_currentCameraDeviceId.clear();
     m_currentCameraPortChain.clear();
     
+    // Initialize Qt multimedia components
     m_imageCapture = std::make_unique<QImageCapture>();
     m_mediaRecorder = std::make_unique<QMediaRecorder>();
     connect(m_imageCapture.get(), &QImageCapture::imageCaptured, this, &CameraManager::onImageCaptured);
 
+#ifdef FFMPEG_CAMERA_SUPPORT
+    // Initialize FFmpeg backend
+    m_ffmpegManager = std::make_unique<FFmpegIntegrateCameraManager>(this);
+    
+    // Connect FFmpeg manager signals
+    connect(m_ffmpegManager.get(), &FFmpegIntegrateCameraManager::cameraActiveChanged,
+            this, &CameraManager::cameraActiveChanged);
+    connect(m_ffmpegManager.get(), &FFmpegIntegrateCameraManager::error,
+            this, &CameraManager::cameraError);
+    connect(m_ffmpegManager.get(), &FFmpegIntegrateCameraManager::frameReady,
+            this, &CameraManager::frameReady);
+    connect(m_ffmpegManager.get(), &FFmpegIntegrateCameraManager::fpsChanged,
+            this, &CameraManager::fpsChanged);
+    connect(m_ffmpegManager.get(), &FFmpegIntegrateCameraManager::resolutionChanged,
+            this, [this](const QSize& resolution) {
+                // Convert FFmpeg resolution change to our resolutionsUpdated signal format
+                m_video_width = resolution.width();
+                m_video_height = resolution.height();
+                
+                // Get other values from current state
+                QPair<int, int> inputRes = VideoHid::getInstance().getResolution();
+                float inputFps = VideoHid::getInstance().getFps();
+                float pixelClk = VideoHid::getInstance().getPixelclk();
+                int captureFps = GlobalVar::instance().getCaptureFps();
+                
+                emit resolutionsUpdated(inputRes.first, inputRes.second, inputFps, 
+                                      m_video_width, m_video_height, captureFps, pixelClk);
+            });
+    
+    qDebug() << "FFmpeg camera backend initialized";
+#else
+    qDebug() << "Using Qt Multimedia backend only (FFmpeg support not compiled)";
+#endif
+    
     // Initialize available camera devices
     m_availableCameraDevices = getAvailableCameraDevices();
     qDebug() << "Found" << m_availableCameraDevices.size() << "available camera devices";
@@ -149,50 +192,34 @@ void CameraManager::startCamera()
     qDebug() << "Camera start..";
     
     try {
-        if (m_camera) {
-            // Check if camera is already active to avoid redundant starts
-            if (m_camera->isActive()) {
-                qDebug() << "Camera is already active, skipping start";
+#ifdef FFMPEG_CAMERA_SUPPORT
+        if (m_currentBackend == FFmpeg) {
+            if (startFFmpegCamera()) {
+                emit cameraActiveChanged(true);
+                return;
+            } else {
+                qCWarning(log_ui_camera) << "FFmpeg backend failed, falling back to Qt";
+                m_currentBackend = QtMultimedia;
+            }
+        }
+#endif
+        
+        if (m_currentBackend == QtMultimedia) {
+            if (startQtCamera()) {
+                emit cameraActiveChanged(true);
                 return;
             }
-            
-            qDebug() << "Starting camera:" << m_camera->cameraDevice().description();
-            
-            // Ensure video output is connected before starting camera
-            if (m_videoOutput) {
-                qDebug() << "Ensuring widget video output is connected before starting camera";
-                m_captureSession.setVideoOutput(m_videoOutput);
-            } else if (m_graphicsVideoOutput) {
-                qDebug() << "Ensuring graphics video output is connected before starting camera";
-                m_captureSession.setVideoOutput(m_graphicsVideoOutput);
-            }
-            
-            m_camera->start();
-            
-            // Minimal wait time to reduce transition delay
-            QThread::msleep(25);
-            
-            // Verify camera started
-            if (m_camera->isActive()) {
-                qDebug() << "Camera started successfully and is active";
-                // Emit active state change as soon as camera starts
-                emit cameraActiveChanged(true);
-            } else {
-                qCWarning(log_ui_camera) << "Camera start command sent but camera is not active";
-            }
-            
-        } else {
-            qCWarning(log_ui_camera) << "Camera is null, cannot start";
-            return;
         }
         
-        // Start VideoHid after camera is active to ensure proper synchronization
-        VideoHid::getInstance().start();
+        qCCritical(log_ui_camera) << "All camera backends failed";
+        emit cameraError("Failed to start camera with any backend");
         
     } catch (const std::exception& e) {
-        qCritical() << "Exception starting camera:" << e.what();
+        qCCritical(log_ui_camera) << "Exception in startCamera:" << e.what();
+        emit cameraError(QString("Camera start exception: %1").arg(e.what()));
     } catch (...) {
-        qCritical() << "Unknown exception starting camera";
+        qCCritical(log_ui_camera) << "Unknown exception in startCamera";
+        emit cameraError("Unknown error starting camera");
     }
 }
 
@@ -201,31 +228,22 @@ void CameraManager::stopCamera()
     qDebug() << "Stopping camera..";
     
     try {
-        // Stop VideoHid first
-        VideoHid::getInstance().stop();
-
-        if (m_camera) {
-            // Check if camera is already stopped to avoid redundant stops
-            if (!m_camera->isActive()) {
-                qDebug() << "Camera is already stopped";
-                return;
-            }
-            
-            qDebug() << "Stopping camera:" << m_camera->cameraDevice().description();
-            m_camera->stop();
-            
-            // Wait for camera to fully stop
-            QThread::msleep(100);
-            
-            qDebug() << "Camera stopped successfully";
+#ifdef FFMPEG_CAMERA_SUPPORT
+        if (m_currentBackend == FFmpeg) {
+            stopFFmpegCamera();
         } else {
-            qCWarning(log_ui_camera) << "Camera is null, cannot stop";
+            stopQtCamera();
         }
+#else
+        stopQtCamera();
+#endif
+        
+        emit cameraActiveChanged(false);
         
     } catch (const std::exception& e) {
-        qCritical() << "Exception stopping camera:" << e.what();
+        qCCritical(log_ui_camera) << "Exception in stopCamera:" << e.what();
     } catch (...) {
-        qCritical() << "Unknown exception stopping camera";
+        qCCritical(log_ui_camera) << "Unknown exception in stopCamera";
     }
 }
 
@@ -1352,4 +1370,197 @@ void CameraManager::refreshVideoOutput()
     } catch (...) {
         qCritical() << "Unknown exception refreshing video output";
     }
+}
+
+// Backend switching and management methods
+
+void CameraManager::setBackend(Backend backend)
+{
+    if (m_currentBackend == backend) {
+        return;
+    }
+    
+#ifndef FFMPEG_CAMERA_SUPPORT
+    if (backend == FFmpeg) {
+        qCWarning(log_ui_camera) << "FFmpeg backend not available, using Qt Multimedia";
+        backend = QtMultimedia;
+    }
+#endif
+    
+    bool wasActive = (m_camera && m_camera->isActive())
+#ifdef FFMPEG_CAMERA_SUPPORT
+                     || (m_ffmpegManager && m_ffmpegManager->isActive())
+#endif
+    ;
+    
+    // Stop current backend
+    stopCamera();
+    
+    m_currentBackend = backend;
+    qDebug() << "Camera backend switched to:" << (backend == FFmpeg ? "FFmpeg" : "Qt Multimedia");
+    
+    // Restart if was active
+    if (wasActive) {
+        startCamera();
+    }
+}
+
+bool CameraManager::startQtCamera()
+{
+    qDebug() << "Starting Qt Multimedia camera";
+    
+    if (!m_camera) {
+        qCWarning(log_ui_camera) << "No camera device set";
+        return false;
+    }
+    
+    // Check if camera is already active to avoid redundant starts
+    if (m_camera->isActive()) {
+        qDebug() << "Qt camera is already active, skipping start";
+        return true;
+    }
+    
+    qDebug() << "Starting Qt camera:" << m_camera->cameraDevice().description();
+    
+    // Ensure video output is connected before starting camera
+    if (m_videoOutput) {
+        qDebug() << "Ensuring widget video output is connected before starting Qt camera";
+        m_captureSession.setVideoOutput(m_videoOutput);
+    } else if (m_graphicsVideoOutput) {
+        qDebug() << "Ensuring graphics video output is connected before starting Qt camera";
+        m_captureSession.setVideoOutput(m_graphicsVideoOutput);
+    }
+    
+    setupConnections();
+    configureResolutionAndFormat();
+    
+    m_camera->start();
+    
+    // Minimal wait time to reduce transition delay
+    QThread::msleep(25);
+    
+    // Verify camera started
+    if (m_camera->isActive()) {
+        qDebug() << "Qt camera started successfully and is active";
+        // Start VideoHid after camera is active to ensure proper synchronization
+        VideoHid::getInstance().start();
+        return true;
+    } else {
+        qCWarning(log_ui_camera) << "Qt camera start command sent but camera is not active";
+        return false;
+    }
+}
+
+#ifdef FFMPEG_CAMERA_SUPPORT
+bool CameraManager::startFFmpegCamera()
+{
+    qDebug() << "Starting FFmpeg camera";
+    
+    if (!m_ffmpegManager) {
+        qCWarning(log_ui_camera) << "FFmpeg manager not available";
+        return false;
+    }
+    
+    // Set up video output for FFmpeg
+    if (m_graphicsVideoOutput) {
+        m_ffmpegManager->setVideoOutput(m_graphicsVideoOutput);
+        qDebug() << "FFmpeg using QGraphicsVideoItem output";
+    } else if (m_videoOutput) {
+        m_ffmpegManager->setVideoOutput(m_videoOutput);
+        qDebug() << "FFmpeg using QVideoWidget output";
+    } else {
+        qCWarning(log_ui_camera) << "No video output set for FFmpeg";
+    }
+    
+    // Configure FFmpeg settings
+    QSize resolution(m_video_width > 0 ? m_video_width : 1920, 
+                    m_video_height > 0 ? m_video_height : 1080);
+    int frameRate = GlobalVar::instance().getCaptureFps() > 0 ? 
+                   GlobalVar::instance().getCaptureFps() : 30;
+    
+    m_ffmpegManager->setResolution(resolution);
+    m_ffmpegManager->setFrameRate(frameRate);
+    
+    // Try to find the best camera device
+    QString devicePath = m_ffmpegManager->findBestCamera();
+    qDebug() << "Using FFmpeg camera device:" << devicePath;
+    
+    bool success = m_ffmpegManager->startCamera(devicePath);
+    if (success) {
+        qDebug() << "FFmpeg camera started successfully";
+        // Start VideoHid for hardware sync
+        VideoHid::getInstance().start();
+        return true;
+    } else {
+        qCWarning(log_ui_camera) << "Failed to start FFmpeg camera";
+        return false;
+    }
+}
+
+
+void CameraManager::stopQtCamera()
+{
+    qDebug() << "Stopping Qt camera";
+    
+    try {
+        // Stop VideoHid first
+        VideoHid::getInstance().stop();
+
+        if (m_camera) {
+            // Check if camera is already stopped to avoid redundant stops
+            if (!m_camera->isActive()) {
+                qDebug() << "Qt camera is already stopped";
+                return;
+            }
+            
+            qDebug() << "Stopping Qt camera:" << m_camera->cameraDevice().description();
+            m_camera->stop();
+            
+            // Wait for camera to fully stop
+            QThread::msleep(100);
+            
+            qDebug() << "Qt camera stopped successfully";
+        } else {
+            qCWarning(log_ui_camera) << "Qt camera is null, cannot stop";
+        }
+        
+    } catch (const std::exception& e) {
+        qCritical() << "Exception stopping Qt camera:" << e.what();
+    } catch (...) {
+        qCritical() << "Unknown exception stopping Qt camera";
+    }
+}
+
+void CameraManager::stopFFmpegCamera()
+{
+    qDebug() << "Stopping FFmpeg camera";
+    
+    try {
+        // Stop VideoHid first
+        VideoHid::getInstance().stop();
+        
+        if (m_ffmpegManager && m_ffmpegManager->isActive()) {
+            m_ffmpegManager->stopCamera();
+            qDebug() << "FFmpeg camera stopped successfully";
+        } else {
+            qDebug() << "FFmpeg camera is already stopped or not available";
+        }
+        
+    } catch (const std::exception& e) {
+        qCritical() << "Exception stopping FFmpeg camera:" << e.what();
+    } catch (...) {
+        qCritical() << "Unknown exception stopping FFmpeg camera";
+    }
+}
+#endif // FFMPEG_CAMERA_SUPPORT
+
+void CameraManager::synchronizeSettings()
+{
+    // This method can be used to sync settings between backends if needed
+#ifdef FFMPEG_CAMERA_SUPPORT
+    if (m_currentBackend == FFmpeg && m_ffmpegManager) {
+        m_ffmpegManager->setResolution(QSize(m_video_width, m_video_height));
+        m_ffmpegManager->setFrameRate(GlobalVar::instance().getCaptureFps());
+    }
+#endif
 }

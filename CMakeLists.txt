@@ -42,6 +42,9 @@ endif()
 # Include FFmpeg directories
 include_directories(${FFMPEG_INCLUDE_DIRS})
 
+# Define FFMPEG_CAMERA_SUPPORT for multi-threading support
+add_definitions(-DFFMPEG_CAMERA_SUPPORT)
+
 # Add the executable target
 qt_standard_project_setup()
 
@@ -58,6 +61,10 @@ qt_add_executable(openterfaceQT WIN32 MACOSX_BUNDLE
     host/audiomanager.cpp host/audiomanager.h
     host/audiothread.cpp host/audiothread.h
     host/cameramanager.cpp host/cameramanager.h
+    host/ffmpegcameramanager.cpp host/ffmpegcameramanager.h
+    host/ffmpegcamerathread.cpp host/ffmpegcamerathread.h
+    host/ffmpegintegratecameramanager.cpp host/ffmpegintegratecameramanager.h
+    host/cameramanageradapter.cpp host/cameramanageradapter.h
     host/usbcontrol.cpp host/usbcontrol.h
     main.cpp
     regex/RegularExpression.cpp regex/RegularExpression.h
@@ -128,6 +135,7 @@ target_link_libraries(openterfaceQT PRIVATE
     ${FONTCONFIG_LIBRARIES}
     ${XRENDER_LIBRARIES}
     ${BZIP2_LIBRARIES}
+    z  # zlib library for FFmpeg
     ${EXTRA_LIBS}
 )
 

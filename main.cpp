@@ -105,6 +105,14 @@ void setupEnv(){
     } else {
         qDebug() << "Current QT_QPA_PLATFORM:" << qgetenv("QT_QPA_PLATFORM");
     }
+    
+    // Log FFmpeg camera support status
+#ifdef FFMPEG_CAMERA_SUPPORT
+    qDebug() << "FFmpeg camera support: ENABLED";
+#else
+    qDebug() << "FFmpeg camera support: DISABLED (using Qt Multimedia only)";
+#endif
+
 #endif
 }
 

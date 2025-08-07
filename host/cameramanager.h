@@ -15,6 +15,11 @@
 #include <QSize>
 #include <QVideoFrameFormat>
 
+// Forward declarations for FFmpeg integration
+#ifdef FFMPEG_CAMERA_SUPPORT
+class FFmpegIntegrateCameraManager;
+#endif
+
 // Struct to represent a video format key, used for comparing and sorting video formats
 // It includes resolution, frame rate range, and pixel format
 struct VideoFormatKey {
@@ -45,6 +50,16 @@ public:
     explicit CameraManager(QObject *parent = nullptr);
     ~CameraManager();
 
+    // Backend selection
+    enum Backend {
+        QtMultimedia,
+        FFmpeg
+    };
+    
+    void setBackend(Backend backend);
+    Backend currentBackend() const { return m_currentBackend; }
+    
+    // Unified camera control interface
     void setCamera(const QCameraDevice &cameraDevice, QVideoWidget* videoOutput);
     void setCamera(const QCameraDevice &cameraDevice, QGraphicsVideoItem* videoOutput);
     void setCameraDevice(const QCameraDevice &cameraDevice);
@@ -129,6 +144,8 @@ signals:
     void cameraDeviceSwitchComplete(const QString& device);
     void availableCameraDevicesChanged(int deviceCount);
     void newDeviceAutoConnected(const QCameraDevice& device, const QString& portChain);
+    void frameReady(const QVideoFrame& frame);
+    void fpsChanged(double fps);
     
 public slots:
     // Note: Automatic device coordination slots have been removed
@@ -152,6 +169,23 @@ private:
 
     QRect copyRect;
     std::map<VideoFormatKey, QCameraFormat> videoFormatMap;
+
+    // Backend management
+    Backend m_currentBackend;
+#ifdef FFMPEG_CAMERA_SUPPORT
+    std::unique_ptr<FFmpegIntegrateCameraManager> m_ffmpegManager;
+#endif
+    
+    // Backend-specific methods
+    bool startQtCamera();
+#ifdef FFMPEG_CAMERA_SUPPORT
+    bool startFFmpegCamera();
+    void stopFFmpegCamera();
+#endif
+    void stopQtCamera();
+    
+    // Cross-backend compatibility
+    void synchronizeSettings();
 
     // Camera device management member variables
     QCameraDevice m_currentCameraDevice;

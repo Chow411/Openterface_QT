@@ -182,7 +182,7 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
                     
                     bool deactivated = m_cameraManager->deactivateCameraByPortChain(device.portChain);
                     if (deactivated) {
-                        qCInfo(log_ui_mainwindow) << "✓ Camera deactivated for unplugged device at port:" << device.portChain;
+                        qCInfo(log_ui_mainwindow) << "Camera deactivated for unplugged device at port:" << device.portChain;
                         stackedLayout->setCurrentIndex(0);
                     } else {
                         qCDebug(log_ui_mainwindow) << "Camera deactivation skipped or not needed for port:" << device.portChain;

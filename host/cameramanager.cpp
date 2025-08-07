@@ -1498,6 +1498,29 @@ bool CameraManager::startFFmpegCamera()
 }
 
 
+void CameraManager::stopFFmpegCamera()
+{
+    qDebug() << "Stopping FFmpeg camera";
+    
+    try {
+        // Stop VideoHid first
+        VideoHid::getInstance().stop();
+        
+        if (m_ffmpegManager && m_ffmpegManager->isActive()) {
+            m_ffmpegManager->stopCamera();
+            qDebug() << "FFmpeg camera stopped successfully";
+        } else {
+            qDebug() << "FFmpeg camera is already stopped or not available";
+        }
+        
+    } catch (const std::exception& e) {
+        qCritical() << "Exception stopping FFmpeg camera:" << e.what();
+    } catch (...) {
+        qCritical() << "Unknown exception stopping FFmpeg camera";
+    }
+}
+#endif // FFMPEG_CAMERA_SUPPORT
+
 void CameraManager::stopQtCamera()
 {
     qDebug() << "Stopping Qt camera";
@@ -1530,29 +1553,6 @@ void CameraManager::stopQtCamera()
         qCritical() << "Unknown exception stopping Qt camera";
     }
 }
-
-void CameraManager::stopFFmpegCamera()
-{
-    qDebug() << "Stopping FFmpeg camera";
-    
-    try {
-        // Stop VideoHid first
-        VideoHid::getInstance().stop();
-        
-        if (m_ffmpegManager && m_ffmpegManager->isActive()) {
-            m_ffmpegManager->stopCamera();
-            qDebug() << "FFmpeg camera stopped successfully";
-        } else {
-            qDebug() << "FFmpeg camera is already stopped or not available";
-        }
-        
-    } catch (const std::exception& e) {
-        qCritical() << "Exception stopping FFmpeg camera:" << e.what();
-    } catch (...) {
-        qCritical() << "Unknown exception stopping FFmpeg camera";
-    }
-}
-#endif // FFMPEG_CAMERA_SUPPORT
 
 void CameraManager::synchronizeSettings()
 {

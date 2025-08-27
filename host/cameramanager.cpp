@@ -114,6 +114,49 @@ void CameraManager::initializeBackendHandler()
                         qCCritical(log_ui_camera) << "Backend error:" << error;
                         emit cameraError(error);
                     });
+            
+            // Connect FFmpeg-specific signals if this is an FFmpeg backend
+            if (auto ffmpegHandler = qobject_cast<FFmpegBackendHandler*>(m_backendHandler.get())) {
+                qCDebug(log_ui_camera) << "Setting up FFmpeg backend specific signal connections";
+                
+                connect(ffmpegHandler, &FFmpegBackendHandler::deviceConnectionChanged,
+                        this, [this](const QString& devicePath, bool connected) {
+                            qCDebug(log_ui_camera) << "FFmpeg device connection changed:" << devicePath << "connected:" << connected;
+                            if (!connected) {
+                                // Handle device disconnection
+                                qCWarning(log_ui_camera) << "FFmpeg backend reports device disconnected:" << devicePath;
+                                // Try to find and switch to an available camera device
+                                handleFFmpegDeviceDisconnection(devicePath);
+                            }
+                        });
+                
+                // Connect to new enhanced hotplug signals
+                connect(ffmpegHandler, &FFmpegBackendHandler::deviceActivated,
+                        this, [this](const QString& devicePath) {
+                            qCInfo(log_ui_camera) << "FFmpeg device activated:" << devicePath;
+                            emit cameraActiveChanged(true);
+                        });
+                        
+                connect(ffmpegHandler, &FFmpegBackendHandler::deviceDeactivated,
+                        this, [this](const QString& devicePath) {
+                            qCInfo(log_ui_camera) << "FFmpeg device deactivated:" << devicePath;
+                            emit cameraActiveChanged(false);
+                        });
+                        
+                connect(ffmpegHandler, &FFmpegBackendHandler::waitingForDevice,
+                        this, [this](const QString& devicePath) {
+                            qCInfo(log_ui_camera) << "FFmpeg waiting for device:" << devicePath;
+                            emit cameraActiveChanged(false);
+                        });
+                
+                connect(ffmpegHandler, &FFmpegBackendHandler::captureError,
+                        this, [this](const QString& error) {
+                            qCWarning(log_ui_camera) << "FFmpeg capture error:" << error;
+                            emit cameraError("FFmpeg: " + error);
+                        });
+                
+                qCDebug(log_ui_camera) << "FFmpeg backend signal connections established";
+            }
         } else {
             qCCritical(log_ui_camera) << "Failed to create backend handler - returned nullptr";
         }
@@ -1697,6 +1740,25 @@ bool CameraManager::initializeCameraWithVideoOutput(VideoPane* videoPane)
                         emit cameraError(error);
                     });
             
+            // Connect enhanced hotplug signals for VideoPane integration
+            connect(ffmpegHandler, &FFmpegBackendHandler::deviceActivated,
+                    this, [this](const QString& devicePath) {
+                        qCInfo(log_ui_camera) << "FFmpeg device activated (VideoPane):" << devicePath;
+                        emit cameraActiveChanged(true);
+                    });
+                    
+            connect(ffmpegHandler, &FFmpegBackendHandler::deviceDeactivated,
+                    this, [this](const QString& devicePath) {
+                        qCInfo(log_ui_camera) << "FFmpeg device deactivated (VideoPane):" << devicePath;
+                        emit cameraActiveChanged(false);
+                    });
+                    
+            connect(ffmpegHandler, &FFmpegBackendHandler::waitingForDevice,
+                    this, [this](const QString& devicePath) {
+                        qCInfo(log_ui_camera) << "FFmpeg waiting for device (VideoPane):" << devicePath;
+                        emit cameraActiveChanged(false);
+                    });
+            
             // Start direct capture with Openterface device
             QString devicePath = "/dev/video0"; // Default, should be detected dynamically
             QSize resolution(1920, 1080); // Default resolution
@@ -2095,5 +2157,80 @@ void CameraManager::disconnectFromHotplugMonitor()
     if (hotplugMonitor) {
         disconnect(hotplugMonitor, nullptr, this, nullptr);
         qCDebug(log_ui_camera) << "CameraManager disconnected from hotplug monitor";
+    }
+}
+
+void CameraManager::handleFFmpegDeviceDisconnection(const QString& devicePath)
+{
+    qCDebug(log_ui_camera) << "Handling FFmpeg device disconnection for:" << devicePath;
+    
+    // Check if the disconnected device is our current device
+    QString currentDeviceId = getCurrentCameraDeviceId();
+    if (!currentDeviceId.isEmpty() && 
+        (currentDeviceId == devicePath || currentDeviceId.contains(devicePath))) {
+        
+        qCWarning(log_ui_camera) << "Current FFmpeg device disconnected, attempting recovery";
+        
+        // Try to find an alternative available camera device
+        QList<QCameraDevice> availableDevices = getAvailableCameraDevices();
+        QCameraDevice replacementDevice;
+        
+        for (const QCameraDevice& device : availableDevices) {
+            // Skip the disconnected device
+            QString deviceId = QString::fromUtf8(device.id());
+            if (deviceId == devicePath || deviceId.contains(devicePath)) {
+                continue;
+            }
+            
+            // Check if this device is available
+            if (auto ffmpegHandler = qobject_cast<FFmpegBackendHandler*>(m_backendHandler.get())) {
+                // Convert device ID to device path
+                QString testDevicePath;
+                if (!deviceId.startsWith("/dev/video")) {
+                    bool isNumber = false;
+                    int deviceNumber = deviceId.toInt(&isNumber);
+                    if (isNumber) {
+                        testDevicePath = QString("/dev/video%1").arg(deviceNumber);
+                    } else {
+                        testDevicePath = "/dev/video0"; // fallback
+                    }
+                } else {
+                    testDevicePath = deviceId;
+                }
+                
+                if (ffmpegHandler->checkCameraAvailable(testDevicePath)) {
+                    replacementDevice = device;
+                    qCDebug(log_ui_camera) << "Found replacement device:" << device.description();
+                    break;
+                }
+            }
+        }
+        
+        if (!replacementDevice.isNull()) {
+            qCDebug(log_ui_camera) << "Attempting to switch to replacement device";
+            
+            // Stop current camera first
+            if (m_camera) {
+                m_camera->stop();
+            }
+            
+            // Switch to the new device
+            if (switchToCameraDevice(replacementDevice)) {
+                qCInfo(log_ui_camera) << "Successfully switched to replacement device:" << replacementDevice.description();
+                
+                // Restart the camera
+                if (m_camera) {
+                    startCamera();
+                }
+            } else {
+                qCWarning(log_ui_camera) << "Failed to switch to replacement device";
+                emit cameraError("Camera device disconnected and no suitable replacement found");
+            }
+        } else {
+            qCWarning(log_ui_camera) << "No suitable replacement device found for disconnected FFmpeg device";
+            emit cameraError("Camera device disconnected: " + devicePath);
+        }
+    } else {
+        qCDebug(log_ui_camera) << "Disconnected device is not our current device, ignoring";
     }
 }

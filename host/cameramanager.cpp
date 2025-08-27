@@ -1760,27 +1760,40 @@ bool CameraManager::initializeCameraWithVideoOutput(VideoPane* videoPane)
                     });
             
             // Start direct capture with Openterface device
-            QString devicePath = "/dev/video0"; // Default, should be detected dynamically
+            QString devicePath = "/dev/video0"; // Default fallback
             QSize resolution(1920, 1080); // Default resolution
             int framerate = 30; // Default framerate
             
-            // Try to detect Openterface device path
-            QList<QCameraDevice> devices = getAvailableCameraDevices();
-            for (const QCameraDevice& device : devices) {
-                if (device.description() == "Openterface") {
-                    // Convert Qt device ID to V4L2 device path
-                    QString deviceId = device.id();
-                    if (deviceId.startsWith("/dev/video")) {
-                        devicePath = deviceId;
-                    } else {
-                        // Try to extract device number and construct path
-                        QRegularExpression re("(\\d+)");
-                        QRegularExpressionMatch match = re.match(deviceId);
-                        if (match.hasMatch()) {
-                            devicePath = "/dev/video" + match.captured(1);
+            // Get the actual device path from DeviceManager
+            DeviceManager& deviceManager = DeviceManager::getInstance();
+            DeviceInfo selectedDevice = deviceManager.getCurrentSelectedDevice();
+            
+            if (selectedDevice.isValid() && !selectedDevice.cameraDevicePath.isEmpty()) {
+                devicePath = selectedDevice.cameraDevicePath;
+                qDebug() << "Using detected camera device path:" << devicePath;
+            } else {
+                qCWarning(log_ui_camera) << "No valid camera device path found in selected device, trying Qt camera detection";
+                
+                // Fallback: Try to detect Openterface device path from Qt cameras
+                QList<QCameraDevice> devices = getAvailableCameraDevices();
+                for (const QCameraDevice& device : devices) {
+                    if (device.description().contains("Openterface", Qt::CaseInsensitive) || 
+                        device.description().contains("MACROSILICON", Qt::CaseInsensitive)) {
+                        // Convert Qt device ID to V4L2 device path
+                        QString deviceId = device.id();
+                        if (deviceId.startsWith("/dev/video")) {
+                            devicePath = deviceId;
+                        } else {
+                            // Try to extract device number and construct path
+                            QRegularExpression re("(\\d+)");
+                            QRegularExpressionMatch match = re.match(deviceId);
+                            if (match.hasMatch()) {
+                                devicePath = "/dev/video" + match.captured(1);
+                            }
                         }
+                        qDebug() << "Found Openterface device via Qt detection:" << devicePath;
+                        break;
                     }
-                    break;
                 }
             }
             
@@ -2192,7 +2205,9 @@ void CameraManager::handleFFmpegDeviceDisconnection(const QString& devicePath)
                     if (isNumber) {
                         testDevicePath = QString("/dev/video%1").arg(deviceNumber);
                     } else {
-                        testDevicePath = "/dev/video0"; // fallback
+                        // Skip devices with unparseable IDs
+                        qCDebug(log_ui_camera) << "Skipping device with unparseable ID:" << deviceId;
+                        continue;
                     }
                 } else {
                     testDevicePath = deviceId;

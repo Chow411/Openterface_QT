@@ -295,14 +295,8 @@ void FFmpegBackendHandler::configureCameraDevice(QCamera* camera, const QCameraD
     QString deviceId = QString::fromUtf8(device.id());
     QString deviceDescription = device.description();
     
-    // Special handling for Openterface devices - force /dev/video0
-    if (deviceDescription.contains("Openterface", Qt::CaseInsensitive) || 
-        deviceDescription.contains("MACROSILICON", Qt::CaseInsensitive)) {
-        qCDebug(log_ffmpeg_backend) << "Detected Openterface device, forcing /dev/video0";
-        m_currentDevice = "/dev/video0";
-    }
     // Convert Qt device ID to V4L2 device path if needed
-    else if (!deviceId.startsWith("/dev/video")) {
+    if (!deviceId.startsWith("/dev/video")) {
         // Check if deviceId is a simple number (like "0", "1", etc.)
         bool isNumber = false;
         int deviceNumber = deviceId.toInt(&isNumber);
@@ -312,9 +306,16 @@ void FFmpegBackendHandler::configureCameraDevice(QCamera* camera, const QCameraD
             m_currentDevice = QString("/dev/video%1").arg(deviceNumber);
             qCDebug(log_ffmpeg_backend) << "Converted numeric device ID" << deviceId << "to path:" << m_currentDevice;
         } else {
-            // Complex device ID - default to video0 but this could be enhanced
-            qCDebug(log_ffmpeg_backend) << "Complex device ID detected:" << deviceId << "- using fallback /dev/video0";
-            m_currentDevice = "/dev/video0";
+            // Complex device ID - try to extract number from it
+            QRegularExpression re("(\\d+)");
+            QRegularExpressionMatch match = re.match(deviceId);
+            if (match.hasMatch()) {
+                m_currentDevice = QString("/dev/video%1").arg(match.captured(1));
+                qCDebug(log_ffmpeg_backend) << "Extracted device number from complex ID" << deviceId << "-> path:" << m_currentDevice;
+            } else {
+                qCWarning(log_ffmpeg_backend) << "Could not parse device ID:" << deviceId << "- this may cause issues";
+                m_currentDevice = deviceId; // Use as-is and hope for the best
+            }
         }
     } else {
         // Already a proper V4L2 device path
@@ -1592,12 +1593,11 @@ void FFmpegBackendHandler::waitForDeviceActivation(const QString& devicePath, in
             return;
         }
         
-        // Check if expected device or any camera device becomes available
-        QString deviceToCheck = m_expectedDevicePath.isEmpty() ? "/dev/video0" : m_expectedDevicePath;
-        if (checkCameraAvailable(deviceToCheck)) {
-            qCDebug(log_ffmpeg_backend) << "Device became available during wait:" << deviceToCheck;
+        // Check if expected device becomes available
+        if (!m_expectedDevicePath.isEmpty() && checkCameraAvailable(m_expectedDevicePath)) {
+            qCDebug(log_ffmpeg_backend) << "Expected device became available during wait:" << m_expectedDevicePath;
             checkTimer->deleteLater();
-            handleDeviceActivation(deviceToCheck);
+            handleDeviceActivation(m_expectedDevicePath);
         }
     });
     

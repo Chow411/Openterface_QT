@@ -353,3 +353,94 @@ QByteArray GlobalSetting::convertStringToByteArray(QString str) {
     }
     return result;
 }
+
+// Video recording settings
+void GlobalSetting::setRecordingVideoCodec(const QString& codec)
+{
+    m_settings.setValue("recording/videoCodec", codec);
+}
+
+QString GlobalSetting::getRecordingVideoCodec() const
+{
+    return m_settings.value("recording/videoCodec", "mjpeg").toString();
+}
+
+void GlobalSetting::setRecordingVideoBitrate(int bitrate)
+{
+    m_settings.setValue("recording/videoBitrate", bitrate);
+}
+
+int GlobalSetting::getRecordingVideoBitrate() const
+{
+    return m_settings.value("recording/videoBitrate", 2000000).toInt();
+}
+
+void GlobalSetting::setRecordingPixelFormat(const QString& format)
+{
+    m_settings.setValue("recording/pixelFormat", format);
+}
+
+QString GlobalSetting::getRecordingPixelFormat() const
+{
+    return m_settings.value("recording/pixelFormat", "yuv420p").toString();
+}
+
+void GlobalSetting::setRecordingKeyframeInterval(int interval)
+{
+    m_settings.setValue("recording/keyframeInterval", interval);
+}
+
+int GlobalSetting::getRecordingKeyframeInterval() const
+{
+    return m_settings.value("recording/keyframeInterval", 30).toInt();
+}
+
+void GlobalSetting::setRecordingAudioCodec(const QString& codec)
+{
+    m_settings.setValue("recording/audioCodec", codec);
+}
+
+QString GlobalSetting::getRecordingAudioCodec() const
+{
+    return m_settings.value("recording/audioCodec", "aac").toString();
+}
+
+void GlobalSetting::setRecordingAudioBitrate(int bitrate)
+{
+    m_settings.setValue("recording/audioBitrate", bitrate);
+}
+
+int GlobalSetting::getRecordingAudioBitrate() const
+{
+    return m_settings.value("recording/audioBitrate", 128000).toInt();
+}
+
+void GlobalSetting::setRecordingAudioSampleRate(int sampleRate)
+{
+    m_settings.setValue("recording/audioSampleRate", sampleRate);
+}
+
+int GlobalSetting::getRecordingAudioSampleRate() const
+{
+    return m_settings.value("recording/audioSampleRate", 44100).toInt();
+}
+
+void GlobalSetting::setRecordingOutputFormat(const QString& format)
+{
+    m_settings.setValue("recording/outputFormat", format);
+}
+
+QString GlobalSetting::getRecordingOutputFormat() const
+{
+    return m_settings.value("recording/outputFormat", "avi").toString();
+}
+
+void GlobalSetting::setRecordingOutputPath(const QString& path)
+{
+    m_settings.setValue("recording/outputPath", path);
+}
+
+QString GlobalSetting::getRecordingOutputPath() const
+{
+    return m_settings.value("recording/outputPath", "").toString();
+}

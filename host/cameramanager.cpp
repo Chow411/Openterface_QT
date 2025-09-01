@@ -98,6 +98,14 @@ bool CameraManager::isFFmpegBackend() const
     return m_backendHandler && m_backendHandler->getBackendType() == MultimediaBackendType::FFmpeg;
 }
 
+FFmpegBackendHandler* CameraManager::getFFmpegBackend() const
+{
+    if (isFFmpegBackend() && m_backendHandler) {
+        return static_cast<FFmpegBackendHandler*>(m_backendHandler.get());
+    }
+    return nullptr;
+}
+
 void CameraManager::initializeBackendHandler()
 {
     qCDebug(log_ui_camera) << "Initializing multimedia backend handler";

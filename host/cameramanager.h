@@ -17,6 +17,7 @@
 
 // Forward declarations
 class GStreamerBackendHandler;
+class FFmpegBackendHandler;
 class VideoPane;
 
 // Struct to represent a video format key, used for comparing and sorting video formats
@@ -99,6 +100,9 @@ public:
     // Helper methods to detect current multimedia backend
     bool isGStreamerBackend() const;
     bool isFFmpegBackend() const;
+    
+    // Get backend handlers for advanced features
+    FFmpegBackendHandler* getFFmpegBackend() const;
     
     // Camera device management and switching
     QList<QCameraDevice> getAvailableCameraDevices() const;

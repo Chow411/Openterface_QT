@@ -368,6 +368,7 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent) :  ui(
 
     // Add this line after ui->setupUi(this)
     connect(ui->actionScriptTool, &QAction::triggered, this, &MainWindow::showScriptTool);
+    connect(ui->actionRecordingSettings, &QAction::triggered, this, &MainWindow::showRecordingSettings);
     mouseManager = std::make_unique<MouseManager>();
     keyboardMouse = std::make_unique<KeyboardMouse>();
     semanticAnalyzer = std::make_unique<SemanticAnalyzer>(mouseManager.get(), keyboardMouse.get());
@@ -1180,6 +1181,34 @@ void MainWindow::configureSettings() {
     }else{
         settingDialog->raise();
         settingDialog->activateWindow();
+    }
+}
+
+void MainWindow::showRecordingSettings() {
+    qDebug() << "showRecordingSettings called";
+    if (!recordingSettingsDialog) {
+        qDebug() << "Creating recording settings dialog";
+        recordingSettingsDialog = new RecordingSettingsDialog(this);
+        
+        // Get the FFmpeg backend from camera manager and set it
+        FFmpegBackendHandler* ffmpegBackend = m_cameraManager->getFFmpegBackend();
+        if (ffmpegBackend) {
+            recordingSettingsDialog->setFFmpegBackend(ffmpegBackend);
+        } else {
+            qWarning() << "No FFmpeg backend available for recording";
+        }
+        
+        // Connect the finished signal to clean up the dialog pointer
+        connect(recordingSettingsDialog, &QDialog::finished, this, [this]() {
+            if (recordingSettingsDialog) {
+                recordingSettingsDialog->deleteLater();
+                recordingSettingsDialog = nullptr;
+            }
+        });
+        
+        recordingSettingsDialog->showDialog();
+    } else {
+        recordingSettingsDialog->showDialog();
     }
 }
 

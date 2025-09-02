@@ -1732,6 +1732,9 @@ MainWindow::~MainWindow()
 {
     qCDebug(log_ui_mainwindow) << "MainWindow destructor called";
     
+    // Set global shutdown flag to prevent Qt Multimedia operations
+    g_applicationShuttingDown.storeRelease(1);
+    
     // 0. CRITICAL: Stop any running animations before cleanup
     QList<QPropertyAnimation*> animations = this->findChildren<QPropertyAnimation*>();
     for (QPropertyAnimation* animation : animations) {
@@ -1750,6 +1753,27 @@ MainWindow::~MainWindow()
     
     // 1. Stop all operations first
     stop();
+    
+    // 1.5. CRITICAL: Stop audio first before anything else to prevent segfault
+    if (m_audioManager) {
+        m_audioManager->disconnect();
+        m_audioManager = nullptr;
+        qCDebug(log_ui_mainwindow) << "m_audioManager disconnected and cleared successfully";
+    }
+    
+    // Also ensure singleton audio manager is stopped (but only if not already stopped)
+    static bool audioManagerStopped = false;
+    if (!audioManagerStopped) {
+        AudioManager::getInstance().stop();
+        audioManagerStopped = true;
+        qCDebug(log_ui_mainwindow) << "AudioManager singleton stopped";
+    }
+    
+    // Process any pending events after audio cleanup
+    QCoreApplication::processEvents();
+    
+    // Wait a moment to ensure audio threads are fully stopped
+    QThread::msleep(50);
     
     // 2. Stop camera operations and disconnect signals
     if (m_cameraManager) {
@@ -1827,15 +1851,15 @@ MainWindow::~MainWindow()
     }
     
     if (m_audioManager) {
-        // AudioManager is now a singleton, so we just disconnect and clear the reference
-        m_audioManager->disconnect();
+        // AudioManager is now a singleton, and we already disconnected it above
+        // Just clear the reference here
         m_audioManager = nullptr;
-        qCDebug(log_ui_mainwindow) << "m_audioManager reference cleared successfully";
+        qCDebug(log_ui_mainwindow) << "m_audioManager reference cleared successfully (already disconnected)";
     }
     
-    // 6. Clean up static instances
+    // 6. Clean up static instances (but skip AudioManager since it's already stopped)
     VideoHid::getInstance().stop();
-    AudioManager::getInstance().stop();
+    // AudioManager::getInstance().stop(); // Already stopped above to prevent double cleanup
     SerialPortManager::getInstance().stop();
     
     // 7. Delete UI last

@@ -1735,15 +1735,18 @@ QList<DeviceInfo> WindowsDeviceManager::discoverOptimizedDevices()
     
     qCDebug(log_device_windows) << "Starting optimized device discovery for USB 2.0/3.0 compatibility...";
     
-    // Priority 1: Search for Generation 2 devices (345F:2130) - these are the newest devices
-    qCDebug(log_device_windows) << "=== Phase 1: Searching for Generation 2 devices (345F:2130) ===";
-    QList<USBDeviceData> gen2Devices = findUSBDevicesWithVidPid(AbstractPlatformDeviceManager::OPENTERFACE_VID_V2, AbstractPlatformDeviceManager::OPENTERFACE_PID_V2);
-    qCDebug(log_device_windows) << "Found" << gen2Devices.size() << "Generation 2 devices";
+    // Priority 1: Search for Generation 2 devices (345F:2130) using both discovery methods
+    qCDebug(log_device_windows) << "=== Phase 1: Searching for Generation 2 devices (345F:2130) using both methods ===";
     
-    for (int i = 0; i < gen2Devices.size(); ++i) {
-        const USBDeviceData& gen2Device = gen2Devices[i];
+    // Phase 1A: Use Generation 2 companion device approach
+    qCDebug(log_device_windows) << "Phase 1A: Generation 2 companion device approach";
+    QList<USBDeviceData> gen2DevicesCompanion = findUSBDevicesWithVidPid(AbstractPlatformDeviceManager::OPENTERFACE_VID_V2, AbstractPlatformDeviceManager::OPENTERFACE_PID_V2);
+    qCDebug(log_device_windows) << "Found" << gen2DevicesCompanion.size() << "Generation 2 devices (companion approach)";
+    
+    for (int i = 0; i < gen2DevicesCompanion.size(); ++i) {
+        const USBDeviceData& gen2Device = gen2DevicesCompanion[i];
         
-        qCDebug(log_device_windows) << "Processing Gen2 Device" << (i + 1) << "at port chain:" << gen2Device.portChain;
+        qCDebug(log_device_windows) << "Processing Gen2 Companion Device" << (i + 1) << "at port chain:" << gen2Device.portChain;
         
         DeviceInfo deviceInfo;
         deviceInfo.portChain = gen2Device.portChain;
@@ -1758,7 +1761,7 @@ QList<DeviceInfo> WindowsDeviceManager::discoverOptimizedDevices()
         QString serialPortId = findSerialPortByCompanionDevice(gen2Device);
         if (!serialPortId.isEmpty()) {
             deviceInfo.serialPortId = serialPortId;
-            qCDebug(log_device_windows) << "  ✓ Found associated serial port for Gen2 device";
+            qCDebug(log_device_windows) << "  ✓ Found associated serial port for Gen2 companion device";
         }
         
         // Convert device IDs to real paths
@@ -1766,7 +1769,55 @@ QList<DeviceInfo> WindowsDeviceManager::discoverOptimizedDevices()
         
         // Add to device map to prevent duplicates
         deviceMap[deviceInfo.portChain] = deviceInfo;
-        qCDebug(log_device_windows) << "Gen2 device added to map with port chain:" << deviceInfo.portChain;
+        qCDebug(log_device_windows) << "Gen2 companion device added to map with port chain:" << deviceInfo.portChain;
+    }
+    
+    // Phase 1B: Use Generation 1 approach for Generation 2 devices (345F:2130) 
+    // This handles cases where Gen2 devices appear with Gen1-style interface layout
+    qCDebug(log_device_windows) << "Phase 1B: Generation 1 approach for Generation 2 devices";
+    QList<USBDeviceData> gen2DevicesLegacy = findUSBDevicesWithVidPid(AbstractPlatformDeviceManager::OPENTERFACE_VID_V2, AbstractPlatformDeviceManager::OPENTERFACE_PID_V2);
+    qCDebug(log_device_windows) << "Re-processing" << gen2DevicesLegacy.size() << "Generation 2 devices with legacy approach";
+    
+    for (int i = 0; i < gen2DevicesLegacy.size(); ++i) {
+        const USBDeviceData& gen2Device = gen2DevicesLegacy[i];
+        
+        // Check if we already have this device from the companion approach
+        if (deviceMap.contains(gen2Device.portChain)) {
+            DeviceInfo& existingDevice = deviceMap[gen2Device.portChain];
+            qCDebug(log_device_windows) << "Enhancing existing Gen2 device at port chain:" << gen2Device.portChain;
+            
+            // Try to fill missing interfaces using Generation 1 approach
+            if (!existingDevice.hasSerialPort()) {
+                processGeneration1SerialInterface(existingDevice, gen2Device);
+            }
+            if (!existingDevice.hasHidDevice() || !existingDevice.hasCameraDevice() || !existingDevice.hasAudioDevice()) {
+                processGeneration1MediaInterfaces(existingDevice, gen2Device);
+            }
+            
+            // Re-convert device IDs to real paths in case new interfaces were found
+            matchDevicePathsToRealPaths(existingDevice);
+            
+            qCDebug(log_device_windows) << "Enhanced Gen2 device - interfaces now:" << existingDevice.getInterfaceSummary();
+        } else {
+            // Device not found with companion approach, try pure Generation 1 style processing
+            qCDebug(log_device_windows) << "Processing Gen2 Device" << (i + 1) << "with legacy approach at port chain:" << gen2Device.portChain;
+            
+            DeviceInfo deviceInfo;
+            deviceInfo.portChain = gen2Device.portChain;
+            deviceInfo.deviceInstanceId = gen2Device.deviceInstanceId;
+            deviceInfo.lastSeen = QDateTime::currentDateTime();
+            deviceInfo.platformSpecific = gen2Device.deviceInfo;
+            
+            // Process Generation 1 device interfaces for this Generation 2 device
+            processGeneration1Interfaces(deviceInfo, gen2Device);
+            
+            // Convert device IDs to real paths
+            matchDevicePathsToRealPaths(deviceInfo);
+            
+            // Add to device map
+            deviceMap[deviceInfo.portChain] = deviceInfo;
+            qCDebug(log_device_windows) << "Gen2 legacy device added to map with port chain:" << deviceInfo.portChain;
+        }
     }
     
     // Priority 2: Search for Generation 1 devices (534D:2109) but only add if not already found
@@ -1860,8 +1911,17 @@ void WindowsDeviceManager::processGeneration1Interfaces(DeviceInfo& deviceInfo, 
 {
     qCDebug(log_device_windows) << "Processing Generation 1 interfaces for device:" << deviceInfo.portChain;
     
+    // Process serial interfaces first
+    processGeneration1SerialInterface(deviceInfo, gen1Device);
+    
+    // Process media interfaces (HID, camera, audio)
+    processGeneration1MediaInterfaces(deviceInfo, gen1Device);
+}
+
+void WindowsDeviceManager::processGeneration1SerialInterface(DeviceInfo& deviceInfo, const USBDeviceData& deviceData)
+{
     // Process siblings to find serial port devices (Python-compatible logic)
-    for (const QVariantMap& sibling : gen1Device.siblings) {
+    for (const QVariantMap& sibling : deviceData.siblings) {
         QString hardwareId = sibling["hardwareId"].toString();
         QString deviceId = sibling["deviceId"].toString();
         
@@ -1869,14 +1929,32 @@ void WindowsDeviceManager::processGeneration1Interfaces(DeviceInfo& deviceInfo, 
         if (hardwareId.toUpper().contains(AbstractPlatformDeviceManager::SERIAL_VID.toUpper()) &&
             hardwareId.toUpper().contains(AbstractPlatformDeviceManager::SERIAL_PID.toUpper())) {
             deviceInfo.serialPortId = deviceId;
-            deviceInfo.serialPortPath = gen1Device.portChain;
+            deviceInfo.serialPortPath = deviceData.portChain;
             qCDebug(log_device_windows) << "  ✓ Found serial port sibling:" << deviceId;
             break;
         }
     }
     
+    // Also check for Generation 2 serial devices (1A86:FE0C) in siblings
+    for (const QVariantMap& sibling : deviceData.siblings) {
+        QString hardwareId = sibling["hardwareId"].toString();
+        QString deviceId = sibling["deviceId"].toString();
+        
+        // Check if this sibling is a Gen2 serial port (1A86:FE0C)
+        if (hardwareId.toUpper().contains(AbstractPlatformDeviceManager::SERIAL_VID_V2.toUpper()) &&
+            hardwareId.toUpper().contains(AbstractPlatformDeviceManager::SERIAL_PID_V2.toUpper())) {
+            deviceInfo.serialPortId = deviceId;
+            deviceInfo.serialPortPath = deviceData.portChain;
+            qCDebug(log_device_windows) << "  ✓ Found Gen2 serial port sibling:" << deviceId;
+            break;
+        }
+    }
+}
+
+void WindowsDeviceManager::processGeneration1MediaInterfaces(DeviceInfo& deviceInfo, const USBDeviceData& deviceData)
+{
     // Process children to find HID, camera, and audio devices
-    for (const QVariantMap& child : gen1Device.children) {
+    for (const QVariantMap& child : deviceData.children) {
         QString hardwareId = child["hardwareId"].toString();
         QString deviceId = child["deviceId"].toString();
         
@@ -1887,18 +1965,24 @@ void WindowsDeviceManager::processGeneration1Interfaces(DeviceInfo& deviceInfo, 
         
         // Check for HID device
         if (hardwareId.toUpper().contains("HID") && deviceId.toUpper().contains("MI_04")) {
-            deviceInfo.hidDeviceId = deviceId;
-            qCDebug(log_device_windows) << "  ✓ Found HID interface:" << deviceId;
+            if (deviceInfo.hidDeviceId.isEmpty()) {  // Don't overwrite if already found
+                deviceInfo.hidDeviceId = deviceId;
+                qCDebug(log_device_windows) << "  ✓ Found HID interface:" << deviceId;
+            }
         }
         // Check for camera device (MI_00 interface)
         else if (hardwareId.toUpper().contains("MI_00")) {
-            deviceInfo.cameraDeviceId = deviceId;
-            qCDebug(log_device_windows) << "  ✓ Found camera interface:" << deviceId;
+            if (deviceInfo.cameraDeviceId.isEmpty()) {  // Don't overwrite if already found
+                deviceInfo.cameraDeviceId = deviceId;
+                qCDebug(log_device_windows) << "  ✓ Found camera interface:" << deviceId;
+            }
         }
         // Check for audio device (MI_01 interface or Audio in hardware ID)
         else if (hardwareId.toUpper().contains("MI_01") || hardwareId.toUpper().contains("AUDIO")) {
-            deviceInfo.audioDeviceId = deviceId;
-            qCDebug(log_device_windows) << "  ✓ Found audio interface:" << deviceId;
+            if (deviceInfo.audioDeviceId.isEmpty()) {  // Don't overwrite if already found
+                deviceInfo.audioDeviceId = deviceId;
+                qCDebug(log_device_windows) << "  ✓ Found audio interface:" << deviceId;
+            }
         }
     }
 }

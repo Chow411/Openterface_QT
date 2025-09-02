@@ -108,6 +108,8 @@ private:
     QList<DeviceInfo> discoverOptimizedDevices();
     void processGeneration2Interfaces(DeviceInfo& deviceInfo, const USBDeviceData& gen2Device);
     void processGeneration1Interfaces(DeviceInfo& deviceInfo, const USBDeviceData& gen1Device);
+    void processGeneration1SerialInterface(DeviceInfo& deviceInfo, const USBDeviceData& deviceData);
+    void processGeneration1MediaInterfaces(DeviceInfo& deviceInfo, const USBDeviceData& deviceData);
     void enhanceDeviceDetection(QMap<QString, DeviceInfo>& deviceMap);
     QString findSerialPortForPortChain(const QString& portChain);
     QString findHidDeviceForPortChain(const QString& portChain);

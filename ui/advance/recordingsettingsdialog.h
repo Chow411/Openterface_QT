@@ -39,6 +39,10 @@
 #include <QTimer>
 #include <QElapsedTimer>
 #include "../../host/backend/ffmpegbackendhandler.h"
+#include "../../host/multimediabackend.h"
+
+// Forward declaration for GStreamer backend
+class GStreamerBackendHandler;
 
 QT_BEGIN_NAMESPACE
 class QComboBox;
@@ -61,6 +65,7 @@ public:
     ~RecordingSettingsDialog();
 
     void setFFmpegBackend(FFmpegBackendHandler* backend);
+    void setBackendHandler(MultimediaBackendHandler* backend);
 
 public slots:
     void showDialog();
@@ -96,10 +101,12 @@ private:
     void saveSettings();
     QString formatDuration(qint64 milliseconds);
     QString generateDefaultOutputPath();
+    MultimediaBackendHandler* getActiveBackend() const;
 
 private:
     // Backend
     FFmpegBackendHandler* m_ffmpegBackend;
+    MultimediaBackendHandler* m_backendHandler;
     
     // Recording controls
     QGroupBox* m_recordingGroup;

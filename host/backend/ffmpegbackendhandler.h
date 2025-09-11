@@ -219,6 +219,8 @@ private:
     qint64 m_recordingStartTime;
     qint64 m_recordingPausedTime;
     qint64 m_totalPausedDuration;
+    qint64 m_lastRecordedFrameTime; // Time when last frame was written to recording
+    int m_recordingTargetFramerate; // Target framerate for recording (cached for thread safety)
     int64_t m_recordingFrameNumber;
     
     // Hotplug monitoring

@@ -1190,12 +1190,18 @@ void MainWindow::showRecordingSettings() {
         qDebug() << "Creating recording settings dialog";
         recordingSettingsDialog = new RecordingSettingsDialog(this);
         
-        // Get the FFmpeg backend from camera manager and set it
-        FFmpegBackendHandler* ffmpegBackend = m_cameraManager->getFFmpegBackend();
-        if (ffmpegBackend) {
-            recordingSettingsDialog->setFFmpegBackend(ffmpegBackend);
+        // Get the current backend from camera manager and set it
+        MultimediaBackendHandler* backendHandler = m_cameraManager->getBackendHandler();
+        if (backendHandler) {
+            recordingSettingsDialog->setBackendHandler(backendHandler);
+            
+            // Also set FFmpeg backend specifically if it's available for backward compatibility
+            FFmpegBackendHandler* ffmpegBackend = m_cameraManager->getFFmpegBackend();
+            if (ffmpegBackend) {
+                recordingSettingsDialog->setFFmpegBackend(ffmpegBackend);
+            }
         } else {
-            qWarning() << "No FFmpeg backend available for recording";
+            qWarning() << "No video backend available for recording";
         }
         
         // Connect the finished signal to clean up the dialog pointer

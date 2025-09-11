@@ -66,15 +66,26 @@ GStreamerBackendHandler::GStreamerBackendHandler(QObject *parent)
       m_source(nullptr),
       m_sink(nullptr),
       m_bus(nullptr),
+      m_recordingPipeline(nullptr),
+      m_recordingTee(nullptr),
+      m_recordingSink(nullptr),
       m_videoWidget(nullptr),
       m_graphicsVideoItem(nullptr),
       m_healthCheckTimer(new QTimer(this)),
       m_gstProcess(nullptr),
       m_pipelineRunning(false),
       m_currentFramerate(30),
-      m_currentResolution(1280, 720)  // Initialize with a valid default resolution
+      m_currentResolution(1280, 720),  // Initialize with a valid default resolution
+      m_recordingActive(false),
+      m_recordingPaused(false),
+      m_recordingStartTime(0),
+      m_recordingPausedTime(0),
+      m_totalPausedDuration(0)
 {
     m_config = getDefaultConfig();
+    
+    // Initialize recording config
+    m_recordingConfig = RecordingConfig();
     
     // Initialize GStreamer if available
     initializeGStreamer();
@@ -85,6 +96,11 @@ GStreamerBackendHandler::GStreamerBackendHandler(QObject *parent)
 
 GStreamerBackendHandler::~GStreamerBackendHandler()
 {
+    // Stop recording first if active
+    if (m_recordingActive) {
+        stopRecording();
+    }
+    
     cleanupGStreamer();
 }
 
@@ -1060,3 +1076,302 @@ void GStreamerBackendHandler::setResolutionAndFramerate(const QSize& resolution,
     // For now, just store the values for the next pipeline creation
     qCDebug(log_gstreamer_backend) << "Resolution and framerate updated for next pipeline creation";
 }
+
+// ============================================================================
+// Video Recording Implementation
+// ============================================================================
+
+bool GStreamerBackendHandler::startRecording(const QString& outputPath, const QString& format, int videoBitrate)
+{
+    qCDebug(log_gstreamer_backend) << "GStreamer: Starting recording to" << outputPath << "format:" << format << "bitrate:" << videoBitrate;
+    
+    if (m_recordingActive) {
+        qCWarning(log_gstreamer_backend) << "Recording already active";
+        return false;
+    }
+    
+    if (!m_pipelineRunning) {
+        qCWarning(log_gstreamer_backend) << "Main pipeline not running, cannot start recording";
+        return false;
+    }
+    
+    // Update recording config
+    m_recordingConfig.outputPath = outputPath;
+    m_recordingConfig.format = format;
+    m_recordingConfig.videoBitrate = videoBitrate;
+    
+    // Set default codec if not specified
+    if (m_recordingConfig.videoCodec.isEmpty()) {
+        m_recordingConfig.videoCodec = "mjpeg"; // Use mjpeg which will be mapped to jpegenc
+    }
+    
+#ifdef HAVE_GSTREAMER
+    if (!createRecordingPipeline(outputPath, format, videoBitrate)) {
+        emit recordingError("Failed to create recording pipeline");
+        return false;
+    }
+    
+    if (!startRecordingPipeline()) {
+        emit recordingError("Failed to start recording pipeline");
+        cleanupRecordingPipeline();
+        return false;
+    }
+#else
+    qCWarning(log_gstreamer_backend) << "GStreamer support not compiled in";
+    emit recordingError("GStreamer support not available");
+    return false;
+#endif
+    
+    m_recordingActive = true;
+    m_recordingPaused = false;
+    m_recordingOutputPath = outputPath;
+    m_recordingStartTime = QDateTime::currentMSecsSinceEpoch();
+    m_totalPausedDuration = 0;
+    
+    qCDebug(log_gstreamer_backend) << "Recording started successfully";
+    emit recordingStarted(outputPath);
+    
+    return true;
+}
+
+void GStreamerBackendHandler::stopRecording()
+{
+    qCDebug(log_gstreamer_backend) << "GStreamer: Stopping recording";
+    
+    if (!m_recordingActive) {
+        qCDebug(log_gstreamer_backend) << "No active recording to stop";
+        return;
+    }
+    
+#ifdef HAVE_GSTREAMER
+    stopRecordingPipeline();
+    cleanupRecordingPipeline();
+#endif
+    
+    m_recordingActive = false;
+    m_recordingPaused = false;
+    m_recordingOutputPath.clear();
+    
+    qCDebug(log_gstreamer_backend) << "Recording stopped successfully";
+    emit recordingStopped();
+}
+
+void GStreamerBackendHandler::pauseRecording()
+{
+    qCDebug(log_gstreamer_backend) << "GStreamer: Pausing recording";
+    
+    if (!m_recordingActive) {
+        qCWarning(log_gstreamer_backend) << "No active recording to pause";
+        return;
+    }
+    
+    if (m_recordingPaused) {
+        qCDebug(log_gstreamer_backend) << "Recording already paused";
+        return;
+    }
+    
+#ifdef HAVE_GSTREAMER
+    if (m_recordingPipeline) {
+        gst_element_set_state(m_recordingPipeline, GST_STATE_PAUSED);
+    }
+#endif
+    
+    m_recordingPaused = true;
+    m_recordingPausedTime = QDateTime::currentMSecsSinceEpoch();
+    
+    qCDebug(log_gstreamer_backend) << "Recording paused";
+    emit recordingPaused();
+}
+
+void GStreamerBackendHandler::resumeRecording()
+{
+    qCDebug(log_gstreamer_backend) << "GStreamer: Resuming recording";
+    
+    if (!m_recordingActive) {
+        qCWarning(log_gstreamer_backend) << "No active recording to resume";
+        return;
+    }
+    
+    if (!m_recordingPaused) {
+        qCDebug(log_gstreamer_backend) << "Recording not paused";
+        return;
+    }
+    
+#ifdef HAVE_GSTREAMER
+    if (m_recordingPipeline) {
+        gst_element_set_state(m_recordingPipeline, GST_STATE_PLAYING);
+    }
+#endif
+    
+    if (m_recordingPausedTime > 0) {
+        m_totalPausedDuration += QDateTime::currentMSecsSinceEpoch() - m_recordingPausedTime;
+        m_recordingPausedTime = 0;
+    }
+    
+    m_recordingPaused = false;
+    
+    qCDebug(log_gstreamer_backend) << "Recording resumed";
+    emit recordingResumed();
+}
+
+bool GStreamerBackendHandler::isRecording() const
+{
+    return m_recordingActive;
+}
+
+QString GStreamerBackendHandler::getCurrentRecordingPath() const
+{
+    return m_recordingOutputPath;
+}
+
+qint64 GStreamerBackendHandler::getRecordingDuration() const
+{
+    if (!m_recordingActive || m_recordingStartTime == 0) {
+        return 0;
+    }
+    
+    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+    qint64 totalDuration = currentTime - m_recordingStartTime - m_totalPausedDuration;
+    
+    if (m_recordingPaused && m_recordingPausedTime > 0) {
+        totalDuration -= (currentTime - m_recordingPausedTime);
+    }
+    
+    return qMax(totalDuration, 0LL);
+}
+
+void GStreamerBackendHandler::setRecordingConfig(const RecordingConfig& config)
+{
+    m_recordingConfig = config;
+}
+
+GStreamerBackendHandler::RecordingConfig GStreamerBackendHandler::getRecordingConfig() const
+{
+    return m_recordingConfig;
+}
+
+#ifdef HAVE_GSTREAMER
+bool GStreamerBackendHandler::createRecordingPipeline(const QString& outputPath, const QString& format, int videoBitrate)
+{
+    qCDebug(log_gstreamer_backend) << "Creating recording pipeline for" << outputPath;
+    
+    // Generate pipeline string for recording
+    QString pipelineString = generateRecordingPipelineString(outputPath, format, videoBitrate);
+    qCDebug(log_gstreamer_backend) << "Recording pipeline string:" << pipelineString;
+    
+    GError* error = nullptr;
+    m_recordingPipeline = gst_parse_launch(pipelineString.toLatin1().data(), &error);
+    
+    if (error) {
+        qCCritical(log_gstreamer_backend) << "Failed to create recording pipeline:" << error->message;
+        g_error_free(error);
+        return false;
+    }
+    
+    if (!m_recordingPipeline) {
+        qCCritical(log_gstreamer_backend) << "Recording pipeline is null";
+        return false;
+    }
+    
+    qCDebug(log_gstreamer_backend) << "Recording pipeline created successfully";
+    return true;
+}
+
+bool GStreamerBackendHandler::startRecordingPipeline()
+{
+    if (!m_recordingPipeline) {
+        qCCritical(log_gstreamer_backend) << "No recording pipeline to start";
+        return false;
+    }
+    
+    GstStateChangeReturn ret = gst_element_set_state(m_recordingPipeline, GST_STATE_PLAYING);
+    if (ret == GST_STATE_CHANGE_FAILURE) {
+        qCCritical(log_gstreamer_backend) << "Failed to start recording pipeline";
+        return false;
+    }
+    
+    qCDebug(log_gstreamer_backend) << "Recording pipeline started";
+    return true;
+}
+
+void GStreamerBackendHandler::stopRecordingPipeline()
+{
+    if (!m_recordingPipeline) {
+        return;
+    }
+    
+    qCDebug(log_gstreamer_backend) << "Stopping recording pipeline";
+    
+    // Send EOS to properly close the file
+    gst_element_send_event(m_recordingPipeline, gst_event_new_eos());
+    
+    // Wait a bit for EOS to be processed
+    QThread::msleep(500);
+    
+    gst_element_set_state(m_recordingPipeline, GST_STATE_NULL);
+}
+
+void GStreamerBackendHandler::cleanupRecordingPipeline()
+{
+    if (m_recordingPipeline) {
+        gst_object_unref(m_recordingPipeline);
+        m_recordingPipeline = nullptr;
+    }
+    
+    m_recordingTee = nullptr;
+    m_recordingSink = nullptr;
+    
+    qCDebug(log_gstreamer_backend) << "Recording pipeline cleaned up";
+}
+
+QString GStreamerBackendHandler::generateRecordingPipelineString(const QString& outputPath, const QString& format, int videoBitrate) const
+{
+    // Determine encoder and muxer based on format
+    QString encoder = m_recordingConfig.videoCodec;
+    
+    // Map FFmpeg codec names to GStreamer codec names if needed
+    if (encoder == "mjpeg" || encoder == "libmjpeg") {
+        encoder = "jpegenc";
+    } else if (encoder == "libx264") {
+        encoder = "x264enc";
+    } else if (encoder == "libx265") {
+        encoder = "x265enc";
+    } else if (encoder.isEmpty()) {
+        encoder = "jpegenc"; // Default to JPEG for AVI compatibility
+    }
+    
+    QString muxer;
+    
+    if (format.toLower() == "mp4") {
+        muxer = "mp4mux";
+    } else if (format.toLower() == "avi") {
+        muxer = "avimux";
+    } else if (format.toLower() == "mkv") {
+        muxer = "matroskamux";
+    } else if (format.toLower() == "mov") {
+        muxer = "qtmux";
+    } else {
+        // Default to AVI for compatibility
+        muxer = "avimux";
+    }
+    
+    // Build pipeline string
+    // We'll capture from the same device as the main pipeline
+    QString pipelineStr = QString(
+        "v4l2src device=%1 ! "
+        "video/x-raw,width=%2,height=%3,framerate=%4/1 ! "
+        "videoconvert ! "
+        "%5 ! "
+        "%6 ! "
+        "filesink location=%7"
+    ).arg(m_currentDevice)
+     .arg(m_currentResolution.width())
+     .arg(m_currentResolution.height())
+     .arg(m_currentFramerate)
+     .arg(encoder)
+     .arg(muxer)
+     .arg(outputPath);
+    
+    return pipelineStr;
+}
+#endif // HAVE_GSTREAMER

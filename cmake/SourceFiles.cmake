@@ -110,6 +110,7 @@ set(UI_ADVANCE_SOURCES
     ui/advance/firmwaremanagerdialog.cpp ui/advance/firmwaremanagerdialog.h
     ui/advance/renamedisplaydialog.cpp ui/advance/renamedisplaydialog.h
     ui/advance/updatedisplaysettingsdialog.cpp ui/advance/updatedisplaysettingsdialog.h
+    ui/advance/recordingsettingsdialog.cpp ui/advance/recordingsettingsdialog.h
 )
 
 # UI statusbar sources

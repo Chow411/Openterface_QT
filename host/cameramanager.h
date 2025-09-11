@@ -103,6 +103,7 @@ public:
     
     // Get backend handlers for advanced features
     FFmpegBackendHandler* getFFmpegBackend() const;
+    MultimediaBackendHandler* getBackendHandler() const;
     
     // Camera device management and switching
     QList<QCameraDevice> getAvailableCameraDevices() const;

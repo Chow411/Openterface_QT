@@ -107,10 +107,27 @@ public:
     virtual void handleCameraError(QCamera::Error error, const QString& errorString);
     virtual bool shouldRetryOperation(int attemptCount) const;
 
+    // Video recording interface (virtual methods for backend implementations)
+    virtual bool startRecording(const QString& outputPath, const QString& format = "mp4", int videoBitrate = 2000000) { return false; }
+    virtual void stopRecording() {}
+    virtual void pauseRecording() {}
+    virtual void resumeRecording() {}
+    virtual bool isRecording() const { return false; }
+    virtual QString getCurrentRecordingPath() const { return QString(); }
+    virtual qint64 getRecordingDuration() const { return 0; }
+
 signals:
     void backendMessage(const QString& message);
     void backendWarning(const QString& warning);
     void backendError(const QString& error);
+    
+    // Recording signals
+    void recordingStarted(const QString& outputPath);
+    void recordingStopped();
+    void recordingPaused();
+    void recordingResumed();
+    void recordingError(const QString& error);
+    void recordingDurationChanged(qint64 duration);
 
 protected:
     MultimediaBackendConfig m_config;

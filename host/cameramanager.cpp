@@ -106,6 +106,11 @@ FFmpegBackendHandler* CameraManager::getFFmpegBackend() const
     return nullptr;
 }
 
+MultimediaBackendHandler* CameraManager::getBackendHandler() const
+{
+    return m_backendHandler.get();
+}
+
 void CameraManager::initializeBackendHandler()
 {
     qCDebug(log_ui_camera) << "Initializing multimedia backend handler";

@@ -1,11 +1,7 @@
 /*
 * ========================================================================== *
 *                                                                            *
-*    This file i    // Video codec (only show codecs available in current FFmpeg build)
-    layout->addWidget(new QLabel(tr("Video Codec:")), row, 0);
-    m_videoCodecCombo = new QComboBox();
-    m_videoCodecCombo->addItems({"mjpeg"}); // MJPEG encoder for AVI container creates playable video files
-    layout->addWidget(m_videoCodecCombo, row++, 1);t of the Openterface Mini KVM App QT version            *
+*    This file is part of the Openterface Mini KVM App QT version            *
 *                                                                            *
 *    Copyright (C) 2024   <info@openterface.com>                             *
 *                                                                            *
@@ -27,6 +23,7 @@
 #include "recordingsettingsdialog.h"
 #include "../../global.h"
 #include "../../ui/globalsetting.h"
+#include "../../host/backend/gstreamerbackendhandler.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -51,6 +48,7 @@
 RecordingSettingsDialog::RecordingSettingsDialog(QWidget *parent)
     : QDialog(parent)
     , m_ffmpegBackend(nullptr)
+    , m_backendHandler(nullptr)
     , m_isRecording(false)
     , m_isPaused(false)
     , m_updateTimer(new QTimer(this))
@@ -72,10 +70,37 @@ RecordingSettingsDialog::RecordingSettingsDialog(QWidget *parent)
 
 RecordingSettingsDialog::~RecordingSettingsDialog()
 {
-    if (m_isRecording) {
-        onStopRecording();
+    qDebug() << "RecordingSettingsDialog destructor called";
+    
+    // Disconnect all signals to prevent crashes
+    if (m_ffmpegBackend) {
+        disconnect(m_ffmpegBackend, nullptr, this, nullptr);
     }
+    if (m_backendHandler) {
+        disconnect(m_backendHandler, nullptr, this, nullptr);
+    }
+    
+    // Stop recording safely
+    if (m_isRecording) {
+        qDebug() << "Stopping recording in destructor";
+        MultimediaBackendHandler* backend = getActiveBackend();
+        if (backend) {
+            try {
+                backend->stopRecording();
+            } catch (...) {
+                qWarning() << "Exception while stopping recording in destructor";
+            }
+        }
+        m_isRecording = false;
+    }
+    
+    // Stop timers
+    if (m_updateTimer) {
+        m_updateTimer->stop();
+    }
+    
     saveSettings();
+    qDebug() << "RecordingSettingsDialog destructor completed";
 }
 
 void RecordingSettingsDialog::setFFmpegBackend(FFmpegBackendHandler* backend)
@@ -87,8 +112,10 @@ void RecordingSettingsDialog::setFFmpegBackend(FFmpegBackendHandler* backend)
     
     m_ffmpegBackend = backend;
     
-    // Connect to new backend signals
-    if (m_ffmpegBackend) {
+    // Connect to new backend signals only if it's not already set as the generic backend handler
+    if (m_ffmpegBackend && m_ffmpegBackend != m_backendHandler) {
+        qDebug() << "Connecting signals to FFmpeg backend:" << m_ffmpegBackend->getBackendName();
+        
         connect(m_ffmpegBackend, &FFmpegBackendHandler::recordingStarted,
                 this, &RecordingSettingsDialog::onRecordingStarted);
         connect(m_ffmpegBackend, &FFmpegBackendHandler::recordingStopped,
@@ -104,6 +131,43 @@ void RecordingSettingsDialog::setFFmpegBackend(FFmpegBackendHandler* backend)
         
         // Update current recording state
         m_isRecording = m_ffmpegBackend->isRecording();
+        updateControlStates();
+    }
+    
+    // Also set as general backend handler if no other backend is set
+    if (!m_backendHandler) {
+        setBackendHandler(backend);
+    }
+}
+
+void RecordingSettingsDialog::setBackendHandler(MultimediaBackendHandler* backend)
+{
+    // Disconnect from previous backend
+    if (m_backendHandler) {
+        disconnect(m_backendHandler, nullptr, this, nullptr);
+    }
+    
+    m_backendHandler = backend;
+    
+    // Connect to new backend signals - connect to all recording signals regardless of backend type
+    if (m_backendHandler) {
+        qDebug() << "Connecting signals to backend:" << m_backendHandler->getBackendName();
+        
+        connect(m_backendHandler, &MultimediaBackendHandler::recordingStarted,
+                this, &RecordingSettingsDialog::onRecordingStarted);
+        connect(m_backendHandler, &MultimediaBackendHandler::recordingStopped,
+                this, &RecordingSettingsDialog::onRecordingStopped);
+        connect(m_backendHandler, &MultimediaBackendHandler::recordingPaused,
+                this, &RecordingSettingsDialog::onRecordingPaused);
+        connect(m_backendHandler, &MultimediaBackendHandler::recordingResumed,
+                this, &RecordingSettingsDialog::onRecordingResumed);
+        connect(m_backendHandler, &MultimediaBackendHandler::recordingError,
+                this, &RecordingSettingsDialog::onRecordingError);
+        connect(m_backendHandler, &MultimediaBackendHandler::recordingDurationChanged,
+                this, &RecordingSettingsDialog::onRecordingDurationChanged);
+        
+        // Update current recording state
+        m_isRecording = m_backendHandler->isRecording();
         updateControlStates();
     }
 }
@@ -182,7 +246,7 @@ void RecordingSettingsDialog::setupVideoSettings()
     // Video codec
     layout->addWidget(new QLabel(tr("Codec:")), row, 0);
     m_videoCodecCombo = new QComboBox();
-    m_videoCodecCombo->addItems({"libx264", "libx265", "mpeg4"});
+    m_videoCodecCombo->addItems({"mjpeg"}); // MJPEG encoder for AVI container creates playable video files
     layout->addWidget(m_videoCodecCombo, row++, 1);
     
     // Video quality preset
@@ -294,7 +358,8 @@ void RecordingSettingsDialog::connectSignals()
 
 void RecordingSettingsDialog::onStartRecording()
 {
-    if (!m_ffmpegBackend) {
+    MultimediaBackendHandler* backend = getActiveBackend();
+    if (!backend) {
         QMessageBox::warning(this, tr("Error"), tr("No video backend available."));
         return;
     }
@@ -326,38 +391,127 @@ void RecordingSettingsDialog::onStartRecording()
     
     int bitrate = m_videoBitrateSpin->value() * 1000; // Convert to bps
     
-    bool success = m_ffmpegBackend->startRecording(outputPath, format, bitrate);
+    qDebug() << "Calling backend->startRecording with:" << outputPath << format << bitrate;
+    bool success = backend->startRecording(outputPath, format, bitrate);
+    qDebug() << "Recording start result:" << success;
+    
     if (!success) {
         QMessageBox::warning(this, tr("Recording Error"), 
                            tr("Failed to start recording. Please check the settings and try again."));
+    } else {
+        qDebug() << "Recording started successfully, m_isRecording should be updated by signal";
+        
+        // As a fallback, update the UI state manually if the signal doesn't come through
+        // This is a temporary workaround - we'll check if the signal arrives within a short time
+        QTimer::singleShot(100, this, [this, outputPath]() {
+            // Check if this dialog still exists and is valid
+            if (!this) return;
+            
+            MultimediaBackendHandler* backend = getActiveBackend();
+            if (backend && !m_isRecording && backend->isRecording()) {
+                qDebug() << "Signal didn't arrive, manually updating UI state";
+                m_isRecording = true;
+                m_isPaused = false;
+                m_currentOutputPath = outputPath;
+                if (m_recordingTimer.isValid()) {
+                    m_recordingTimer.start();
+                }
+                if (m_updateTimer) {
+                    m_updateTimer->start();
+                }
+                if (m_recordingProgress) {
+                    m_recordingProgress->setVisible(true);
+                }
+                if (m_statusLabel) {
+                    m_statusLabel->setText(tr("Status: Recording to %1").arg(QFileInfo(outputPath).fileName()));
+                }
+                updateControlStates();
+            }
+        });
     }
 }
 
 void RecordingSettingsDialog::onStopRecording()
 {
-    if (!m_ffmpegBackend || !m_isRecording) {
+    MultimediaBackendHandler* backend = getActiveBackend();
+    qDebug() << "RecordingSettingsDialog::onStopRecording() - backend:" << backend 
+             << "isRecording:" << m_isRecording;
+    
+    if (!backend) {
+        qWarning() << "No backend available for stopping recording";
         return;
     }
     
-    m_ffmpegBackend->stopRecording();
+    if (!m_isRecording) {
+        qWarning() << "Not currently recording, cannot stop";
+        return;
+    }
+    
+    qDebug() << "Calling backend->stopRecording() on" << backend->getBackendName();
+    
+    // Add a try-catch to prevent crashes
+    try {
+        backend->stopRecording();
+        qDebug() << "stopRecording() call completed";
+        
+        // As a fallback, if the signal doesn't come through, manually update state after a delay
+        QTimer::singleShot(200, this, [this, backend]() {
+            if (this && m_isRecording && backend && !backend->isRecording()) {
+                qDebug() << "Recording stopped but signal didn't arrive, manually updating UI";
+                m_isRecording = false;
+                m_isPaused = false;
+                if (m_updateTimer) {
+                    m_updateTimer->stop();
+                }
+                if (m_recordingProgress) {
+                    m_recordingProgress->setVisible(false);
+                }
+                if (m_statusLabel) {
+                    m_statusLabel->setText(tr("Status: Recording stopped"));
+                }
+                updateControlStates();
+            }
+        });
+        
+    } catch (const std::exception& e) {
+        qCritical() << "Exception in stopRecording():" << e.what();
+        // Manually update UI state if backend crashes
+        m_isRecording = false;
+        m_isPaused = false;
+        m_updateTimer->stop();
+        m_recordingProgress->setVisible(false);
+        m_statusLabel->setText(tr("Status: Recording stopped (with error)"));
+        updateControlStates();
+    } catch (...) {
+        qCritical() << "Unknown exception in stopRecording()";
+        // Manually update UI state if backend crashes
+        m_isRecording = false;
+        m_isPaused = false;
+        m_updateTimer->stop();
+        m_recordingProgress->setVisible(false);
+        m_statusLabel->setText(tr("Status: Recording stopped (with error)"));
+        updateControlStates();
+    }
 }
 
 void RecordingSettingsDialog::onPauseRecording()
 {
-    if (!m_ffmpegBackend || !m_isRecording || m_isPaused) {
+    MultimediaBackendHandler* backend = getActiveBackend();
+    if (!backend || !m_isRecording || m_isPaused) {
         return;
     }
     
-    m_ffmpegBackend->pauseRecording();
+    backend->pauseRecording();
 }
 
 void RecordingSettingsDialog::onResumeRecording()
 {
-    if (!m_ffmpegBackend || !m_isRecording || !m_isPaused) {
+    MultimediaBackendHandler* backend = getActiveBackend();
+    if (!backend || !m_isRecording || !m_isPaused) {
         return;
     }
     
-    m_ffmpegBackend->resumeRecording();
+    backend->resumeRecording();
 }
 
 void RecordingSettingsDialog::onBrowseOutputPath()
@@ -381,20 +535,27 @@ void RecordingSettingsDialog::onBrowseOutputPath()
 
 void RecordingSettingsDialog::onApplySettings()
 {
-    if (!m_ffmpegBackend) {
-        QMessageBox::warning(this, tr("Warning"), tr("No FFmpeg backend available!"));
+    MultimediaBackendHandler* backend = getActiveBackend();
+    if (!backend) {
+        QMessageBox::warning(this, tr("Warning"), tr("No video backend available!"));
         return;
     }
     
-    FFmpegBackendHandler::RecordingConfig config;
-    config.outputPath = m_outputPathEdit->text();
-    config.format = m_formatCombo->currentText();
-    config.videoCodec = m_videoCodecCombo->currentText();
-    config.videoBitrate = m_videoBitrateSpin->value() * 1000; // Convert to bps
-    config.videoQuality = 23; // Use default CRF value
-    config.useHardwareAcceleration = false; // Default to false for compatibility
+    // For FFmpeg backend, use the specific configuration
+    if (m_ffmpegBackend && backend == m_ffmpegBackend) {
+        FFmpegBackendHandler::RecordingConfig config;
+        config.outputPath = m_outputPathEdit->text();
+        config.format = m_formatCombo->currentText();
+        config.videoCodec = m_videoCodecCombo->currentText();
+        config.videoBitrate = m_videoBitrateSpin->value() * 1000; // Convert to bps
+        config.videoQuality = 23; // Use default CRF value
+        config.useHardwareAcceleration = false; // Default to false for compatibility
+        
+        m_ffmpegBackend->setRecordingConfig(config);
+    }
+    // For GStreamer backend, we'll handle the config in the backend itself
+    // since GStreamer doesn't need the same config structure
     
-    m_ffmpegBackend->setRecordingConfig(config);
     saveSettings();
     
     m_statusLabel->setText(tr("Status: Settings applied"));
@@ -412,6 +573,7 @@ void RecordingSettingsDialog::onResetToDefaults()
 
 void RecordingSettingsDialog::onRecordingStarted(const QString& outputPath)
 {
+    qDebug() << "RecordingSettingsDialog::onRecordingStarted() called with path:" << outputPath;
     m_isRecording = true;
     m_isPaused = false;
     m_currentOutputPath = outputPath;
@@ -421,18 +583,52 @@ void RecordingSettingsDialog::onRecordingStarted(const QString& outputPath)
     
     m_statusLabel->setText(tr("Status: Recording to %1").arg(QFileInfo(outputPath).fileName()));
     updateControlStates();
+    qDebug() << "After updateControlStates: m_isRecording=" << m_isRecording 
+             << "stopButton enabled=" << m_stopButton->isEnabled();
 }
 
 void RecordingSettingsDialog::onRecordingStopped()
 {
+    qDebug() << "RecordingSettingsDialog::onRecordingStopped() called";
+    
+    // Add safety checks
+    if (m_updateTimer) {
+        m_updateTimer->stop();
+    }
+    
     m_isRecording = false;
     m_isPaused = false;
-    m_updateTimer->stop();
-    m_recordingProgress->setVisible(false);
     
-    m_statusLabel->setText(tr("Status: Recording stopped. File saved to %1").arg(QFileInfo(m_currentOutputPath).fileName()));
-    m_durationLabel->setText(tr("Duration: %1").arg(formatDuration(m_recordingTimer.elapsed())));
+    if (m_recordingProgress) {
+        m_recordingProgress->setVisible(false);
+    }
+    
+    // Safe handling of file path display
+    QString fileName = "unknown file";
+    if (!m_currentOutputPath.isEmpty()) {
+        QFileInfo fileInfo(m_currentOutputPath);
+        if (fileInfo.exists()) {
+            fileName = fileInfo.fileName();
+        } else {
+            fileName = QFileInfo(m_currentOutputPath).fileName();
+        }
+    }
+    
+    if (m_statusLabel) {
+        m_statusLabel->setText(tr("Status: Recording stopped. File saved to %1").arg(fileName));
+    }
+    
+    // Safe handling of duration display
+    if (m_durationLabel) {
+        qint64 duration = 0;
+        if (m_recordingTimer.isValid()) {
+            duration = m_recordingTimer.elapsed();
+        }
+        m_durationLabel->setText(tr("Duration: %1").arg(formatDuration(duration)));
+    }
+    
     updateControlStates();
+    qDebug() << "onRecordingStopped() completed successfully";
 }
 
 void RecordingSettingsDialog::onRecordingPaused()
@@ -470,10 +666,13 @@ void RecordingSettingsDialog::onRecordingDurationChanged(qint64 duration)
 
 void RecordingSettingsDialog::updateRecordingInfo()
 {
-    if (m_isRecording && m_ffmpegBackend) {
-        qint64 duration = m_ffmpegBackend->getRecordingDuration();
-        if (duration > 0) {
-            m_durationLabel->setText(tr("Duration: %1").arg(formatDuration(duration)));
+    if (m_isRecording) {
+        MultimediaBackendHandler* backend = getActiveBackend();
+        if (backend) {
+            qint64 duration = backend->getRecordingDuration();
+            if (duration > 0) {
+                m_durationLabel->setText(tr("Duration: %1").arg(formatDuration(duration)));
+            }
         }
     }
 }
@@ -576,4 +775,17 @@ void RecordingSettingsDialog::showDialog()
         raise();
         activateWindow();
     }
+}
+
+MultimediaBackendHandler* RecordingSettingsDialog::getActiveBackend() const
+{
+    // Prefer the generic backend handler if available, otherwise fall back to FFmpeg backend
+    MultimediaBackendHandler* result = m_backendHandler ? m_backendHandler : m_ffmpegBackend;
+    qDebug() << "getActiveBackend() returning:" << result 
+             << "backendHandler:" << m_backendHandler 
+             << "ffmpegBackend:" << m_ffmpegBackend;
+    if (result) {
+        qDebug() << "Active backend type:" << result->getBackendName();
+    }
+    return result;
 }

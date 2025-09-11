@@ -86,6 +86,28 @@ public:
     // Pipeline string generation
     QString generatePipelineString(const QString& device, const QSize& resolution, int framerate) const;
 
+    // Video recording methods
+    bool startRecording(const QString& outputPath, const QString& format = "mp4", int videoBitrate = 2000000) override;
+    void stopRecording() override;
+    void pauseRecording() override;
+    void resumeRecording() override;
+    bool isRecording() const override;
+    QString getCurrentRecordingPath() const override;
+    qint64 getRecordingDuration() const override;
+    
+    // Recording configuration
+    struct RecordingConfig {
+        QString outputPath;
+        QString format = "mp4";          // mp4, avi, mov, mkv
+        QString videoCodec = "x264enc";  // x264enc, x265enc, vp8enc, vp9enc
+        int videoBitrate = 2000000;      // 2 Mbps default
+        int videoQuality = 23;           // Quality setting
+        bool useHardwareAcceleration = false;
+    };
+    
+    void setRecordingConfig(const RecordingConfig& config);
+    RecordingConfig getRecordingConfig() const;
+
 private slots:
     void onPipelineMessage();
     void checkPipelineHealth();
@@ -96,6 +118,11 @@ private:
     GstElement* m_source;
     GstElement* m_sink;
     GstBus* m_bus;
+    
+    // Recording pipeline components
+    GstElement* m_recordingPipeline;
+    GstElement* m_recordingTee;
+    GstElement* m_recordingSink;
     
     // Qt integration
     QWidget* m_videoWidget;
@@ -109,12 +136,28 @@ private:
     QSize m_currentResolution;
     int m_currentFramerate;
     
+    // Recording state
+    bool m_recordingActive;
+    bool m_recordingPaused;
+    QString m_recordingOutputPath;
+    RecordingConfig m_recordingConfig;
+    qint64 m_recordingStartTime;
+    qint64 m_recordingPausedTime;
+    qint64 m_totalPausedDuration;
+    
     // Helper methods
     bool initializeGStreamer();
     void cleanupGStreamer();
     bool embedVideoInWidget(QWidget* widget);
     bool embedVideoInGraphicsView(QGraphicsView* view);
     void handleGStreamerMessage(GstMessage* message);
+    
+    // Recording helper methods
+    bool createRecordingPipeline(const QString& outputPath, const QString& format, int videoBitrate);
+    bool startRecordingPipeline();
+    void stopRecordingPipeline();
+    void cleanupRecordingPipeline();
+    QString generateRecordingPipelineString(const QString& outputPath, const QString& format, int videoBitrate) const;
 };
 
 #endif // GSTREAMERBACKENDHANDLER_H

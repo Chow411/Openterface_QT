@@ -49,6 +49,11 @@ QAtomicInteger<int> g_applicationShuttingDown(0);
 #include <QFile>
 #include <QTextStream>
 
+#if defined(QT_STATICPLUGIN)
+#include <QtPlugin>
+Q_IMPORT_PLUGIN(QXcbIntegrationPlugin)
+#endif
+
 
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {

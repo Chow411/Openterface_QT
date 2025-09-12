@@ -67,7 +67,7 @@ void GlobalSetting::setLogSettings(bool core, bool serial, bool ui, bool hostLay
     m_settings.setValue("log/ui", ui);
     m_settings.setValue("log/hostLayout", hostLayout);
     m_settings.setValue("log/device", device);
-    m_settings.setValue("log/backend", true); // Default to false, can be changed later
+    m_settings.setValue("log/backend", true); // Enable backend logging for debugging
 }
 
 void GlobalSetting::loadLogSettings()
@@ -78,7 +78,7 @@ void GlobalSetting::loadLogSettings()
     logFilter += m_settings.value("log/host", false).toBool() ? "opf.host.*=true\n" : "opf.host.*=false\n";
     logFilter += m_settings.value("log/serial", false).toBool() ? "opf.core.serial=true\n" : "opf.core.serial=false\n";
     logFilter += m_settings.value("log/device", false).toBool() ? "opf.device.*=true\n" : "opf.device.*=false\n";
-    logFilter += m_settings.value("log/backend", false).toBool() ? "opf.backend.*=true\n" : "opf.backend.*=false\n";
+    logFilter += m_settings.value("log/backend", true).toBool() ? "opf.backend.*=true\n" : "opf.backend.*=false\n";
     QLoggingCategory::setFilterRules(logFilter);
 }
 
@@ -116,12 +116,15 @@ void GlobalSetting::setGStreamerPipelineTemplate(const QString &pipelineTemplate
 }
 
 QString GlobalSetting::getGStreamerPipelineTemplate() const {
-    // Default GStreamer pipeline template with placeholders
-    QString defaultTemplate = "v4l2src device=%DEVICE% ! "
+    // Default GStreamer pipeline template with placeholders, tee, and valve for recording support
+    QString defaultTemplate = "v4l2src device=%DEVICE% do-timestamp=true ! "
                              "image/jpeg,width=%WIDTH%,height=%HEIGHT%,framerate=%FRAMERATE%/1 ! "
                              "jpegdec ! "
                              "videoconvert ! "
-                             "xvimagesink name=videosink";
+                             "identity sync=true ! "
+                             "tee name=t allow-not-linked=true "
+                             "t. ! queue max-size-buffers=2 leaky=downstream ! xvimagesink name=videosink sync=true "
+                             "t. ! valve name=recording-valve drop=true ! queue name=recording-queue ! identity name=recording-ready";
     return m_settings.value("video/gstreamerPipelineTemplate", defaultTemplate).toString();
 }
 

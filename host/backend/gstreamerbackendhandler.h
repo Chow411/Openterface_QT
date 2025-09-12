@@ -27,16 +27,21 @@
 #include <QProcess>
 #include <QWidget>
 #include <QTimer>
+#include <gst/gst.h>
+#include <gst/app/gstappsink.h>
 
 // Forward declarations for Qt types
 class QGraphicsVideoItem;
 class QGraphicsView;
 class VideoPane;
 
-// Forward declarations for GStreamer types
-typedef struct _GstElement GstElement;
-typedef struct _GstBus GstBus;
-typedef struct _GstMessage GstMessage;
+// Forward declarations for GStreamer types - now properly defined via includes above
+// typedef struct _GstElement GstElement;
+// typedef struct _GstBus GstBus;
+// typedef struct _GstMessage GstMessage;
+// typedef struct _GstPad GstPad;
+// typedef struct _GstAppSink GstAppSink;
+// typedef enum _GstFlowReturn GstFlowReturn;
 
 /**
  * @brief GStreamer backend handler implementation with direct pipeline support
@@ -111,6 +116,13 @@ public:
 private slots:
     void onPipelineMessage();
     void checkPipelineHealth();
+    
+    // Recording process signal handlers
+    void onRecordingProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
+    void onRecordingProcessError(QProcess::ProcessError error);
+    
+    // Frame capture for recording
+    void captureAndWriteFrame();
 
 private:
     // GStreamer pipeline components
@@ -122,7 +134,15 @@ private:
     // Recording pipeline components
     GstElement* m_recordingPipeline;
     GstElement* m_recordingTee;
+    GstElement* m_recordingValve;    // Controls recording flow
     GstElement* m_recordingSink;
+    GstElement* m_recordingQueue;
+    GstElement* m_recordingEncoder;
+    GstElement* m_recordingVideoConvert;
+    GstElement* m_recordingMuxer;
+    GstElement* m_recordingFileSink;
+    GstElement* m_recordingAppSink;  // For frame capture
+    GstPad* m_recordingTeeSrcPad;
     
     // Qt integration
     QWidget* m_videoWidget;
@@ -144,6 +164,11 @@ private:
     qint64 m_recordingStartTime;
     qint64 m_recordingPausedTime;
     qint64 m_totalPausedDuration;
+    int m_recordingFrameNumber;
+    
+    // Frame-based recording using external process
+    QProcess* m_recordingProcess;
+    QTimer* m_frameCaptureTimer;
     
     // Helper methods
     bool initializeGStreamer();
@@ -153,11 +178,18 @@ private:
     void handleGStreamerMessage(GstMessage* message);
     
     // Recording helper methods
-    bool createRecordingPipeline(const QString& outputPath, const QString& format, int videoBitrate);
-    bool startRecordingPipeline();
-    void stopRecordingPipeline();
-    void cleanupRecordingPipeline();
-    QString generateRecordingPipelineString(const QString& outputPath, const QString& format, int videoBitrate) const;
+    bool initializeValveBasedRecording();
+    bool initializeFrameBasedRecording();
+    bool initializeDirectFilesinkRecording();
+    bool createRecordingBranch(const QString& outputPath, const QString& format, int videoBitrate);
+    bool createSeparateRecordingPipeline(const QString& outputPath, const QString& format, int videoBitrate);
+    void removeRecordingBranch();
+    QString generateRecordingElements(const QString& outputPath, const QString& format, int videoBitrate) const;
+    
+#ifdef HAVE_GSTREAMER
+    // GStreamer appsink callback for frame capture
+    GstFlowReturn onNewRecordingSample(GstAppSink* sink);
+#endif
 };
 
 #endif // GSTREAMERBACKENDHANDLER_H

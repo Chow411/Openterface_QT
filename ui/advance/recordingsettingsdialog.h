@@ -97,6 +97,8 @@ private:
     void setupOutputSettings();
     void connectSignals();
     void updateControlStates();
+    void updateBackendStatus();
+    void refreshUIForBackend();
     void loadSettings();
     void saveSettings();
     QString formatDuration(qint64 milliseconds);
@@ -116,6 +118,7 @@ private:
     QPushButton* m_resumeButton;
     QLabel* m_statusLabel;
     QLabel* m_durationLabel;
+    QLabel* m_backendLabel;  // Shows which backend is being used
     QProgressBar* m_recordingProgress;
     
     // Video settings

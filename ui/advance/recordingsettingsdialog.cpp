@@ -61,7 +61,9 @@ RecordingSettingsDialog::RecordingSettingsDialog(QWidget *parent)
     setupUI();
     connectSignals();
     loadSettings();
+    refreshUIForBackend();
     updateControlStates();
+    updateBackendStatus();
     
     // Update timer for recording info
     m_updateTimer->setInterval(100); // Update every 100ms
@@ -132,6 +134,7 @@ void RecordingSettingsDialog::setFFmpegBackend(FFmpegBackendHandler* backend)
         // Update current recording state
         m_isRecording = m_ffmpegBackend->isRecording();
         updateControlStates();
+        updateBackendStatus();
     }
     
     // Also set as general backend handler if no other backend is set
@@ -169,6 +172,7 @@ void RecordingSettingsDialog::setBackendHandler(MultimediaBackendHandler* backen
         // Update current recording state
         m_isRecording = m_backendHandler->isRecording();
         updateControlStates();
+        updateBackendStatus();
     }
 }
 
@@ -207,6 +211,10 @@ void RecordingSettingsDialog::setupRecordingControls()
     m_recordingGroup = new QGroupBox(tr("Recording Controls"));
     QGridLayout* layout = new QGridLayout(m_recordingGroup);
     
+    // Backend status label
+    m_backendLabel = new QLabel(tr("Backend: Detecting..."));
+    m_backendLabel->setStyleSheet("QLabel { color: #666; font-style: italic; }");
+    
     // Control buttons
     m_startButton = new QPushButton(tr("Start Recording"));
     m_stopButton = new QPushButton(tr("Stop Recording"));
@@ -221,13 +229,14 @@ void RecordingSettingsDialog::setupRecordingControls()
     m_recordingProgress->setVisible(false);
     
     // Layout
-    layout->addWidget(m_startButton, 0, 0);
-    layout->addWidget(m_stopButton, 0, 1);
-    layout->addWidget(m_pauseButton, 0, 2);
-    layout->addWidget(m_resumeButton, 0, 3);
-    layout->addWidget(m_statusLabel, 1, 0, 1, 4);
-    layout->addWidget(m_durationLabel, 2, 0, 1, 4);
-    layout->addWidget(m_recordingProgress, 3, 0, 1, 4);
+    layout->addWidget(m_backendLabel, 0, 0, 1, 4);
+    layout->addWidget(m_startButton, 1, 0);
+    layout->addWidget(m_stopButton, 1, 1);
+    layout->addWidget(m_pauseButton, 1, 2);
+    layout->addWidget(m_resumeButton, 1, 3);
+    layout->addWidget(m_statusLabel, 2, 0, 1, 4);
+    layout->addWidget(m_durationLabel, 3, 0, 1, 4);
+    layout->addWidget(m_recordingProgress, 4, 0, 1, 4);
     
     // Connect signals
     connect(m_startButton, &QPushButton::clicked, this, &RecordingSettingsDialog::onStartRecording);
@@ -246,7 +255,16 @@ void RecordingSettingsDialog::setupVideoSettings()
     // Video codec
     layout->addWidget(new QLabel(tr("Codec:")), row, 0);
     m_videoCodecCombo = new QComboBox();
-    m_videoCodecCombo->addItems({"mjpeg"}); // MJPEG encoder for AVI container creates playable video files
+    
+    // Add codecs based on configured backend
+    QString configuredBackend = GlobalSetting::instance().getMediaBackend();
+    if (configuredBackend.toLower() == "gstreamer") {
+        m_videoCodecCombo->addItems({"mjpeg", "x264enc", "x265enc"}); // GStreamer codec names
+        m_videoCodecCombo->setToolTip(tr("GStreamer codecs: mjpeg (fast), x264enc (good compression), x265enc (best compression)"));
+    } else {
+        m_videoCodecCombo->addItems({"mjpeg"}); // FFmpeg/default - MJPEG encoder for AVI container creates playable video files
+        m_videoCodecCombo->setToolTip(tr("FFmpeg codec: mjpeg (compatible with AVI format)"));
+    }
     layout->addWidget(m_videoCodecCombo, row++, 1);
     
     // Video quality preset
@@ -317,10 +335,16 @@ void RecordingSettingsDialog::setupOutputSettings()
     // Output format (create this first so generateDefaultOutputPath can use it)
     layout->addWidget(new QLabel(tr("Format:")), row, 0);
     m_formatCombo = new QComboBox();
-    // Only add formats that are available in the custom FFmpeg build
-    // Current build supports avi, mjpeg and rawvideo muxers
-    // AVI with MJPEG creates playable video files
-    m_formatCombo->addItems({"avi"});
+    
+    // Add formats based on configured backend
+    QString configuredBackend = GlobalSetting::instance().getMediaBackend();
+    if (configuredBackend.toLower() == "gstreamer") {
+        m_formatCombo->addItems({"avi", "mp4", "mkv"}); // GStreamer supports more formats
+        m_formatCombo->setToolTip(tr("GStreamer formats: AVI (compatible), MP4 (modern), MKV (flexible)"));
+    } else {
+        m_formatCombo->addItems({"avi"}); // FFmpeg build supports avi, mjpeg and rawvideo muxers - AVI with MJPEG creates playable video files
+        m_formatCombo->setToolTip(tr("FFmpeg format: AVI (most compatible with custom build)"));
+    }
     layout->addWidget(m_formatCombo, row++, 1);
     
     // Output path (now format combo is available)
@@ -690,6 +714,77 @@ void RecordingSettingsDialog::updateControlStates()
     m_outputGroup->setEnabled(settingsEnabled);
     m_applyButton->setEnabled(settingsEnabled);
     m_resetButton->setEnabled(settingsEnabled);
+}
+
+void RecordingSettingsDialog::updateBackendStatus()
+{
+    MultimediaBackendHandler* backend = getActiveBackend();
+    QString backendText;
+    
+    if (backend) {
+        QString backendName = backend->getBackendName();
+        QString configuredBackend = GlobalSetting::instance().getMediaBackend();
+        
+        // Show both the actual backend being used and what's configured in settings
+        if (backendName.toLower() == configuredBackend.toLower()) {
+            backendText = tr("Backend: %1").arg(backendName);
+        } else {
+            backendText = tr("Backend: %1 (configured: %2)").arg(backendName, configuredBackend);
+        }
+        
+        // Add color coding for different backends
+        if (backendName.toLower().contains("gstreamer")) {
+            m_backendLabel->setStyleSheet("QLabel { color: #006600; font-weight: bold; }");
+        } else if (backendName.toLower().contains("ffmpeg")) {
+            m_backendLabel->setStyleSheet("QLabel { color: #0066CC; font-weight: bold; }");
+        } else {
+            m_backendLabel->setStyleSheet("QLabel { color: #666; font-style: italic; }");
+        }
+    } else {
+        backendText = tr("Backend: None available");
+        m_backendLabel->setStyleSheet("QLabel { color: #CC0000; font-weight: bold; }");
+    }
+    
+    m_backendLabel->setText(backendText);
+}
+
+void RecordingSettingsDialog::refreshUIForBackend()
+{
+    // Update codec options based on the configured backend
+    QString configuredBackend = GlobalSetting::instance().getMediaBackend();
+    
+    // Update video codec options
+    m_videoCodecCombo->clear();
+    if (configuredBackend.toLower() == "gstreamer") {
+        m_videoCodecCombo->addItems({"mjpeg", "x264enc", "x265enc"}); 
+        m_videoCodecCombo->setToolTip(tr("GStreamer codecs: mjpeg (fast), x264enc (good compression), x265enc (best compression)"));
+    } else {
+        m_videoCodecCombo->addItems({"mjpeg"}); 
+        m_videoCodecCombo->setToolTip(tr("FFmpeg codec: mjpeg (compatible with AVI format)"));
+    }
+    
+    // Update format options
+    m_formatCombo->clear();
+    if (configuredBackend.toLower() == "gstreamer") {
+        m_formatCombo->addItems({"avi", "mp4", "mkv"}); 
+        m_formatCombo->setToolTip(tr("GStreamer formats: AVI (compatible), MP4 (modern), MKV (flexible)"));
+    } else {
+        m_formatCombo->addItems({"avi"}); 
+        m_formatCombo->setToolTip(tr("FFmpeg format: AVI (most compatible with custom build)"));
+    }
+    
+    // Restore previously selected values if they're still available
+    QString savedCodec = GlobalSetting::instance().getRecordingVideoCodec();
+    int codecIndex = m_videoCodecCombo->findText(savedCodec);
+    if (codecIndex >= 0) {
+        m_videoCodecCombo->setCurrentIndex(codecIndex);
+    }
+    
+    QString savedFormat = GlobalSetting::instance().getRecordingOutputFormat();
+    int formatIndex = m_formatCombo->findText(savedFormat);
+    if (formatIndex >= 0) {
+        m_formatCombo->setCurrentIndex(formatIndex);
+    }
 }
 
 void RecordingSettingsDialog::loadSettings()

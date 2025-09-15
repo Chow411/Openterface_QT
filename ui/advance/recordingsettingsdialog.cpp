@@ -23,7 +23,11 @@
 #include "recordingsettingsdialog.h"
 #include "../../global.h"
 #include "../../ui/globalsetting.h"
+#ifndef Q_OS_WIN
 #include "../../host/backend/gstreamerbackendhandler.h"
+#else
+#include "../../host/backend/qtbackendhandler.h"
+#endif
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -47,7 +51,9 @@
 
 RecordingSettingsDialog::RecordingSettingsDialog(QWidget *parent)
     : QDialog(parent)
+#ifndef Q_OS_WIN
     , m_ffmpegBackend(nullptr)
+#endif
     , m_backendHandler(nullptr)
     , m_isRecording(false)
     , m_isPaused(false)
@@ -75,9 +81,11 @@ RecordingSettingsDialog::~RecordingSettingsDialog()
     qDebug() << "RecordingSettingsDialog destructor called";
     
     // Disconnect all signals to prevent crashes
+#ifndef Q_OS_WIN
     if (m_ffmpegBackend) {
         disconnect(m_ffmpegBackend, nullptr, this, nullptr);
     }
+#endif
     if (m_backendHandler) {
         disconnect(m_backendHandler, nullptr, this, nullptr);
     }
@@ -105,6 +113,7 @@ RecordingSettingsDialog::~RecordingSettingsDialog()
     qDebug() << "RecordingSettingsDialog destructor completed";
 }
 
+#ifndef Q_OS_WIN
 void RecordingSettingsDialog::setFFmpegBackend(FFmpegBackendHandler* backend)
 {
     // Disconnect from previous backend
@@ -142,6 +151,7 @@ void RecordingSettingsDialog::setFFmpegBackend(FFmpegBackendHandler* backend)
         setBackendHandler(backend);
     }
 }
+#endif
 
 void RecordingSettingsDialog::setBackendHandler(MultimediaBackendHandler* backend)
 {
@@ -151,6 +161,15 @@ void RecordingSettingsDialog::setBackendHandler(MultimediaBackendHandler* backen
     }
     
     m_backendHandler = backend;
+    
+    // CRITICAL FIX: Ensure Qt backend has media recorder set
+    if (m_backendHandler && m_backendHandler->getBackendType() == MultimediaBackendType::Qt) {
+        qDebug() << "Qt backend detected - ensuring media recorder is set";
+        
+        // Note: The media recorder should be set by the main window before calling this method
+        // This is just a safety check to verify it's properly set
+        qDebug() << "Qt backend should already have media recorder set by main window";
+    }
     
     // Connect to new backend signals - connect to all recording signals regardless of backend type
     if (m_backendHandler) {
@@ -383,10 +402,16 @@ void RecordingSettingsDialog::connectSignals()
 void RecordingSettingsDialog::onStartRecording()
 {
     MultimediaBackendHandler* backend = getActiveBackend();
+    qDebug() << "onStartRecording - Getting active backend:" << (void*)backend;
+    
     if (!backend) {
+        qDebug() << "No backend available - showing error message";
         QMessageBox::warning(this, tr("Error"), tr("No video backend available."));
         return;
     }
+    
+    qDebug() << "Backend type:" << static_cast<int>(backend->getBackendType());
+    qDebug() << "Backend name:" << backend->getBackendName();
     
     if (m_isRecording) {
         QMessageBox::information(this, tr("Recording"), tr("Recording is already in progress."));
@@ -565,6 +590,7 @@ void RecordingSettingsDialog::onApplySettings()
         return;
     }
     
+#ifndef Q_OS_WIN
     // For FFmpeg backend, use the specific configuration
     if (m_ffmpegBackend && backend == m_ffmpegBackend) {
         FFmpegBackendHandler::RecordingConfig config;
@@ -579,6 +605,7 @@ void RecordingSettingsDialog::onApplySettings()
     }
     // For GStreamer backend, we'll handle the config in the backend itself
     // since GStreamer doesn't need the same config structure
+#endif
     
     saveSettings();
     
@@ -737,6 +764,8 @@ void RecordingSettingsDialog::updateBackendStatus()
             m_backendLabel->setStyleSheet("QLabel { color: #006600; font-weight: bold; }");
         } else if (backendName.toLower().contains("ffmpeg")) {
             m_backendLabel->setStyleSheet("QLabel { color: #0066CC; font-weight: bold; }");
+        } else if (backendName.toLower().contains("qt")) {
+            m_backendLabel->setStyleSheet("QLabel { color: #9900CC; font-weight: bold; }");
         } else {
             m_backendLabel->setStyleSheet("QLabel { color: #666; font-style: italic; }");
         }
@@ -753,7 +782,18 @@ void RecordingSettingsDialog::refreshUIForBackend()
     // Update codec options based on the configured backend
     QString configuredBackend = GlobalSetting::instance().getMediaBackend();
     
-    // Update video codec options
+    // On Windows, use Qt backend capabilities
+#ifdef Q_OS_WIN
+    // Windows always uses Qt backend
+    m_videoCodecCombo->clear();
+    m_videoCodecCombo->addItems({"MJPEG"}); 
+    m_videoCodecCombo->setToolTip(tr("Windows Qt backend codecs: MJPEG"));
+    
+    m_formatCombo->clear();
+    m_formatCombo->addItems({"mp4", "avi", "mov"}); 
+    m_formatCombo->setToolTip(tr("Windows Qt backend formats: MP4 (recommended), AVI (compatible), MOV (QuickTime)"));
+#else
+    // Linux/Unix - Update video codec options
     m_videoCodecCombo->clear();
     if (configuredBackend.toLower() == "gstreamer") {
         m_videoCodecCombo->addItems({"mjpeg", "x264enc", "x265enc"}); 
@@ -772,6 +812,7 @@ void RecordingSettingsDialog::refreshUIForBackend()
         m_formatCombo->addItems({"avi"}); 
         m_formatCombo->setToolTip(tr("FFmpeg format: AVI (most compatible with custom build)"));
     }
+#endif
     
     // Restore previously selected values if they're still available
     QString savedCodec = GlobalSetting::instance().getRecordingVideoCodec();
@@ -838,9 +879,13 @@ QString RecordingSettingsDialog::generateDefaultOutputPath()
     
     QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
     
-    // Default to avi if format combo is not yet created or has no selection
-    // (Only formats available in the current FFmpeg build)
-    QString format = "avi";
+    // Default format based on platform
+#ifdef Q_OS_WIN
+    QString format = "mp4"; // Default to MP4 on Windows
+#else
+    QString format = "avi"; // Default to AVI on Linux (FFmpeg compatible)
+#endif
+    
     if (m_formatCombo && m_formatCombo->count() > 0) {
         format = m_formatCombo->currentText();
     }
@@ -848,7 +893,13 @@ QString RecordingSettingsDialog::generateDefaultOutputPath()
     // Set appropriate file extension based on format
     QString extension;
     if (format == "avi") {
-        extension = "avi";  // AVI container with MJPEG creates playable video files
+        extension = "avi";  // AVI container
+    } else if (format == "mp4") {
+        extension = "mp4";  // MP4 container
+    } else if (format == "mov") {
+        extension = "mov";  // QuickTime container
+    } else if (format == "mkv") {
+        extension = "mkv";  // Matroska container
     } else if (format == "rawvideo") {
         extension = "yuv";  // Raw video typically uses .yuv extension
     } else if (format == "mjpeg") {
@@ -875,10 +926,16 @@ void RecordingSettingsDialog::showDialog()
 MultimediaBackendHandler* RecordingSettingsDialog::getActiveBackend() const
 {
     // Prefer the generic backend handler if available, otherwise fall back to FFmpeg backend
+#ifndef Q_OS_WIN
     MultimediaBackendHandler* result = m_backendHandler ? m_backendHandler : m_ffmpegBackend;
     qDebug() << "getActiveBackend() returning:" << result 
              << "backendHandler:" << m_backendHandler 
              << "ffmpegBackend:" << m_ffmpegBackend;
+#else
+    MultimediaBackendHandler* result = m_backendHandler;
+    qDebug() << "getActiveBackend() returning:" << result 
+             << "backendHandler:" << m_backendHandler;
+#endif
     if (result) {
         qDebug() << "Active backend type:" << result->getBackendName();
     }

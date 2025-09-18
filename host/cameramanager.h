@@ -19,6 +19,7 @@
 class GStreamerBackendHandler;
 class FFmpegBackendHandler;
 class QtBackendHandler;
+class FFmpegBackendHandler;
 class VideoPane;
 
 // Struct to represent a video format key, used for comparing and sorting video formats

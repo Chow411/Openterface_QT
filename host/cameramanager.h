@@ -18,6 +18,7 @@
 // Forward declarations
 class GStreamerBackendHandler;
 class FFmpegBackendHandler;
+class QtBackendHandler;
 class VideoPane;
 
 // Struct to represent a video format key, used for comparing and sorting video formats

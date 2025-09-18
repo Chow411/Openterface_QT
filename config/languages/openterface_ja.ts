@@ -752,40 +752,322 @@ Please try again after restarting the application.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1103"/>
+        <location filename="../../ui/mainwindow.cpp" line="1107"/>
         <source>Recorded %1 sec</source>
         <translation>%1秒録画しました</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1318"/>
+        <location filename="../../ui/mainwindow.cpp" line="1350"/>
         <source>Image Capture Error</source>
         <translation>画像キャプチャエラー</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="1479"/>
+        <location filename="../../ui/mainwindow.cpp" line="1511"/>
         <source>Captured &quot;%1&quot;</source>
         <translation>&quot;%1&quot;をキャプチャしました</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="2057"/>
+        <location filename="../../ui/mainwindow.cpp" line="2089"/>
         <source>Firmware Update</source>
         <translation>ファームウェア更新</translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="2058"/>
+        <location filename="../../ui/mainwindow.cpp" line="2090"/>
         <source>The firmware is up to date.
 Current version: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="2080"/>
+        <location filename="../../ui/mainwindow.cpp" line="2112"/>
         <source>Firmware fetch timeout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/mainwindow.cpp" line="2081"/>
+        <location filename="../../ui/mainwindow.cpp" line="2113"/>
         <source>Firmware retrieval timed out. Please check your network connection and try again.
 Current version: </source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>RecordingSettingsDialog</name>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="64"/>
+        <source>Video Recording Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="218"/>
+        <source>Apply Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="219"/>
+        <source>Reset to Defaults</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="220"/>
+        <source>Close</source>
+        <translation type="unfinished">閉じる</translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="232"/>
+        <source>Recording Controls</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="236"/>
+        <source>Backend: Detecting...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="240"/>
+        <source>Start Recording</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="241"/>
+        <source>Stop Recording</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="242"/>
+        <source>Pause</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="243"/>
+        <source>Resume</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="246"/>
+        <source>Status: Ready</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="247"/>
+        <source>Duration: 00:00:00</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="271"/>
+        <source>Video Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="277"/>
+        <source>Codec:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="284"/>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="771"/>
+        <source>GStreamer codecs: mjpeg (fast), x264enc (good compression), x265enc (best compression)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="287"/>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="774"/>
+        <source>FFmpeg codec: mjpeg (compatible with AVI format)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="292"/>
+        <source>Quality:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="294"/>
+        <source>Low</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="294"/>
+        <source>Medium</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="294"/>
+        <source>High</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="294"/>
+        <source>Ultra</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="294"/>
+        <source>Custom</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="298"/>
+        <source>Bitrate (kbps):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="320"/>
+        <source>Output Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="326"/>
+        <source>Format:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="333"/>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="781"/>
+        <source>GStreamer formats: AVI (compatible), MP4 (modern), MKV (flexible)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="336"/>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="784"/>
+        <source>FFmpeg format: AVI (most compatible with custom build)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="341"/>
+        <source>Output Path:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="345"/>
+        <source>Browse...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="380"/>
+        <source>Error</source>
+        <translation type="unfinished">エラー</translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="380"/>
+        <source>No video backend available.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="388"/>
+        <source>Recording</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="388"/>
+        <source>Recording is already in progress.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="419"/>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="680"/>
+        <source>Recording Error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="420"/>
+        <source>Failed to start recording. Please check the settings and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="446"/>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="606"/>
+        <source>Status: Recording to %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="490"/>
+        <source>Status: Recording stopped</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="503"/>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="512"/>
+        <source>Status: Recording stopped (with error)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="546"/>
+        <source>Save Recording As</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="548"/>
+        <source>Video Files (*.mp4 *.avi *.mov *.mkv *.webm);;All Files (*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="560"/>
+        <source>Warning</source>
+        <translation type="unfinished">警告</translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="560"/>
+        <source>No video backend available!</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="583"/>
+        <source>Status: Settings applied</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="640"/>
+        <source>Status: Recording stopped. File saved to %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="649"/>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="686"/>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="696"/>
+        <source>Duration: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="659"/>
+        <source>Status: Recording paused</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="666"/>
+        <source>Status: Recording resumed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="677"/>
+        <source>Status: Recording error - %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="681"/>
+        <source>Recording failed: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="728"/>
+        <source>Backend: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="730"/>
+        <source>Backend: %1 (configured: %2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="744"/>
+        <source>Backend: None available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="761"/>
+        <source>Windows Qt backend codecs: MJPEG</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/advance/recordingsettingsdialog.cpp" line="765"/>
+        <source>Windows Qt backend formats: MP4 (recommended), AVI (compatible), MOV (QuickTime)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

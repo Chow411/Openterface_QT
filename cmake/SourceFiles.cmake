@@ -31,6 +31,7 @@ set(HOST_SOURCES
     host/backend/ffmpegbackendhandler.cpp host/backend/ffmpegbackendhandler.h
     host/backend/gstreamerbackendhandler.cpp host/backend/gstreamerbackendhandler.h
     host/backend/qtmultimediabackendhandler.cpp host/backend/qtmultimediabackendhandler.h
+    host/backend/qtbackendhandler.cpp host/backend/qtbackendhandler.h
 )
 
 # Regex sources

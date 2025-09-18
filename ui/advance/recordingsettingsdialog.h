@@ -38,11 +38,16 @@
 #include <QProgressBar>
 #include <QTimer>
 #include <QElapsedTimer>
+#ifndef Q_OS_WIN
 #include "../../host/backend/ffmpegbackendhandler.h"
+#endif
 #include "../../host/multimediabackend.h"
 
-// Forward declaration for GStreamer backend
+// Forward declarations for platform-specific backends
+#ifndef Q_OS_WIN
+class FFmpegBackendHandler;
 class GStreamerBackendHandler;
+#endif
 
 QT_BEGIN_NAMESPACE
 class QComboBox;
@@ -64,7 +69,9 @@ public:
     explicit RecordingSettingsDialog(QWidget *parent = nullptr);
     ~RecordingSettingsDialog();
 
+#ifndef Q_OS_WIN
     void setFFmpegBackend(FFmpegBackendHandler* backend);
+#endif
     void setBackendHandler(MultimediaBackendHandler* backend);
 
 public slots:
@@ -107,7 +114,9 @@ private:
 
 private:
     // Backend
+#ifndef Q_OS_WIN
     FFmpegBackendHandler* m_ffmpegBackend;
+#endif
     MultimediaBackendHandler* m_backendHandler;
     
     // Recording controls

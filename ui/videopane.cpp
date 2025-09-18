@@ -540,11 +540,11 @@ QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
     // Debug output only when coordinates are significantly different
     QPoint result(transformedX, transformedY);
     if ((result - viewportPos).manhattanLength() > 5) {
-        qDebug() << "VideoPane: Transformed mouse pos from" << viewportPos 
-                 << "to" << result
-                 << "via scene:" << scenePos << "item:" << itemPos 
-                 << "normalized:" << normalizedX << normalizedY
-                 << "mode: FFmpeg=" << m_directFFmpegMode << "pixmap visible=" << (m_pixmapItem ? m_pixmapItem->isVisible() : false);
+        // qDebug() << "VideoPane: Transformed mouse pos from" << viewportPos 
+        //          << "to" << result
+        //          << "via scene:" << scenePos << "item:" << itemPos 
+        //          << "normalized:" << normalizedX << normalizedY
+        //          << "mode: FFmpeg=" << m_directFFmpegMode << "pixmap visible=" << (m_pixmapItem ? m_pixmapItem->isVisible() : false);
     }
     
     return result;

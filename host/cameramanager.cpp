@@ -1240,6 +1240,30 @@ bool CameraManager::isPaused() const
 // Helper method to generate a file path for recording
 QString CameraManager::generateRecordingFilePath() const
 {
+    // First check if we have a path stored in GlobalSettings
+    QString configuredPath = GlobalSetting::instance().getRecordingOutputPath();
+    
+    if (!configuredPath.isEmpty()) {
+        qCDebug(log_ui_camera) << "Using configured recording path from settings:" << configuredPath;
+        
+        // Extract just the directory part and ensure it exists
+        QFileInfo fileInfo(configuredPath);
+        QString outputDir = fileInfo.dir().absolutePath();
+        
+        if (!QDir(outputDir).exists()) {
+            QDir().mkpath(outputDir);
+        }
+        
+        // Use the configured directory but with a timestamp for the filename to avoid overwriting
+        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
+        QString extension = fileInfo.suffix().isEmpty() ? "mp4" : fileInfo.suffix();
+        QString filePath = QString("%1/openterface_recording_%2.%3").arg(outputDir).arg(timestamp).arg(extension);
+        
+        qCDebug(log_ui_camera) << "Generated recording file path from configured directory:" << filePath;
+        return filePath;
+    }
+    
+    // If no path is configured, use the default behavior
     // Try multiple locations in order of preference
     QStringList potentialLocations = {
         QStandardPaths::writableLocation(QStandardPaths::MoviesLocation),

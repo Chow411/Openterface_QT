@@ -493,10 +493,16 @@ void MainWindow::updateRecordTime()
 void MainWindow::processCapturedImage(int requestId, const QImage &img)
 {
     Q_UNUSED(requestId);
-    QImage scaledImage =
-            img.scaled(ui->centralwidget->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-
-   // ui->lastImagePreviewLabel->setPixmap(QPixmap::fromImage(scaledImage));
+    
+    if (img.isNull() || img.size().isEmpty()) {
+        qCWarning(log_ui_mainwindow) << "Received invalid image for processing";
+        return;
+    }
+    
+    // Skip scaling for now to avoid potential crashes
+    // QImage scaledImage = img.scaled(widgetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    
+    // ui->lastImagePreviewLabel->setPixmap(QPixmap::fromImage(scaledImage));
 
     // Display captured image for 4 seconds.
     displayCapturedImage();

@@ -662,8 +662,8 @@ void CameraManager::onImageCaptured(int id, const QImage& img){
     }
     
     QDir dir(customFolderPath);
-    if (!dir.exists() && filePath=="") {
-        qCDebug(log_ui_camera) << "Directory do not exist";
+    if (!dir.exists()) {
+        qCDebug(log_ui_camera) << "Directory does not exist, creating:" << customFolderPath;
         if (!dir.mkpath(".")) {
             qCDebug(log_ui_camera) << "Failed to create directory: " << customFolderPath;
             return;
@@ -672,14 +672,19 @@ void CameraManager::onImageCaptured(int id, const QImage& img){
     
     QString saveName = customFolderPath + "/" + timestamp + ".png";
 
-    QImage coayImage = img.copy(copyRect);
-    if(coayImage.save(saveName)){
+    QRect rect = copyRect.isValid() ? copyRect : img.rect();
+    QImage copyImage = img.copy(rect);
+    if(copyImage.save(saveName)){
         qCDebug(log_ui_camera) << "succefully save img to : " << saveName;
         emit lastImagePath(saveName);
     }else{
         qCDebug(log_ui_camera) << "fail save img to : " << saveName;
     }
     copyRect = QRect(0, 0, m_video_width, m_video_height);
+    
+    // Emit signal for UI display - create a copy to avoid reference issues
+    QImage displayImage = img.copy();
+    emit imageCaptured(id, displayImage);
 }
 
 void CameraManager::takeImage(const QString& file)
@@ -1592,7 +1597,7 @@ void CameraManager::setupConnections()
             // Disconnect any existing connections first
             disconnect(m_imageCapture.get(), nullptr, this, nullptr);
             
-            connect(m_imageCapture.get(), &QImageCapture::imageCaptured, this, &CameraManager::imageCaptured);
+            connect(m_imageCapture.get(), &QImageCapture::imageCaptured, this, &CameraManager::onImageCaptured);
         } else {
             qCWarning(log_ui_camera) << "Image capture is null";
         }

@@ -9,6 +9,7 @@
 // Include only Qt backend for Windows
 #include "host/backend/qtbackendhandler.h"
 #endif
+#include "host/backend/qtmultimediabackendhandler.h"
 
 #include "ui/videopane.h"
 
@@ -939,14 +940,14 @@ void CameraManager::startRecording()
     }
 #else
     // Linux/macOS: Use both QMediaRecorder and FFmpeg backend if available
-    bool recordingStarted = false;
+    bool recordingSuccess = false;
     
     // If we have FFmpeg backend, use it as primary
     if (FFmpegBackendHandler* ffmpeg = getFFmpegBackend()) {
         bool success = ffmpeg->startRecording(outputPath);
         if (success) {
             qCDebug(log_ui_camera) << "Started recording via FFmpegBackendHandler";
-            recordingStarted = true;
+            recordingSuccess = true;
         } else {
             qCWarning(log_ui_camera) << "Failed to start recording via FFmpegBackendHandler";
         }
@@ -971,14 +972,14 @@ void CameraManager::startRecording()
         
         if (m_mediaRecorder->recorderState() == QMediaRecorder::RecordingState) {
             qCDebug(log_ui_camera) << "Started recording via QMediaRecorder on non-Windows platform";
-            recordingStarted = true;
+            recordingSuccess = true;
         } else {
             qCWarning(log_ui_camera) << "Failed to start recording via QMediaRecorder";
             qCWarning(log_ui_camera) << "Media recorder error:" << m_mediaRecorder->errorString();
         }
     }
     
-    if (recordingStarted) {
+    if (recordingSuccess) {
         emit recordingStarted();
     } else {
         qCWarning(log_ui_camera) << "Failed to start recording with any available backend";

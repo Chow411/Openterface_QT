@@ -5,10 +5,9 @@
 // Include FFmpeg and GStreamer backends for non-Windows platforms
 #include "host/backend/ffmpegbackendhandler.h"
 #include "host/backend/gstreamerbackendhandler.h"
-#else
-// Include only Qt backend for Windows
-#include "host/backend/qtbackendhandler.h"
 #endif
+// Include Qt backend for all platforms
+#include "host/backend/qtbackendhandler.h"
 #include "host/backend/qtmultimediabackendhandler.h"
 
 #include "ui/videopane.h"

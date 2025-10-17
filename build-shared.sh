@@ -2,47 +2,31 @@
 # Openterface QT Shared Build Script
 # Uses Docker image with static Qt6 build
 
-set -e
+#!/bin/bash
+DOCKER_BUILDENV_IMAGE=ghcr.io/techxartisanstudio/static-qtbuild-complete
+sudo rm -rf $(pwd)/build
+echo "Start to build by docker now.."
+echo "Build envioronment image: $DOCKER_BUILDENV_IMAGE"
 
-# Configuration
-DOCKER_IMAGE="ghcr.io/techxartisanstudio/static-qtbuild-complete:ubuntu-22.04-amd64"
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="${PROJECT_DIR}/build"
-
-echo "=== Openterface QT Static Build Script ==="
-echo "Project directory: ${PROJECT_DIR}"
-echo "Build directory: ${BUILD_DIR}"
-echo "Docker image: ${DOCKER_IMAGE}"
-echo
-
-# Pull the Docker image
-echo "Pulling Docker image..."
-docker pull "${DOCKER_IMAGE}"
-echo
-
-# Clean build directory
-echo "Cleaning build directory..."
-sudo rm -rf "${BUILD_DIR}"
-mkdir -p "${BUILD_DIR}"
-echo
-
-# Run cmake inside Docker
-echo "Running cmake..."
+export OPENTERFACE_BUILD_STATIC=OFF
 docker run --rm \
-    -v "${PROJECT_DIR}:/workspace/src" \
-    -w "/workspace/src/build" \
-    "${DOCKER_IMAGE}" \
-    bash -c 'cmake -DCMAKE_PREFIX_PATH=/opt/Qt6 -DBUILD_SHARED_LIBS=ON -DOPENTERFACE_BUILD_STATIC=OFF ..'
-echo
+  --env OPENTERFACE_BUILD_STATIC \
+  -v "$(pwd)":/workspace/src \
+  -v "$(pwd)/build":/workspace/build \
+  # -v "$(pwd)/build-script/docker-translation.sh":/workspace/docker-translation.sh \
+  -w /workspace/src \
+  "$DOCKER_BUILDENV_IMAGE" \
+  bash /workspace/docker-translation.sh
+  
+docker run --rm --network host \
+	--env OPENTERFACE_BUILD_STATIC=OFF \
+    --env USE_GSTREAMER_STATIC_PLUGINS=OFF \
+    --env http_proxy=http://127.0.0.1:8118 \
+    --env https_proxy=http://127.0.0.1:8118 \
+    -v "$(pwd)":/workspace/src \
+    -v "$(pwd)/build":/workspace/build \
+    -v "$(pwd)/build-script/docker-build-shared.sh":/workspace/docker-build-shared.sh \
+    -w /workspace/src \
+  	"$DOCKER_BUILDENV_IMAGE" \
+ 	bash /workspace/docker-build-shared.sh
 
-# Run make inside Docker
-echo "Running make..."
-docker run --rm \
-    -v "${PROJECT_DIR}:/workspace/src" \
-    -w "/workspace/src/build" \
-    "${DOCKER_IMAGE}" \
-    bash -c 'make -j$(nproc)'
-echo
-
-echo "Build completed successfully!"
-echo "Binary location: ${BUILD_DIR}/openterfaceQT"

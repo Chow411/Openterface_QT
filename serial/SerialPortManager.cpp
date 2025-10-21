@@ -431,6 +431,44 @@ void SerialPortManager::onSerialPortConnected(const QString &portName){
         return; // Exit if retry also fails
     }
 
+    // Check if this is a 1A86:FE0C device BEFORE sending any commands
+    // Use DeviceManager to get the current selected device instead of searching all ports
+    bool is1A86FE0CDevice = false;
+    DeviceManager& deviceManager = DeviceManager::getInstance();
+    DeviceInfo currentDevice = deviceManager.getCurrentSelectedDevice();
+    
+    // Get port info only for the specific port being connected
+    QSerialPortInfo portInfo(portName);
+    if (portInfo.hasVendorIdentifier() && portInfo.hasProductIdentifier()) {
+        QString vid = QString("%1").arg(portInfo.vendorIdentifier(), 4, 16, QChar('0')).toUpper();
+        QString pid = QString("%1").arg(portInfo.productIdentifier(), 4, 16, QChar('0')).toUpper();
+        
+        qCDebug(log_core_serial) << "Detected device VID:PID" << vid << ":" << pid << "on port" << portName;
+        
+        if (vid == "1A86" && pid == "FE0C") {
+            is1A86FE0CDevice = true;
+            QString portChainInfo = currentDevice.isValid() ? currentDevice.portChain : "unknown";
+            qCDebug(log_core_serial) << "Detected 1A86:FE0C device on port chain" << portChainInfo 
+                                    << ", skipping CMD_GET_PARA_CFG and using 115200 baudrate";
+        }
+    }
+
+    // For 1A86:FE0C devices, skip CMD_GET_PARA_CFG and directly use 115200 baudrate
+    if (is1A86FE0CDevice) {
+        int targetBaudrate = BAUDRATE_HIGHSPEED; // 115200
+        if (serialPort->baudRate() != targetBaudrate) {
+            qCDebug(log_core_serial) << "Setting baudrate to 115200 for 1A86:FE0C device";
+            closePort();
+            openPort(portName, targetBaudrate);
+        }
+        ready = true;
+        GlobalSetting::instance().setSerialPortBaudrate(targetBaudrate);
+        checkArmBaudratePerformance(targetBaudrate);
+        qCDebug(log_core_serial) << "1A86:FE0C device connected successfully with baudrate: 115200";
+        emit serialPortConnectionSuccess(portName);
+        return;
+    }
+
     // send a command to get the parameter configuration with initial baudrate
     QByteArray retBtye = sendSyncCommand(CMD_GET_PARA_CFG, true);
     CmdDataParamConfig config;

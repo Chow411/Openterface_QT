@@ -17,11 +17,13 @@ CornerWidgetManager::CornerWidgetManager(QWidget *parent)
       pasteButton(nullptr),
       screensaverButton(nullptr),
       recordingButton(nullptr),
+      muteButton(nullptr),
       toggleSwitch(new ToggleSwitch(cornerWidget)),
       horizontalLayout(new QHBoxLayout()),
       menuBar(nullptr),
       layoutThreshold(800),
-      isRecording(false)
+      isRecording(false),
+      isMuted(false)
 {
     createWidgets();
     setupConnections();
@@ -73,7 +75,8 @@ void CornerWidgetManager::createWidgets()
         {&fullScreenButton, "fullScreenButton", ":/images/full_screen.svg", "Full screen mode"},
         {&pasteButton, "pasteButton", ":/images/paste.svg", "Paste text to target"},
         {&screensaverButton, "screensaverButton", ":/images/screensaver.svg", "Mouse dance"},
-        {&recordingButton, "recordingButton", ":/images/startRecord.svg", "Start/Stop Recording"}
+        {&recordingButton, "recordingButton", ":/images/startRecord.svg", "Start/Stop Recording"},
+        {&muteButton, "muteButton", ":/images/audio.svg", "Mute/Unmute Audio"}
     };
 
     for (const auto& btn : buttons) {
@@ -98,6 +101,7 @@ void CornerWidgetManager::createWidgets()
     horizontalLayout->addWidget(pasteButton);
     horizontalLayout->addWidget(screensaverButton);
     horizontalLayout->addWidget(recordingButton);
+    horizontalLayout->addWidget(muteButton);
     horizontalLayout->addWidget(toggleSwitch);
 }
 
@@ -130,6 +134,14 @@ void CornerWidgetManager::setupConnections()
         recordingButton->setToolTip(isRecording ? tr("Stop Recording") : tr("Start Recording"));
         emit recordingToggled();
     });
+    
+    // Connect mute button click to toggle mute state and emit signal
+    connect(muteButton, &QPushButton::clicked, this, [this]() {
+        isMuted = !isMuted;
+        setButtonIcon(muteButton, isMuted ? ":/images/mute.svg" : ":/images/audio.svg");
+        muteButton->setToolTip(isMuted ? tr("Unmute Audio") : tr("Mute Audio"));
+        emit muteToggled();
+    });
 }
 
 void CornerWidgetManager::initializeKeyboardLayouts(const QStringList &layouts, const QString &defaultLayout)
@@ -140,6 +152,15 @@ void CornerWidgetManager::initializeKeyboardLayouts(const QStringList &layouts, 
         keyboardLayoutComboBox->setCurrentText(defaultLayout);
     } else if (!layouts.isEmpty()) {
         keyboardLayoutComboBox->setCurrentText(layouts.first());
+    }
+}
+
+void CornerWidgetManager::restoreMuteState(bool muted)
+{
+    isMuted = muted;
+    if (muteButton) {
+        setButtonIcon(muteButton, isMuted ? ":/images/mute.svg" : ":/images/audio.svg");
+        muteButton->setToolTip(isMuted ? tr("Unmute Audio") : tr("Mute Audio"));
     }
 }
 

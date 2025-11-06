@@ -1395,6 +1395,140 @@ void SerialPortManager::restartSwitchableUSB(){
 }
 
 /*
+ * Switch USB to host via serial command (new FE0C protocol)
+ * Command: 57 AB 00 17 05 00 00 00 00 00 + checksum
+ * Returns true if successful
+ */
+bool SerialPortManager::switchUsbToHostViaSerial() {
+    qCDebug(log_core_serial) << "Switching USB to host via serial command...";
+    
+    if (!serialPort || !serialPort->isOpen()) {
+        qCWarning(log_core_serial) << "Serial port not open, cannot switch USB to host";
+        return false;
+    }
+    
+    // Only use this method for FE0C chips
+    if (!isChipTypeFE0C()) {
+        qCDebug(log_core_serial) << "Not FE0C chip, skipping serial-based USB switch";
+        return false;
+    }
+    
+    QByteArray response = sendSyncCommand(CMD_SWITCH_USB_TO_HOST, true);
+    
+    if (response.size() > 0) {
+        qCDebug(log_core_serial) << "Switch USB to host response:" << response.toHex(' ');
+        
+        // Expected response: 57 AB 00 17 01 00 + checksum (0x1A)
+        if (response.size() >= 7 && 
+            response[0] == 0x57 && response[1] == (char)0xAB && 
+            response[2] == 0x00 && response[3] == 0x17 &&
+            response[4] == 0x01 && response[5] == 0x00) {
+            qCInfo(log_core_serial) << "Successfully switched USB to host via serial";
+            return true;
+        } else {
+            qCWarning(log_core_serial) << "Unexpected response for switch USB to host:" << response.toHex(' ');
+            return false;
+        }
+    }
+    
+    qCWarning(log_core_serial) << "No response received for switch USB to host command";
+    return false;
+}
+
+/*
+ * Switch USB to target via serial command (new FE0C protocol)
+ * Command: 57 AB 00 17 05 00 00 00 00 01 + checksum
+ * Returns true if successful
+ */
+bool SerialPortManager::switchUsbToTargetViaSerial() {
+    qCDebug(log_core_serial) << "Switching USB to target via serial command...";
+    
+    if (!serialPort || !serialPort->isOpen()) {
+        qCWarning(log_core_serial) << "Serial port not open, cannot switch USB to target";
+        return false;
+    }
+    
+    // Only use this method for FE0C chips
+    if (!isChipTypeFE0C()) {
+        qCDebug(log_core_serial) << "Not FE0C chip, skipping serial-based USB switch";
+        return false;
+    }
+    
+    QByteArray response = sendSyncCommand(CMD_SWITCH_USB_TO_TARGET, true);
+    
+    if (response.size() > 0) {
+        qCDebug(log_core_serial) << "Switch USB to target response:" << response.toHex(' ');
+        
+        // Expected response: 57 AB 00 17 01 01 + checksum (0x1B)
+        if (response.size() >= 7 && 
+            response[0] == 0x57 && response[1] == (char)0xAB && 
+            response[2] == 0x00 && response[3] == 0x17 &&
+            response[4] == 0x01 && response[5] == 0x01) {
+            qCInfo(log_core_serial) << "Successfully switched USB to target via serial";
+            return true;
+        } else {
+            qCWarning(log_core_serial) << "Unexpected response for switch USB to target:" << response.toHex(' ');
+            return false;
+        }
+    }
+    
+    qCWarning(log_core_serial) << "No response received for switch USB to target command";
+    return false;
+}
+
+/*
+ * Check USB switch status via serial command (new FE0C protocol)
+ * Command: 57 AB 00 17 05 00 00 00 00 03 + checksum
+ * Returns: 0 if pointing to host, 1 if pointing to target, -1 on error
+ */
+int SerialPortManager::checkUsbStatusViaSerial() {
+    qCDebug(log_core_serial) << "Checking USB switch status via serial command...";
+    
+    if (!serialPort || !serialPort->isOpen()) {
+        qCWarning(log_core_serial) << "Serial port not open, cannot check USB status";
+        return -1;
+    }
+    
+    // Only use this method for FE0C chips
+    if (!isChipTypeFE0C()) {
+        qCDebug(log_core_serial) << "Not FE0C chip, skipping serial-based USB status check";
+        return -1;
+    }
+    
+    QByteArray response = sendSyncCommand(CMD_CHECK_USB_STATUS, true);
+    
+    if (response.size() > 0) {
+        qCDebug(log_core_serial) << "Check USB status response:" << response.toHex(' ');
+        
+        // Expected response: 57 AB 00 17 01 <status> + checksum
+        // status: 0x00 = host, 0x01 = target
+        if (response.size() >= 7 && 
+            response[0] == 0x57 && response[1] == (char)0xAB && 
+            response[2] == 0x00 && response[3] == 0x17 &&
+            response[4] == 0x01) {
+            
+            int status = static_cast<unsigned char>(response[5]);
+            if (status == 0x00) {
+                qCInfo(log_core_serial) << "USB is currently pointing to HOST";
+                return 0;
+            } else if (status == 0x01) {
+                qCInfo(log_core_serial) << "USB is currently pointing to TARGET";
+                return 1;
+            } else {
+                qCWarning(log_core_serial) << "Unknown USB status value:" << QString::number(status, 16);
+                return -1;
+            }
+        } else {
+            qCWarning(log_core_serial) << "Unexpected response for check USB status:" << response.toHex(' ');
+            return -1;
+        }
+    }
+    
+    qCWarning(log_core_serial) << "No response received for check USB status command";
+    return -1;
+}
+
+/*
 * Set the USB configuration
 */
 void SerialPortManager::setUSBconfiguration(int targetBaudrate){

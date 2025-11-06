@@ -137,6 +137,11 @@ public:
     // Data buffer management
     void clearIncompleteDataBuffer();
     
+    // New USB switch methods for FE0C serial port (firmware with new protocol)
+    bool switchUsbToHostViaSerial();      // Switch USB to host via serial command (57 AB 00 17...)
+    bool switchUsbToTargetViaSerial();    // Switch USB to target via serial command (57 AB 00 17...)
+    int checkUsbStatusViaSerial();        // Check USB switch status (returns: 0=host, 1=target, -1=error)
+    
 signals:
     void dataReceived(const QByteArray &data);
     void dataSent(const QByteArray &data);

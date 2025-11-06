@@ -295,7 +295,11 @@ void MainWindowInitializer::setupToolbar()
     // - Third param: QObject parent for memory management
     m_windowControlManager = new WindowControlManager(m_mainWindow, m_toolbarManager->getToolbar(), m_mainWindow);
     m_mainWindow->m_windowControlManager = m_windowControlManager;
-    m_windowControlManager->setAutoHideEnabled(true);
+    
+    // CRITICAL DEBUG: Temporarily disable WindowControlManager to test if it's blocking menus
+    // m_windowControlManager->setAutoHideEnabled(true);
+    qDebug() << "[DEBUG] WindowControlManager auto-hide DISABLED for menu testing";
+    
     m_windowControlManager->setAutoHideDelay(5000);  // 5 seconds auto-hide delay
     m_windowControlManager->setEdgeDetectionThreshold(5);
     m_windowControlManager->setAnimationDuration(300);

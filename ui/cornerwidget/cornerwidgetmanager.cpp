@@ -48,7 +48,17 @@ void CornerWidgetManager::setMenuBar(QMenuBar *menuBar)
 {
     this->menuBar = menuBar;
     if (menuBar) {
+        // CRITICAL FIX: Ensure corner widget is properly sized before adding to menu bar
+        // This prevents it from blocking menu items like File and Edit
+        cornerWidget->adjustSize();
+        cornerWidget->setMaximumWidth(cornerWidget->sizeHint().width());
+        
         menuBar->setCornerWidget(cornerWidget, Qt::TopRightCorner);
+        
+        qDebug() << "[CornerWidgetManager] Set corner widget on menu bar";
+        qDebug() << "[CornerWidgetManager] Corner widget size:" << cornerWidget->size();
+        qDebug() << "[CornerWidgetManager] Corner widget sizeHint:" << cornerWidget->sizeHint();
+        qDebug() << "[CornerWidgetManager] Menu bar width:" << menuBar->width();
     }
 }
 

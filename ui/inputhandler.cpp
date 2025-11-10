@@ -394,8 +394,21 @@ void InputHandler::handleMouseMoveEvent(QMouseEvent *event)
     
     m_lastMouseMoveTime = currentTime;
     
-    QScopedPointer<MouseEventDTO> eventDto(calculateMouseEventDto(event));
-    eventDto->setMouseButton(isDragging() ? lastMouseButton : 0);
+    QScopedPointer<MouseEventDTO> eventDto;
+    
+    // When dragging (click turned to move), always recalculate position to ensure
+    // we use the current mouse position, not any cached coordinates from the press event
+    if (m_isDragging) {
+        // Clear cached absolute position to force fresh calculation
+        // This ensures the drag operation uses updated x,y positions
+        m_hasLastAbsolutePosition = false;
+        eventDto.reset(calculateMouseEventDto(event));
+        eventDto->setMouseButton(lastMouseButton);
+    } else {
+        // Normal move without dragging
+        eventDto.reset(calculateMouseEventDto(event));
+        eventDto->setMouseButton(0);
+    }
 
     // qDebug() << "InputHandler::handleMouseMoveEvent - pos:" << event->pos() 
     //          << "absolute mode:" << eventDto->isAbsoluteMode() 
@@ -449,6 +462,9 @@ void InputHandler::handleMousePressEvent(QMouseEvent* event)
                                << "pos:" << currentPos;
     }
     
+    // CRITICAL: Check if mouse has moved to a different position BEFORE updating m_lastMousePressPos
+    bool mousePositionChanged = (currentPos != m_lastMousePressPos);
+    
     // Update duplicate detection state
     m_lastMousePressTime = currentTime;
     m_lastMousePressPos = currentPos;
@@ -458,6 +474,7 @@ void InputHandler::handleMousePressEvent(QMouseEvent* event)
     qCWarning(log_ui_input) << "=== MOUSE PRESS ===";
     qCWarning(log_ui_input) << "  Raw event->pos():" << event->pos();
     qCWarning(log_ui_input) << "  Before calc - lastX/lastY:" << QPoint(lastX, lastY);
+    qCWarning(log_ui_input) << "  Mouse position changed:" << mousePositionChanged;
     
     QScopedPointer<MouseEventDTO> eventDto;
     
@@ -467,18 +484,24 @@ void InputHandler::handleMousePressEvent(QMouseEvent* event)
     // CRITICAL FIX for double-click coordinate stability:
     // Strategy: ALWAYS save coordinates on EVERY press for potential future double-click
     // Then on the SECOND press, reuse the saved coordinates from the FIRST press
+    // BUT: Only reuse coordinates if mouse hasn't moved to a new position
     
     if (GlobalVar::instance().isAbsoluteMouseMode()) {
-        // If this is likely a SECOND press in a double-click, reuse coordinates from FIRST press
+        // If this is likely a SECOND press in a double-click at the SAME position, reuse coordinates from FIRST press
         if (isPotentialDoubleClick && m_hasDoubleClickCache && 
-            (currentTime - m_doubleClickCacheTime) < 500) {
+            (currentTime - m_doubleClickCacheTime) < 500 && !mousePositionChanged) {
             qCWarning(log_ui_input) << "  Using DOUBLE-CLICK CACHED position (from first press):" 
                                    << QPoint(m_doubleClickCachedX, m_doubleClickCachedY);
             eventDto.reset(new MouseEventDTO(m_doubleClickCachedX, m_doubleClickCachedY, true));
         }
-        // Otherwise, use standard cache or calculate fresh
-        else if (m_hasLastAbsolutePosition) {
-            qCWarning(log_ui_input) << "  Using CACHED absolute position:" << QPoint(m_lastAbsoluteX, m_lastAbsoluteY);
+        // If mouse moved to a new position, ALWAYS calculate fresh coordinates
+        else if (mousePositionChanged) {
+            qCWarning(log_ui_input) << "  Mouse moved to new position - calculating fresh coordinates";
+            eventDto.reset(calculateMouseEventDto(event));
+        }
+        // Mouse is at same position and we have recent cache - reuse it
+        else if (m_hasLastAbsolutePosition && !mousePositionChanged) {
+            qCWarning(log_ui_input) << "  Using CACHED absolute position (same position):" << QPoint(m_lastAbsoluteX, m_lastAbsoluteY);
             eventDto.reset(new MouseEventDTO(m_lastAbsoluteX, m_lastAbsoluteY, true));
         }
         else {

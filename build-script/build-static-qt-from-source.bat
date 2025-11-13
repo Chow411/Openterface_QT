@@ -4,8 +4,8 @@ REM To install OpenTerface QT with static OpenSSL support, you can run this scri
 setlocal enabledelayedexpansion
 
 REM Configuration
-set QT_VERSION=6.5.3
-set QT_MAJOR_VERSION=6.5
+set QT_VERSION=6.6.3
+set QT_MAJOR_VERSION=6.6
 set INSTALL_PREFIX=C:\Qt6
 set BUILD_DIR=%cd%\qt-build
 set MODULES=qtbase qtshadertools qtmultimedia qtsvg qtserialport qttools

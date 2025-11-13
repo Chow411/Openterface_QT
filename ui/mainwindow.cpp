@@ -488,7 +488,7 @@ void MainWindow::updateCameraActive(bool active) {
         qCDebug(log_ui_mainwindow) << "Set index to : " << 0;
         stackedLayout->setCurrentIndex(0);
     }
-    m_cameraManager->queryResolutions();
+    // REMOVED: m_cameraManager->queryResolutions() - no longer needed with FFmpeg backend
 }
 
 void MainWindow::updateRecordTime()
@@ -658,43 +658,8 @@ void MainWindow::showRecordingSettings() {
         // Get the current backend from camera manager and set it
         MultimediaBackendHandler* backendHandler = m_cameraManager->getBackendHandler();
         if (backendHandler) {
-            // CRITICAL FIX: Ensure Qt backend has media recorder set before passing to dialog
-            if (backendHandler->getBackendType() == MultimediaBackendType::Qt) {
-                qDebug() << "Qt backend detected - ensuring media recorder is set";
-                
-                QMediaRecorder* mediaRecorder = m_cameraManager->getMediaRecorder();
-                QMediaCaptureSession* captureSession = m_cameraManager->getCaptureSession();
-                
-                if (mediaRecorder && captureSession) {
-                    qDebug() << "Setting media recorder on Qt backend:" << (void*)mediaRecorder;
-                    qDebug() << "Setting capture session on Qt backend:" << (void*)captureSession;
-                    
-#ifdef Q_OS_WIN
-                    if (auto qtHandler = qobject_cast<QtBackendHandler*>(backendHandler)) {
-                        qtHandler->setMediaRecorder(mediaRecorder);
-                        qtHandler->setCaptureSession(captureSession);
-                        qDebug() << "Media recorder and capture session successfully set on Qt backend";
-                    } else {
-                        qWarning() << "Failed to cast to QtBackendHandler";
-                    }
-#else
-                    qDebug() << "Qt backend configuration not available on non-Windows platforms";
-#endif
-                } else {
-                    qWarning() << "Missing components - mediaRecorder:" << (void*)mediaRecorder 
-                              << "captureSession:" << (void*)captureSession;
-                }
-            }
-            
+            // Set the backend handler for recording settings
             recordingSettingsDialog->setBackendHandler(backendHandler);
-            
-#ifndef Q_OS_WIN
-            // Also set FFmpeg backend specifically if it's available for backward compatibility
-            FFmpegBackendHandler* ffmpegBackend = m_cameraManager->getFFmpegBackend();
-            if (ffmpegBackend) {
-                recordingSettingsDialog->setFFmpegBackend(ffmpegBackend);
-            }
-#endif
         } else {
             qWarning() << "No video backend available for recording";
         }

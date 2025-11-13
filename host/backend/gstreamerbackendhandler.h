@@ -58,13 +58,13 @@ public:
     QString getBackendName() const override;
     MultimediaBackendConfig getDefaultConfig() const override;
 
-    void prepareCameraCreation(QCamera* oldCamera = nullptr) override;
-    void configureCameraDevice(QCamera* camera, const QCameraDevice& device) override;
-    void setupCaptureSession(QMediaCaptureSession* session, QCamera* camera) override;
+    void prepareCameraCreation() override;
+    void configureCameraDevice() override;
+    void setupCaptureSession(QMediaCaptureSession* session) override;
     void prepareVideoOutputConnection(QMediaCaptureSession* session, QObject* videoOutput) override;
     void finalizeVideoOutputConnection(QMediaCaptureSession* session, QObject* videoOutput) override;
-    void startCamera(QCamera* camera) override;
-    void stopCamera(QCamera* camera) override;
+    void startCamera() override;
+    void stopCamera() override;
 
     QList<int> getSupportedFrameRates(const QCameraFormat& format) const override;
     QCameraFormat selectOptimalFormat(const QList<QCameraFormat>& formats, 
@@ -72,7 +72,7 @@ public:
                                     int desiredFrameRate,
                                     QVideoFrameFormat::PixelFormat pixelFormat) const override;
 
-    void handleCameraError(QCamera::Error error, const QString& errorString) override;
+    void handleCameraError(int errorCode, const QString& errorString) override;
 
     // Direct GStreamer pipeline methods (enhanced with working example approach)
     bool createGStreamerPipeline(const QString& device, const QSize& resolution, int framerate);

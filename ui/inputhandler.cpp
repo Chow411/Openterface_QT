@@ -30,11 +30,26 @@ Q_LOGGING_CATEGORY(log_ui_input, "opf.ui.input")
 
 InputHandler::InputHandler(VideoPane *videoPane, QObject *parent)
     : QObject(parent), m_videoPane(videoPane), m_currentEventTarget(nullptr),
-      m_lastMouseMoveTime(0), m_mouseMoveInterval(16), m_droppedMouseEvents(0)
+      m_mouseMoveTimer(nullptr), m_pendingMouseMoveEvent(nullptr),
+      m_mouseMoveInterval(8), m_droppedMouseEvents(0)
 {
     if (m_videoPane) {
         m_videoPane->installEventFilter(this);
         m_currentEventTarget = m_videoPane;
+    }
+    
+    // Initialize single-shot timer for mouse move processing
+    m_mouseMoveTimer = new QTimer(this);
+    m_mouseMoveTimer->setSingleShot(true);
+    connect(m_mouseMoveTimer, &QTimer::timeout, this, &InputHandler::processPendingMouseMove);
+}
+
+InputHandler::~InputHandler()
+{
+    // Clean up pending mouse event if any
+    if (m_pendingMouseMoveEvent) {
+        delete m_pendingMouseMoveEvent;
+        m_pendingMouseMoveEvent = nullptr;
     }
 }
 
@@ -95,15 +110,13 @@ MouseEventDTO* InputHandler::calculateAbsolutePosition(QMouseEvent *event) {
     QPoint videoPos = rawPos;
     if (m_videoPane) {
         videoPos = m_videoPane->getTransformedMousePosition(rawPos);
-        qCDebug(log_ui_input) << "    [calcAbsolute] Transformed pos:" << videoPos;
-    } else {
-        qCDebug(log_ui_input) << "    [calcAbsolute] No VideoPane, using raw pos:" << rawPos;
+        // qCDebug(log_ui_input) << "    [calcAbsolute] Transformed pos:" << videoPos;
     }
     
     int targetWidth = effectiveWidget->width();
     int targetHeight = effectiveWidget->height();
     
-    qCDebug(log_ui_input) << "    [calcAbsolute] Target size:" << QSize(targetWidth, targetHeight);
+    // qCDebug(log_ui_input) << "    [calcAbsolute] Target size:" << QSize(targetWidth, targetHeight);
     
     if (targetWidth <= 0 || targetHeight <= 0) {
         qCWarning(log_ui_input) << "Zero dimensions in calculateAbsolutePosition! Widget size:" 
@@ -192,7 +205,7 @@ bool InputHandler::eventFilter(QObject *watched, QEvent *event)
         if (event->type() == QEvent::MetaCall) {
             static int metacallCount = 0;
             if (++metacallCount % 50 == 1) {
-                qCDebug(log_ui_input) << "InputHandler::eventFilter - Passing through MetaCall event (not processing)";
+                // qCDebug(log_ui_input) << "InputHandler::eventFilter - Passing through MetaCall event (not processing)";
             }
         }
         return QObject::eventFilter(watched, event);
@@ -337,62 +350,39 @@ void InputHandler::handleMouseMoveEvent(QMouseEvent *event)
         return;
     }
     
-    // DEBUG: Log mouse move events when dragging to detect unexpected moves
-    if (m_isDragging) {
-        static int dragMoveCount = 0;
-        qCWarning(log_ui_input) << "  [DRAG MOVE #" << ++dragMoveCount << "] pos:" << event->pos();
-    }
-    
-    // PERFORMANCE OPTIMIZATION: Adaptive mouse throttling to reduce CPU usage
-    // High-frequency mouse movements can cause excessive CPU load, especially on Pi
-    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
-    
-    // ADAPTIVE THROTTLING: Adjust interval based on recent event frequency
-    static int recentEventCount = 0;
-    static qint64 lastIntervalAdjustment = 0;
-    recentEventCount++;
-    
-    // Every 2 seconds, adjust throttling based on event frequency
-    if (currentTime - lastIntervalAdjustment > 2000) {
-        if (recentEventCount > 200) {
-            // Very high frequency - increase throttling (reduce responsiveness to save CPU)
-            m_mouseMoveInterval = qMin(50, m_mouseMoveInterval + 5); // Max 20 FPS
-        } else if (recentEventCount > 100) {
-            // High frequency - moderate throttling
-            m_mouseMoveInterval = 25; // 40 FPS
-        } else if (recentEventCount > 50) {
-            // Normal frequency - standard throttling
-            m_mouseMoveInterval = 16; // ~62 FPS
-        } else {
-            // Low frequency - minimal throttling for better responsiveness
-            m_mouseMoveInterval = qMax(8, m_mouseMoveInterval - 2); // Max ~125 FPS
-        }
-        
-        // Log throttling adjustments occasionally
-        static int adjustmentCount = 0;
-        if (++adjustmentCount % 10 == 1) {
-            qCDebug(log_ui_input) << "InputHandler: Adaptive throttling - events in 2s:" << recentEventCount 
-                                  << "new interval:" << m_mouseMoveInterval << "ms";
-        }
-        
-        recentEventCount = 0;
-        lastIntervalAdjustment = currentTime;
-    }
-    
-    // Skip mouse move if it's too soon since the last one (throttling)
-    if (currentTime - m_lastMouseMoveTime < m_mouseMoveInterval) {
+    // Store the latest mouse event (replaces any pending event)
+    if (m_pendingMouseMoveEvent) {
+        delete m_pendingMouseMoveEvent;
         m_droppedMouseEvents++;
-        
-        // Log dropped events occasionally for monitoring (less frequent than before)
-        if (m_droppedMouseEvents % 2000 == 0) {
-            qCDebug(log_ui_input) << "InputHandler: Dropped" << m_droppedMouseEvents 
-                                  << "mouse move events for performance (current interval:" 
-                                  << m_mouseMoveInterval << "ms)";
-        }
-        return; // Drop this mouse move event
     }
     
-    m_lastMouseMoveTime = currentTime;
+    // Clone the event for later processing
+    m_pendingMouseMoveEvent = new QMouseEvent(
+        event->type(),
+        event->pos(),
+        event->globalPos(),
+        event->button(),
+        event->buttons(),
+        event->modifiers()
+    );
+    
+    // If timer is not running, start it to process this event
+    if (!m_mouseMoveTimer->isActive()) {
+        m_mouseMoveTimer->start(m_mouseMoveInterval);
+    }
+    // Otherwise, the pending event will be processed when timer fires
+    // This effectively debounces rapid mouse movements
+}
+
+void InputHandler::processPendingMouseMove()
+{
+    // Process the pending mouse move event
+    if (!m_pendingMouseMoveEvent || !m_videoPane) {
+        return;
+    }
+    
+    QScopedPointer<QMouseEvent> event(m_pendingMouseMoveEvent);
+    m_pendingMouseMoveEvent = nullptr;
     
     QScopedPointer<MouseEventDTO> eventDto;
     
@@ -402,18 +392,13 @@ void InputHandler::handleMouseMoveEvent(QMouseEvent *event)
         // Clear cached absolute position to force fresh calculation
         // This ensures the drag operation uses updated x,y positions
         m_hasLastAbsolutePosition = false;
-        eventDto.reset(calculateMouseEventDto(event));
+        eventDto.reset(calculateMouseEventDto(event.data()));
         eventDto->setMouseButton(lastMouseButton);
     } else {
         // Normal move without dragging
-        eventDto.reset(calculateMouseEventDto(event));
+        eventDto.reset(calculateMouseEventDto(event.data()));
         eventDto->setMouseButton(0);
     }
-
-    // qDebug() << "InputHandler::handleMouseMoveEvent - pos:" << event->pos() 
-    //          << "absolute mode:" << eventDto->isAbsoluteMode() 
-    //          << "relative mode enabled:" << m_videoPane->isRelativeModeEnabled()
-    //          << "x:" << eventDto->getX() << "y:" << eventDto->getY();
 
     //Only handle the event if it's under absolute mouse control or relative mode is enabled
     if(!eventDto->isAbsoluteMode() && !m_videoPane->isRelativeModeEnabled()) {

@@ -81,25 +81,20 @@ bool QtBackendHandler::isBackendAvailable() const
     return true; // Qt Multimedia is always available on Windows
 }
 
-void QtBackendHandler::configureCameraDevice(QCamera* camera, const QCameraDevice& device)
+void QtBackendHandler::configureCameraDevice()
 {
-    Q_UNUSED(camera)
-    Q_UNUSED(device)
     qCDebug(log_qt_backend) << "configureCameraDevice - Qt backend uses standard camera configuration";
 }
 
-void QtBackendHandler::prepareCameraCreation(QCamera* camera)
+void QtBackendHandler::prepareCameraCreation()
 {
-    Q_UNUSED(camera)
     qCDebug(log_qt_backend) << "prepareCameraCreation - Qt backend uses standard camera creation";
 }
 
-void QtBackendHandler::setupCaptureSession(QMediaCaptureSession* session, QCamera* camera)
+void QtBackendHandler::setupCaptureSession(QMediaCaptureSession* session)
 {
     qCDebug(log_qt_backend) << "setupCaptureSession - Using Qt standard setup";
-    if (session && camera) {
-        session->setCamera(camera);
-        
+    if (session) {
         // Set the recorder on the capture session if available
         if (m_mediaRecorder) {
             session->setRecorder(m_mediaRecorder);

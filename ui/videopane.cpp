@@ -623,7 +623,7 @@ void VideoPane::updateScrollBarsAndSceneRect()
 
 QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
 {
-    qCDebug(log_ui_video) << "      [getTransformed] Input viewportPos:" << viewportPos;
+    // qCDebug(log_ui_video) << "      [getTransformed] Input viewportPos:" << viewportPos;
     
     // Handle different video display modes appropriately
     QGraphicsItem* targetItem = nullptr;
@@ -632,16 +632,16 @@ QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
     if (m_directFFmpegMode && m_pixmapItem && m_pixmapItem->isVisible()) {
         targetItem = m_pixmapItem;
         itemRect = m_pixmapItem->boundingRect();
-        qCDebug(log_ui_video) << "      [getTransformed] Using FFmpeg pixmap item";
+        // qCDebug(log_ui_video) << "      [getTransformed] Using FFmpeg pixmap item";
     } else if (m_videoItem && m_videoItem->isVisible()) {
         targetItem = m_videoItem;
         itemRect = m_videoItem->boundingRect();
-        qCDebug(log_ui_video) << "      [getTransformed] Using video item";
+        // qCDebug(log_ui_video) << "      [getTransformed] Using video item";
     }
     
     // If no valid target item, return the original position
     if (!targetItem || itemRect.isEmpty()) {
-        qCDebug(log_ui_video) << "      [getTransformed] No valid item, returning original pos";
+        // qCDebug(log_ui_video) << "      [getTransformed] No valid item, returning original pos";
         return viewportPos;
     }
     
@@ -651,19 +651,19 @@ QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
     
     // Step 1: Convert viewport coordinates to scene coordinates (this accounts for scrolling)
     QPointF scenePos = mapToScene(viewportPos);
-    qCDebug(log_ui_video) << "      [getTransformed] After mapToScene:" << scenePos;
+    // qCDebug(log_ui_video) << "      [getTransformed] After mapToScene:" << scenePos;
     
     // Step 2: Map scene coordinates to item coordinates
     QPointF itemPos = targetItem->mapFromScene(scenePos);
-    qCDebug(log_ui_video) << "      [getTransformed] After mapFromScene (itemPos):" << itemPos;
+    // qCDebug(log_ui_video) << "      [getTransformed] After mapFromScene (itemPos):" << itemPos;
     
     // Step 3: Calculate relative position within the item's original coordinates
     QPointF itemOffset = itemRect.topLeft();
     double itemWidth = itemRect.width();
     double itemHeight = itemRect.height();
     
-    qCDebug(log_ui_video) << "      [getTransformed] itemRect:" << itemRect;
-    qCDebug(log_ui_video) << "      [getTransformed] itemOffset:" << itemOffset << "size:" << QSizeF(itemWidth, itemHeight);
+    // qCDebug(log_ui_video) << "      [getTransformed] itemRect:" << itemRect;
+    // qCDebug(log_ui_video) << "      [getTransformed] itemOffset:" << itemOffset << "size:" << QSizeF(itemWidth, itemHeight);
     
     // Check if dimensions are valid to prevent division by zero
     if (itemWidth <= 0 || itemHeight <= 0) {
@@ -675,13 +675,13 @@ QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
     double relativeX = (itemPos.x() - itemOffset.x()) / itemWidth;
     double relativeY = (itemPos.y() - itemOffset.y()) / itemHeight;
     
-    qCDebug(log_ui_video) << "      [getTransformed] relativeX/Y:" << relativeX << relativeY;
+    // qCDebug(log_ui_video) << "      [getTransformed] relativeX/Y:" << relativeX << relativeY;
     
     // Step 4: Clamp to 0-1 range to ensure we stay within video bounds
     double normalizedX = qBound(0.0, relativeX, 1.0);
     double normalizedY = qBound(0.0, relativeY, 1.0);
     
-    qCDebug(log_ui_video) << "      [getTransformed] normalizedX/Y:" << normalizedX << normalizedY;
+    // qCDebug(log_ui_video) << "      [getTransformed] normalizedX/Y:" << normalizedX << normalizedY;
     
     // Step 5: Convert normalized coordinates back to viewport coordinates for the logical video area
     // (This is the actual size expected by the target device)
@@ -689,12 +689,12 @@ QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
     double transformedXDouble = normalizedX * viewRect.width();
     double transformedYDouble = normalizedY * viewRect.height();
     
-    qCDebug(log_ui_video) << "      [getTransformed] Before rounding:" << transformedXDouble << transformedYDouble;
+    // qCDebug(log_ui_video) << "      [getTransformed] Before rounding:" << transformedXDouble << transformedYDouble;
     
     int transformedX = qRound(transformedXDouble);
     int transformedY = qRound(transformedYDouble);
     
-    qCDebug(log_ui_video) << "      [getTransformed] After qRound:" << transformedX << transformedY;
+    // qCDebug(log_ui_video) << "      [getTransformed] After qRound:" << transformedX << transformedY;
     
     // For zoomed mode, we need to apply additional logic to handle the scrolled view
     QPoint finalResult;
@@ -708,13 +708,13 @@ QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
         transformedY += m_zoomOffsetCorrectionY;
         
         finalResult = QPoint(transformedX, transformedY);
-        qCDebug(log_ui_video) << "      [getTransformed] Zoomed mode - with correction:" << finalResult;
+        // qCDebug(log_ui_video) << "      [getTransformed] Zoomed mode - with correction:" << finalResult;
     } else {
         // When not zoomed, use the straightforward transformation
         finalResult = QPoint(transformedX, transformedY);
     }
     
-    qCDebug(log_ui_video) << "      [getTransformed] Final result:" << finalResult;
+    // qCDebug(log_ui_video) << "      [getTransformed] Final result:" << finalResult;
     
     return finalResult;
 }

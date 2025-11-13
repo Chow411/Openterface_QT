@@ -28,54 +28,67 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Cache Qt Build
-        id: cache-qt
-        uses: actions/cache@v3
-        with:
-          path: C:\Qt6
-          key: qt-6.5.3-mingw-windows-static-openssl
-          restore-keys: |
-            qt-6.5.3-mingw-windows-static-openssl
-
-      - name: Cache MinGW and Ninja Build
+      - name: Cache MinGW and CMake
         id: cache-mingw
         uses: actions/cache@v3
         with:
           path: |
             C:\mingw64
-            C:\ProgramData\chocolatey\lib\ninja
-          key: mingw-ninja-windows-static
+            C:\CMake
+          key: mingw-cmake-windows-static
           restore-keys: |
-            mingw-ninja-windows-static
+            mingw-cmake-windows-static
 
-      - name: Cache vcpkg
-        id: cache-vcpkg
+      - name: Cache MSYS2
+        id: cache-msys2
         uses: actions/cache@v3
         with:
-          path: C:\vcpkg
-          key: vcpkg-mingw-static-openssl-v2
+          path: C:\msys64
+          key: msys2-ffmpeg-windows
           restore-keys: |
-            vcpkg-mingw-static-openssl-v2
+            msys2-ffmpeg-windows
+
+      - name: Cache FFmpeg
+        id: cache-ffmpeg
+        uses: actions/cache@v3
+        with:
+          path: C:\ffmpeg-static
+          key: ffmpeg-static-6.1.1-windows
+          restore-keys: |
+            ffmpeg-static-6.1.1-windows
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Build environment
+      - name: Install Build Tools
         if: steps.cache-mingw.outputs.cache-hit != 'true'
         run: |
           echo "Installing Ninja"
           choco install ninja -y
-    
+
           echo "Downloading pre-compiled static build of MinGW-w64"
           curl -L -o mingw-w64.zip https://sourceforge.net/projects/mingw-w64/files/latest/download
           mkdir C:\mingw64
           tar -xf mingw-w64.zip -C C:\mingw64 --strip-components=1
-    
-          echo "Setting up PATH for MinGW-w64"
-          set PATH=C:\mingw64\bin;%PATH%
+
+          echo "Installing CMake..."
+          curl -L -o cmake.zip https://github.com/Kitware/CMake/releases/download/v3.28.0/cmake-3.28.0-windows-x86_64.zip
+          mkdir C:\CMake
+          tar -xf cmake.zip -C C:\CMake --strip-components=1
+
+          echo "Setting up PATH for MinGW-w64 and CMake"
+          set PATH=C:\mingw64\bin;C:\CMake\bin;%PATH%
           g++ --version || (echo "g++ installation failed. Please check the installation." && exit 1)
+
+      - name: Install MSYS2
+        if: steps.cache-msys2.outputs.cache-hit != 'true'
+        run: |
+          echo "Installing MSYS2..."
+          curl -L -o msys2.exe https://github.com/msys2/msys2-installer/releases/download/2023-10-26/msys2-x86_64-20231026.exe
+          msys2.exe --script install_msys2.msys2
+          del msys2.exe
 
       - name: Install vcpkg and OpenSSL
         if: steps.cache-vcpkg.outputs.cache-hit != 'true'
@@ -110,6 +123,13 @@ jobs:
           echo "SSL library size:" && dir "%OPENSSL_DIR%\lib\libssl.a" | findstr "libssl.a"
           echo "Crypto library size:" && dir "%OPENSSL_DIR%\lib\libcrypto.a" | findstr "libcrypto.a"
 
+      - name: Build Static FFmpeg
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        run: |
+          echo "Building static FFmpeg..."
+          cd build-script
+          call build-static-ffmpeg-windows.bat
+
       - name: Build Qt Statically
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
@@ -119,36 +139,13 @@ jobs:
         run: |
           mkdir ${{ runner.temp }}\build
           
-      - name: Prepare .pro File for Static Build
+      - name: Prepare CMake for Static Build
         run: |
           echo "Preparing static build configuration..."
-          if not exist "${{ env.SOURCE_DIR }}\openterfaceQT.pro" (
-            echo "Error: .pro file not found."
+          if not exist "${{ env.SOURCE_DIR }}\CMakeLists.txt" (
+            echo "Error: CMakeLists.txt not found."
             exit 1
           )
-          
-          echo "Creating static build configuration file..."
-          echo "# Static build configuration for GitHub Actions" > "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "CONFIG += static staticlib release" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "# OpenSSL static linking configuration" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "INCLUDEPATH += %OPENSSL_DIR%\include" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "# Static linking flags" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "QMAKE_CXXFLAGS += -static -static-libgcc -static-libstdc++ -I%OPENSSL_DIR%\include" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "QMAKE_LFLAGS += -static -static-libgcc -static-libstdc++" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "# OpenSSL static libraries (order matters)" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "LIBS += %OPENSSL_DIR%\lib\libssl.a" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "LIBS += %OPENSSL_DIR%\lib\libcrypto.a" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "LIBS += -lws2_32 -lcrypt32 -ladvapi32 -luser32" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "# Windows subsystem" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          echo "QMAKE_LFLAGS += -Wl,-subsystem,windows" >> "${{ env.SOURCE_DIR }}\static_build.pri"
-          
-          echo "Adding include to main .pro file..."
-          echo "" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
-          echo "include(static_build.pri)" >> "${{ env.SOURCE_DIR }}\openterfaceQT.pro"
 
       - name: Prepare Driver Files
         run: |
@@ -175,7 +172,7 @@ jobs:
         working-directory: ${{ runner.temp }}\build
         run: |
           echo "Setting up build environment..."
-          set PATH=C:\Qt6\bin;C:\mingw64\bin;%PATH%
+          set PATH=C:\Qt6\bin;C:\mingw64\bin;C:\CMake\bin;%PATH%
           set INCLUDE=C:\Qt6\include;%OPENSSL_DIR%\include;%INCLUDE%
           set LIB=%OPENSSL_DIR%\lib;%LIB%
           
@@ -192,29 +189,33 @@ jobs:
           echo "Checking Qt configuration..."
           C:\Qt6\bin\qmake -query
           
-          echo "Building with qmake..."
-          qmake -r "${{ env.SOURCE_DIR }}\openterfaceQT.pro" CONFIG+=release || (echo "qmake failed. Please check the .pro file and paths." && exit 1)
+          echo "Configuring with CMake..."
+          cmake -G "MinGW Makefiles" ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DFFMPEG_PREFIX=C:\ffmpeg-static ^
+            -DOPENTERFACE_BUILD_STATIC=ON ^
+            ${{ env.SOURCE_DIR }}
           
           echo "Building with mingw32-make..."
           set MINGW_STATIC_BUILD=1
           mingw32-make VERBOSE=1 -j2 || (echo "mingw32-make failed. Please check the build configuration." && exit 1)
           set ERRORLEVEL=0
           
-          if not exist release\openterfaceQT.exe (
+          if not exist openterfaceQT.exe (
             echo "Error: Failed to build openterfaceQT.exe"
             exit 1
           )
         
           echo "Verifying executable dependencies..."
           echo "Checking if the executable is truly static..."
-          objdump -p release\openterfaceQT.exe | findstr -i "dll" || echo "No external DLL dependencies found (good for static build)"
+          objdump -p openterfaceQT.exe | findstr -i "dll" || echo "No external DLL dependencies found (good for static build)"
         
           echo "Stripping debug symbols from executable..."
-          strip -s release\openterfaceQT.exe || (echo "Failed to strip debug symbols" && exit 1)
+          strip -s openterfaceQT.exe || (echo "Failed to strip debug symbols" && exit 1)
           
           echo "Creating portable package..."
           mkdir package
-          copy release\openterfaceQT.exe package\openterfaceQT-portable.exe
+          copy openterfaceQT.exe package\openterfaceQT-portable.exe
 
       - name: Save build artifact
         uses: actions/upload-artifact@v4

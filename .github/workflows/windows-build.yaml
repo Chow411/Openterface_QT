@@ -115,9 +115,8 @@ jobs:
         if: steps.cache-mingw.outputs.cache-hit != 'true'
         run: |
           echo "Installing MinGW-w64 and CMake via MSYS2..."
-          C:\msys64\usr\bin\bash.exe -c "
-            pacman -S --needed --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
-          "
+          set PATH=C:\msys64\usr\bin;%PATH%
+          pacman -S --needed --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
 
           echo "Setting up PATH..."
           echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH

@@ -32,12 +32,10 @@ jobs:
         id: cache-mingw
         uses: actions/cache@v3
         with:
-          path: |
-            C:\mingw64
-            C:\CMake
-          key: mingw-cmake-windows-static
+          path: C:\msys64\mingw64
+          key: msys2-mingw64-cmake-windows
           restore-keys: |
-            mingw-cmake-windows-static
+            msys2-mingw64-cmake-windows
 
       - name: Cache MSYS2
         id: cache-msys2
@@ -68,18 +66,13 @@ jobs:
           echo "Installing Ninja"
           choco install ninja -y
 
-          echo "Downloading pre-compiled static build of MinGW-w64"
-          curl -L -o mingw-w64.zip https://sourceforge.net/projects/mingw-w64/files/latest/download
-          mkdir C:\mingw64
-          tar -xf mingw-w64.zip -C C:\mingw64 --strip-components=1
+          echo "Installing MinGW-w64 and CMake via MSYS2..."
+          C:\msys64\usr\bin\bash.exe -c "
+            pacman -S --needed --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
+          "
 
-          echo "Installing CMake..."
-          curl -L -o cmake.zip https://github.com/Kitware/CMake/releases/download/v3.28.0/cmake-3.28.0-windows-x86_64.zip
-          mkdir C:\CMake
-          tar -xf cmake.zip -C C:\CMake --strip-components=1
-
-          echo "Setting up PATH for MinGW-w64 and CMake"
-          set PATH=C:\mingw64\bin;C:\CMake\bin;%PATH%
+          echo "Setting up PATH for MSYS2 MinGW-w64"
+          set PATH=C:\msys64\mingw64\bin;%PATH%
           g++ --version || (echo "g++ installation failed. Please check the installation." && exit 1)
 
       - name: Install MSYS2
@@ -157,7 +150,7 @@ jobs:
         working-directory: ${{ runner.temp }}\build
         run: |
           echo "Setting up Qt tools path..."
-          set PATH=C:\Qt6\bin;C:\mingw64\bin;%PATH%
+          set PATH=C:\Qt6\bin;C:\msys64\mingw64\bin;%PATH%
           echo "Verifying Qt tools..."
           if not exist "C:\Qt6\bin\lupdate.exe" (
             echo "Error: lupdate.exe not found in C:\Qt6\bin"
@@ -172,7 +165,7 @@ jobs:
         working-directory: ${{ runner.temp }}\build
         run: |
           echo "Setting up build environment..."
-          set PATH=C:\Qt6\bin;C:\mingw64\bin;C:\CMake\bin;%PATH%
+          set PATH=C:\Qt6\bin;C:\msys64\mingw64\bin;%PATH%
           set INCLUDE=C:\Qt6\include;%OPENSSL_DIR%\include;%INCLUDE%
           set LIB=%OPENSSL_DIR%\lib;%LIB%
           

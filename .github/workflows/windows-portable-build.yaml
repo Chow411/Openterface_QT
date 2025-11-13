@@ -60,6 +60,14 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Install MSYS2
+        if: steps.cache-msys2.outputs.cache-hit != 'true'
+        run: |
+          echo "Installing MSYS2..."
+          curl -L -o msys2.exe https://github.com/msys2/msys2-installer/releases/download/2023-10-26/msys2-x86_64-20231026.exe
+          msys2.exe --script install_msys2.msys2
+          del msys2.exe
+
       - name: Install Build Tools
         if: steps.cache-mingw.outputs.cache-hit != 'true'
         run: |
@@ -74,14 +82,6 @@ jobs:
           echo "Setting up PATH for MSYS2 MinGW-w64"
           set PATH=C:\msys64\mingw64\bin;%PATH%
           g++ --version || (echo "g++ installation failed. Please check the installation." && exit 1)
-
-      - name: Install MSYS2
-        if: steps.cache-msys2.outputs.cache-hit != 'true'
-        run: |
-          echo "Installing MSYS2..."
-          curl -L -o msys2.exe https://github.com/msys2/msys2-installer/releases/download/2023-10-26/msys2-x86_64-20231026.exe
-          msys2.exe --script install_msys2.msys2
-          del msys2.exe
 
       - name: Install vcpkg and OpenSSL
         if: steps.cache-vcpkg.outputs.cache-hit != 'true'

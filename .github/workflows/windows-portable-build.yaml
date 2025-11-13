@@ -2,7 +2,7 @@ name: Portable Build for windows
 
 on:
   push:
-    branches: ["main", "dev_20250611_add_vertical_screen_operate"]
+    branches: ["main", "dev_251027_add_GPU_support"]
   pull_request:
     branches: ["dev"]
   workflow_dispatch:

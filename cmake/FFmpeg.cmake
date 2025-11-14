@@ -252,9 +252,9 @@ else()
         strmiids
     )
     
-    # Add Intel QSV library if available
-    find_library(MFX_LIBRARY
-        NAMES mfx libmfx
+    # Add Intel QSV library if available (prefer static)
+    find_library(MFX_STATIC_LIBRARY
+        NAMES libmfx.a
         PATHS
             "C:/ffmpeg-static/lib"
             "${FFMPEG_PREFIX}/lib"
@@ -262,11 +262,26 @@ else()
             "C:/msys64/mingw64/lib"
         NO_DEFAULT_PATH
     )
-    if(MFX_LIBRARY)
-        list(APPEND HWACCEL_LIBRARIES ${MFX_LIBRARY})
-        message(STATUS "Found Intel QSV library: ${MFX_LIBRARY}")
+    if(MFX_STATIC_LIBRARY)
+        list(APPEND HWACCEL_LIBRARIES ${MFX_STATIC_LIBRARY})
+        message(STATUS "Found static Intel QSV library: ${MFX_STATIC_LIBRARY}")
     else()
-        message(STATUS "Intel QSV library (libmfx) not found - QSV support may be limited")
+        # Fallback to dynamic library
+        find_library(MFX_LIBRARY
+            NAMES mfx libmfx
+            PATHS
+                "C:/ffmpeg-static/lib"
+                "${FFMPEG_PREFIX}/lib"
+                "$ENV{FFMPEG_PREFIX}/lib"
+                "C:/msys64/mingw64/lib"
+            NO_DEFAULT_PATH
+        )
+        if(MFX_LIBRARY)
+            list(APPEND HWACCEL_LIBRARIES ${MFX_LIBRARY})
+            message(STATUS "Found dynamic Intel QSV library: ${MFX_LIBRARY}")
+        else()
+            message(STATUS "Intel QSV library (libmfx) not found - QSV support may be limited")
+        endif()
     endif()
 endif()
 

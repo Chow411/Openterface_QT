@@ -433,7 +433,11 @@ QPair<int, int> VideoHid::getResolution() {
     if (m_currentHIDDevicePath.isEmpty()) {
         qCWarning(log_host_hid) << "getResolution: Device path not set, opening device to get path...";
         // Open the device handle which will populate m_currentHIDDevicePath
+#ifdef _WIN32
         if (!openHIDDeviceHandle()) {
+#else
+        if (!openHIDDevice()) {
+#endif
             qCWarning(log_host_hid) << "getResolution: Failed to open HID device";
             return qMakePair(0, 0);
         }
@@ -546,7 +550,11 @@ float VideoHid::getFps() {
     // Ensure we have a device path and chip type detected
     if (m_currentHIDDevicePath.isEmpty()) {
         qCDebug(log_host_hid) << "getFps: Device path not set, opening device to get path...";
+#ifdef _WIN32
         if (!openHIDDeviceHandle()) {
+#else
+        if (!openHIDDevice()) {
+#endif
             qCWarning(log_host_hid) << "getFps: Failed to open HID device";
             return 0.0f;
         }
@@ -2264,6 +2272,7 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     return true;
 }
 
+#ifdef _WIN32
 bool VideoHid::openHIDDeviceHandle() {
     if (deviceHandle == INVALID_HANDLE_VALUE) {
         qCDebug(log_host_hid)  << "Opening HID device handle...";
@@ -2301,6 +2310,7 @@ bool VideoHid::openHIDDeviceHandle() {
     qCDebug(log_host_hid) << "Successfully opened device handle";
     return true;
 }
+#endif
 
 bool VideoHid::getFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     bool openedForOperation = m_inTransaction || openHIDDeviceHandle();

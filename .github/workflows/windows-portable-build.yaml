@@ -167,7 +167,7 @@ jobs:
         working-directory: ${{ runner.temp }}\build
         run: |
           echo "Setting up build environment..."
-          set PATH=C:\Qt6\bin;C:\msys64\mingw64\bin;%PATH%
+          set PATH=C:\msys64\mingw64\bin;C:\Qt6\bin;%PATH%
           set INCLUDE=C:\Qt6\include;%OPENSSL_DIR%\include;%INCLUDE%
           set LIB=%OPENSSL_DIR%\lib;%LIB%
           

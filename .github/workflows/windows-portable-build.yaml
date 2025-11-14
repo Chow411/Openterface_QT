@@ -14,7 +14,7 @@ defaults:
 env:
   ARTIFACT: openterfaceQT.windows.amd64.portable.exe
   SOURCE_DIR: ${{ github.workspace }}
-  QT_VERSION: 6.5.3 
+  QT_VERSION: 6.6.3 
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   ORGANIZATION_NAME: "TechxArtisan"
   VCPKG_DIR: C:\vcpkg
@@ -54,6 +54,15 @@ jobs:
           key: ffmpeg-static-6.1.1-windows
           restore-keys: |
             ffmpeg-static-6.1.1-windows
+
+      - name: Cache Qt
+        id: cache-qt
+        uses: actions/cache@v3
+        with:
+          path: C:\Qt6
+          key: qt-static-6.6.3-windows
+          restore-keys: |
+            qt-static-6.6.3-windows
 
       - name: Set up Python
         uses: actions/setup-python@v5

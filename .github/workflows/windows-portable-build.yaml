@@ -79,7 +79,7 @@ jobs:
 
           echo "Installing MinGW-w64 and CMake via MSYS2..."
           set PATH=C:\msys64\usr\bin;%PATH%
-          pacman -S --needed --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
+          pacman -S --needed --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-libiconv
 
           echo "Setting up PATH for MSYS2 MinGW-w64"
           set PATH=C:\msys64\mingw64\bin;%PATH%

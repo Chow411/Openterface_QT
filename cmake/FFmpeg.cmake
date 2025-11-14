@@ -393,6 +393,7 @@ function(link_ffmpeg_libraries)
                     -lz
                     -lvfw32        # Video for Windows capture
                     -lshlwapi      # Shell API (for SHCreateStreamOnFileA)
+                    -liconv        # Character encoding conversion
                 )
                 
                 # Use MSYS2's winpthread for 64-bit time functions
@@ -418,6 +419,14 @@ function(link_ffmpeg_libraries)
                 if(EXISTS "C:/msys64/mingw64/lib/liblzma.a")
                     list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/liblzma.a")
                     message(STATUS "Found lzma library in MSYS2")
+                endif()
+                
+                # Check for libiconv (required for FFmpeg character encoding)
+                if(EXISTS "C:/msys64/mingw64/lib/libiconv.a")
+                    list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libiconv.a")
+                    message(STATUS "Found libiconv library: C:/msys64/mingw64/lib/libiconv.a")
+                else()
+                    message(WARNING "libiconv.a not found - character encoding may not work properly")
                 endif()
                 
                 # Add stack protection library LAST (required by MSYS2-compiled libraries)

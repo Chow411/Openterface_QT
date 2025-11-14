@@ -390,10 +390,10 @@ function(link_ffmpeg_libraries)
                     ${JPEG_LINK}
                     ${TURBOJPEG_LINK}
                     # Windows system libraries for FFmpeg
-                    -lz
+                    # Check for static zlib
                     -lvfw32        # Video for Windows capture
                     -lshlwapi      # Shell API (for SHCreateStreamOnFileA)
-                    -liconv        # Character encoding conversion
+                    # -liconv        # Character encoding conversion
                 )
                 
                 # Use MSYS2's winpthread for 64-bit time functions
@@ -427,6 +427,14 @@ function(link_ffmpeg_libraries)
                     message(STATUS "Found libiconv library: C:/msys64/mingw64/lib/libiconv.a")
                 else()
                     message(WARNING "libiconv.a not found - character encoding may not work properly")
+                endif()
+                
+                # Check for static zlib (required for FFmpeg compression)
+                if(EXISTS "C:/msys64/mingw64/lib/libz.a")
+                    list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libz.a")
+                    message(STATUS "Found static zlib library: C:/msys64/mingw64/lib/libz.a")
+                else()
+                    message(WARNING "libz.a not found - compression may not work properly")
                 endif()
                 
                 # Add stack protection library LAST (required by MSYS2-compiled libraries)

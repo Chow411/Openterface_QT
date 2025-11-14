@@ -534,9 +534,6 @@ void CameraManager::stopRecording()
         switch (m_backendHandler->getBackendType()) {
             case MultimediaBackendType::FFmpeg: {
                 if (FFmpegBackendHandler* ffmpeg = qobject_cast<FFmpegBackendHandler*>(m_backendHandler.get())) {
-                    // Stop recording monitoring if active
-                    stopRecordingMonitoring();
-                    
                     // Stop the actual recording (void return type)
                     ffmpeg->stopRecording();
                     stopSuccess = true;
@@ -549,9 +546,6 @@ void CameraManager::stopRecording()
             }
             case MultimediaBackendType::GStreamer: {
                 if (GStreamerBackendHandler* gst = qobject_cast<GStreamerBackendHandler*>(m_backendHandler.get())) {
-                    // Stop recording monitoring if active
-                    stopRecordingMonitoring();
-                    
                     // Stop the actual recording (void return type)
                     gst->stopRecording();
                     stopSuccess = true;
@@ -572,7 +566,6 @@ void CameraManager::stopRecording()
         // This code block is never executed on Windows due to the outer #ifdef
         // It's here for completeness in case someone moves the #else/#endif structure
         if (QtBackendHandler* qtHandler = qobject_cast<QtBackendHandler*>(m_backendHandler.get())) {
-            stopRecordingMonitoring();
             stopSuccess = qtHandler->stopRecording();
             if (stopSuccess) {
                 qCInfo(log_ui_camera) << "Successfully stopped recording via QtBackendHandler";

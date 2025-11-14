@@ -23,10 +23,10 @@
 #include "ffmpegbackendhandler.h"
 #include "../../ui/videopane.h"
 #include "../../global.h"
+#include "../../ui/globalsetting.h"
 #include "../../device/DeviceManager.h"
 #include "../../device/HotplugMonitor.h"
 #include "../../device/DeviceInfo.h"
-#include "../../video/videohid.h"
 
 #include <QThread>
 #include <QDebug>
@@ -608,137 +608,22 @@ void FFmpegBackendHandler::cleanupHardwareAcceleration()
 
 bool FFmpegBackendHandler::getMaxCameraCapability(const QString& devicePath, CameraCapability& capability)
 {
-    qCInfo(log_ffmpeg_backend) << "Detecting maximum camera capability for:" << devicePath;
+    qCInfo(log_ffmpeg_backend) << "Loading video settings from GlobalSetting for:" << devicePath;
     
-    // Try to get FPS directly from VideoHID first (only once per detection)
-    // Cache the result to avoid repeated USB HID reads which are expensive
-    static float cachedHidFps = -1.0f;
-    static qint64 lastHidFpsReadTime = 0;
-    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+    // Load video settings from GlobalSetting into GlobalVar
+    GlobalSetting::instance().loadVideoSettings();
     
-    // Only read from HID if we haven't cached a value or cache is older than 5 seconds
-    if (cachedHidFps < 0 || (currentTime - lastHidFpsReadTime) > 5000) {
-        VideoHid& videoHid = VideoHid::getInstance();
-        cachedHidFps = videoHid.getFps();
-        lastHidFpsReadTime = currentTime;
-        qCInfo(log_ffmpeg_backend) << "Read FPS from VideoHID:" << cachedHidFps;
-    } else {
-        qCDebug(log_ffmpeg_backend) << "Using cached HID FPS:" << cachedHidFps << "(read" << (currentTime - lastHidFpsReadTime) << "ms ago)";
-    }
+    // Get the stored resolution and framerate
+    int width = GlobalVar::instance().getCaptureWidth();
+    int height = GlobalVar::instance().getCaptureHeight();
+    int fps = GlobalVar::instance().getCaptureFps();
     
-    if (cachedHidFps > 0) {
-        // Successfully got FPS from HID
-        int detectedFps = static_cast<int>(cachedHidFps + 0.5f); // Round to nearest integer
-        
-        qCInfo(log_ffmpeg_backend) << "✓ Using FPS from VideoHID:" << cachedHidFps << "-> " << detectedFps << "FPS";
-        
-        // Use standard 1920x1080 resolution (most common for HDMI capture)
-        capability.resolution = QSize(1920, 1080);
-        capability.framerate = detectedFps;
-        
-        qCInfo(log_ffmpeg_backend) << "✓ Maximum capability from HID:" 
-                                  << capability.resolution << "@" << capability.framerate << "FPS";
-        return true;
-    }
+    capability.resolution = QSize(width, height);
+    capability.framerate = fps;
     
-    // Fallback: Try FFmpeg probing if HID FPS is not available
-    qCWarning(log_ffmpeg_backend) << "Could not get FPS from HID (got" << cachedHidFps << "), falling back to FFmpeg probing";
-    
-    const AVInputFormat* inputFormat = av_find_input_format("dshow");
-    
-    if (!inputFormat) {
-        qCWarning(log_ffmpeg_backend) << "DirectShow input format not found";
-        return false;
-    }
-    
-    QString deviceUrl = QString("video=%1").arg(devicePath);
-    
-    // Suppress FFmpeg logs during format testing
-    int oldLogLevel = av_log_get_level();
-    av_log_set_level(AV_LOG_QUIET);
-    
-    // Test framerates in descending order to find maximum
-    // Most USB2.0 MJPEG cameras support up to 60 FPS at 1920x1080
-    // USB3.0 cameras can go higher
-    QVector<int> testFramerates = {120, 90, 60, 50, 30, 25, 15};
-    QSize testResolution(1920, 1080); // Test at full HD
-    
-    int maxFps = 30; // Default fallback
-    QSize maxResolution = testResolution;
-    bool foundMaxFps = false;
-    
-    qCInfo(log_ffmpeg_backend) << "Testing MJPEG framerates at" << testResolution << "...";
-    
-    for (int fps : testFramerates) {
-        AVFormatContext* testContext = nullptr;
-        AVDictionary* testOptions = nullptr;
-        
-        // Set format options for this test
-        av_dict_set(&testOptions, "video_size", 
-                   QString("%1x%2").arg(testResolution.width()).arg(testResolution.height()).toUtf8().constData(), 0);
-        av_dict_set(&testOptions, "framerate", QString::number(fps).toUtf8().constData(), 0);
-        av_dict_set(&testOptions, "vcodec", "mjpeg", 0);
-        
-        int ret = avformat_open_input(&testContext, deviceUrl.toUtf8().constData(), 
-                                     inputFormat, &testOptions);
-        av_dict_free(&testOptions);
-        
-        if (ret == 0 && testContext) {
-            // Successfully opened with this format
-            // Verify stream info
-            if (avformat_find_stream_info(testContext, nullptr) >= 0) {
-                for (unsigned int i = 0; i < testContext->nb_streams; i++) {
-                    if (testContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-                        AVStream* stream = testContext->streams[i];
-                        
-                        // Get actual framerate from stream
-                        int actualFps = fps;
-                        if (stream->avg_frame_rate.num > 0 && stream->avg_frame_rate.den > 0) {
-                            actualFps = qRound(av_q2d(stream->avg_frame_rate));
-                        } else if (stream->r_frame_rate.num > 0 && stream->r_frame_rate.den > 0) {
-                            actualFps = qRound(av_q2d(stream->r_frame_rate));
-                        }
-                        
-                        // Check if we got approximately the requested framerate
-                        // Allow 5% tolerance for matching
-                        if (actualFps >= fps * 0.95) {
-                            maxFps = actualFps;
-                            maxResolution = testResolution;
-                            foundMaxFps = true;
-                            
-                            av_log_set_level(oldLogLevel);
-                            qCInfo(log_ffmpeg_backend) << "✓ Camera supports" 
-                                                      << testResolution << "@" << actualFps << "FPS";
-                            av_log_set_level(AV_LOG_QUIET);
-                            
-                            avformat_close_input(&testContext);
-                            // Found a working high framerate, exit loop
-                            goto found_max;
-                        }
-                        break;
-                    }
-                }
-            }
-            avformat_close_input(&testContext);
-        }
-    }
-    
-found_max:
-    av_log_set_level(oldLogLevel);
-    
-    if (foundMaxFps) {
-        capability.resolution = maxResolution;
-        capability.framerate = maxFps;
-        
-        qCInfo(log_ffmpeg_backend) << "✓ Maximum capability detected:" 
-                                  << capability.resolution << "@" << capability.framerate << "FPS";
-        return true;
-    }
-    
-    qCWarning(log_ffmpeg_backend) << "Could not detect maximum FPS, defaulting to 30 FPS";
-    capability.resolution = QSize(1920, 1080);
-    capability.framerate = 30;
-    return false;
+    qCInfo(log_ffmpeg_backend) << "✓ Maximum capability from GlobalSetting:" 
+                              << capability.resolution << "@" << capability.framerate << "FPS";
+    return true;
 }
 #endif
 
@@ -765,29 +650,22 @@ bool FFmpegBackendHandler::startDirectCapture(const QString& devicePath, const Q
         framerate <= 0) {
         qCInfo(log_ffmpeg_backend) << "Resolution or framerate not specified, detecting camera capabilities...";
         
-        // Try to get FPS directly from VideoHID first (only if not cached)
-        // Use cached value to avoid expensive USB HID reads
+        // Try to get settings from GlobalSetting
+        // Use stored values from video page settings
         if (framerate <= 0) {
-            // Use getMaxCameraCapability which caches HID FPS reads
+            // Use getMaxCameraCapability which loads from GlobalSetting
             CameraCapability tempCapability;
             if (getMaxCameraCapability(devicePath, tempCapability)) {
                 actualFramerate = tempCapability.framerate;
-                qCInfo(log_ffmpeg_backend) << "✓ Got FPS from capability detection:" << actualFramerate << "FPS";
+                qCInfo(log_ffmpeg_backend) << "✓ Got FPS from GlobalSetting:" << actualFramerate << "FPS";
                 
-                // Also use detected resolution if not specified
+                // Also use stored resolution if not specified
                 if (!resolution.isValid() || resolution.width() <= 0 || resolution.height() <= 0) {
                     actualResolution = tempCapability.resolution;
-                    qCInfo(log_ffmpeg_backend) << "✓ Got resolution from capability detection:" << actualResolution;
+                    qCInfo(log_ffmpeg_backend) << "✓ Got resolution from GlobalSetting:" << actualResolution;
                 }
-                
-                // CRITICAL: Give DirectShow time to fully release the device after capability probing
-                // The capability detection opens and closes the device, but DirectShow may not
-                // release it immediately. Without this delay, we get "I/O error" when trying to reopen.
-                qCDebug(log_ffmpeg_backend) << "Waiting for device to be fully released after capability detection...";
-                QThread::msleep(300);  // 300ms for DirectShow to release the device
-                
             } else {
-                qCInfo(log_ffmpeg_backend) << "Could not detect FPS, will use defaults";
+                qCInfo(log_ffmpeg_backend) << "Could not load settings, will use defaults";
             }
         }
         

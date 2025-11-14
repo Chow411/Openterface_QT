@@ -6,6 +6,11 @@ set(COMMON_SOURCES
     main.cpp
 )
 
+# Add Windows resource file for icon
+if(WIN32)
+    list(APPEND COMMON_SOURCES openterfaceQT.rc)
+endif()
+
 # Add dlopen_wrapper.c only for static builds on Linux (not needed on Windows)
 if(OPENTERFACE_BUILD_STATIC AND NOT WIN32)
     list(APPEND COMMON_SOURCES dlopen_wrapper.c)

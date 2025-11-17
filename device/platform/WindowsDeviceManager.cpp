@@ -1617,6 +1617,8 @@ QList<DeviceInfo> WindowsDeviceManager::discoverGeneration1Devices()
         DeviceInfo deviceInfo;
         deviceInfo.portChain = usbDevice.portChain;
         deviceInfo.deviceInstanceId = usbDevice.deviceInstanceId;
+        deviceInfo.vid = AbstractPlatformDeviceManager::OPENTERFACE_VID;
+        deviceInfo.pid = AbstractPlatformDeviceManager::OPENTERFACE_PID;
         deviceInfo.lastSeen = QDateTime::currentDateTime();
         deviceInfo.platformSpecific = usbDevice.deviceInfo;
         
@@ -1718,6 +1720,8 @@ QList<DeviceInfo> WindowsDeviceManager::discoverGeneration2Devices()
         DeviceInfo deviceInfo;
         deviceInfo.portChain = companionDevice.portChain;
         deviceInfo.deviceInstanceId = companionDevice.deviceInstanceId;
+        deviceInfo.vid = AbstractPlatformDeviceManager::OPENTERFACE_VID_V2;
+        deviceInfo.pid = AbstractPlatformDeviceManager::OPENTERFACE_PID_V2;
         deviceInfo.lastSeen = QDateTime::currentDateTime();
         deviceInfo.platformSpecific = companionDevice.deviceInfo;
         
@@ -1806,6 +1810,8 @@ QList<DeviceInfo> WindowsDeviceManager::discoverOptimizedDevices()
         DeviceInfo deviceInfo;
         deviceInfo.portChain = originalDevice.portChain;
         deviceInfo.deviceInstanceId = originalDevice.deviceInstanceId;
+        deviceInfo.vid = AbstractPlatformDeviceManager::SERIAL_VID;
+        deviceInfo.pid = AbstractPlatformDeviceManager::SERIAL_PID;
         deviceInfo.lastSeen = QDateTime::currentDateTime();
         deviceInfo.platformSpecific = originalDevice.deviceInfo;
         
@@ -1851,6 +1857,8 @@ QList<DeviceInfo> WindowsDeviceManager::discoverOptimizedDevices()
         DeviceInfo deviceInfo;
         deviceInfo.portChain = newGen2Device.portChain;
         deviceInfo.deviceInstanceId = newGen2Device.deviceInstanceId;
+        deviceInfo.vid = AbstractPlatformDeviceManager::SERIAL_VID_V2;
+        deviceInfo.pid = AbstractPlatformDeviceManager::SERIAL_PID_V2;
         deviceInfo.lastSeen = QDateTime::currentDateTime();
         deviceInfo.platformSpecific = newGen2Device.deviceInfo;
         
@@ -1930,6 +1938,8 @@ QList<DeviceInfo> WindowsDeviceManager::discoverOptimizedDevices()
         DeviceInfo deviceInfo;
         deviceInfo.portChain = associatedPortChain;
         deviceInfo.deviceInstanceId = integratedDevice.deviceInstanceId;
+        deviceInfo.vid = AbstractPlatformDeviceManager::OPENTERFACE_VID_V2;
+        deviceInfo.pid = AbstractPlatformDeviceManager::OPENTERFACE_PID_V2;
         deviceInfo.lastSeen = QDateTime::currentDateTime();
         deviceInfo.platformSpecific = integratedDevice.deviceInfo;
         
@@ -2030,6 +2040,8 @@ QList<DeviceInfo> WindowsDeviceManager::discoverOptimizedDevices()
         DeviceInfo deviceInfo;
         deviceInfo.portChain = associatedPortChain;
         deviceInfo.deviceInstanceId = integratedDevice.deviceInstanceId;
+        deviceInfo.vid = AbstractPlatformDeviceManager::OPENTERFACE_VID_V3;
+        deviceInfo.pid = AbstractPlatformDeviceManager::OPENTERFACE_PID_V3;
         deviceInfo.lastSeen = QDateTime::currentDateTime();
         deviceInfo.platformSpecific = integratedDevice.deviceInfo;
         
@@ -3390,5 +3402,4 @@ bool WindowsDeviceManager::isDeviceRelatedToPortChain(const QString& deviceId, c
     return false;
 }
 
-// ...existing code...
 #endif // _WIN32

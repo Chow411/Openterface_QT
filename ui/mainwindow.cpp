@@ -132,6 +132,7 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent)
     , m_windowControlManager(nullptr)
     , m_deviceCoordinator(nullptr)
     , m_menuCoordinator(nullptr)
+    , m_deviceAutoSelected(false)
     , mouseEdgeTimer(nullptr)
 {
     qCDebug(log_ui_mainwindow) << "Initializing MainWindow...";
@@ -928,8 +929,32 @@ void MainWindow::onPortConnected(const QString& port, const int& baudrate) {
             m_menuCoordinator->updateBaudrateMenu(baudrate);
         }
         
-        // Note: Camera coordination functionality has been removed
-        // The DeviceManager singleton now handles device coordination automatically
+        // Auto-select device if there's only one connected and not already auto-selected
+        DeviceManager& deviceManager = DeviceManager::getInstance();
+        QList<DeviceInfo> devices = deviceManager.getCurrentDevices();
+        if (devices.size() == 1 && !m_deviceAutoSelected) {
+            const DeviceInfo& device = devices.first();
+            qCDebug(log_ui_mainwindow) << "Only one device connected, auto-selecting and starting all components:" << device.getUniqueKey();
+            m_deviceAutoSelected = true; // Prevent multiple auto-selections
+            
+            // Defer the device switching to avoid blocking the UI thread
+            QTimer::singleShot(100, this, [this, device]() {
+                DeviceManager& deviceManager = DeviceManager::getInstance();
+                // Switch to the device's camera, HID, and audio components (serial already connected)
+                bool hidSuccess = deviceManager.switchHIDDeviceByPortChain(device.portChain);
+                bool audioSuccess = deviceManager.switchAudioDeviceByPortChain(device.portChain);
+                bool cameraSuccess = m_cameraManager->switchToCameraDeviceByPortChain(device.portChain);
+                
+                if (hidSuccess && audioSuccess && cameraSuccess) {
+                    qCDebug(log_ui_mainwindow) << "Successfully auto-selected and started device components (HID, audio, camera)";
+                } else {
+                    qCWarning(log_ui_mainwindow) << "Failed to auto-select some device components - HID:" 
+                                                << hidSuccess << " Audio:" << audioSuccess << " Camera:" << cameraSuccess;
+                    // Don't reset the flag on partial failure, as some components might have succeeded
+                }
+            });
+        }
+        
         qCDebug(log_ui_mainwindow) << "Serial port connected:" << port << "at baudrate:" << baudrate;
     }else{
         m_statusBarManager->setConnectedPort(port, baudrate);

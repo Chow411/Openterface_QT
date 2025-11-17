@@ -282,6 +282,7 @@ private:
     bool m_isCapturingImage = false;
     bool m_applicationExiting = false;
     bool m_doImageCapture = true;
+    bool m_deviceAutoSelected = false; // Flag to prevent multiple auto-selections
     int video_width = 1920;
     int video_height = 1080;
     QList<QCameraDevice> m_lastCameraList;

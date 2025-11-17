@@ -473,4 +473,7 @@ void MainWindowInitializer::finalize()
 
     GlobalVar::instance().setMouseAutoHide(GlobalSetting::instance().getMouseAutoHideEnable());
     m_mainWindow->initializeKeyboardLayouts();
+    
+    // Start VideoHid to enable immediate resolution polling when device connects
+    VideoHid::getInstance().start();
 }

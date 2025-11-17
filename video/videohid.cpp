@@ -19,7 +19,6 @@
 #include "../device/DeviceManager.h"
 #include "../device/HotplugMonitor.h"
 #include "../ui/globalsetting.h"
-#include "../serial/SerialPortManager.h"
 #include "../device/platform/AbstractPlatformDeviceManager.h"
 
 #ifdef _WIN32
@@ -59,15 +58,14 @@ void VideoHid::detectChipType() {
     
     // Check if we have a valid device path
     if (m_currentHIDDevicePath.isEmpty()) {
-        qCWarning(log_host_hid) << "No valid HID device path to detect chip type";
+        qCDebug(log_host_hid) << "No valid HID device path to detect chip type";
         return;
     }
     
     // Extract VID/PID from device path
     QString devicePath = m_currentHIDDevicePath;
-    qCWarning(log_host_hid) << "=== DETECTING CHIP TYPE ===";
-    qCWarning(log_host_hid) << "Device path:" << devicePath;
-    qCWarning(log_host_hid) << "Current port chain:" << m_currentHIDPortChain;
+    qCDebug(log_host_hid) << "Detecting chip type from device path:" << devicePath;
+    qCDebug(log_host_hid) << "Current port chain:" << m_currentHIDPortChain;
     
     // We need to check both hidDevicePath and DeviceInfo's VID/PID since different platforms
     // format the device path differently. On some systems the VID/PID might not be in the path.
@@ -81,34 +79,32 @@ void VideoHid::detectChipType() {
     if (devicePath.contains("345F", Qt::CaseInsensitive) && 
         devicePath.contains("2132", Qt::CaseInsensitive)) {
         isMS2130S = true;
-        qCWarning(log_host_hid) << "✓ Detected MS2130S chipset from path (345F:2132)";
+        qCDebug(log_host_hid) << "Detected MS2130S chipset from path (345F:2132)";
     }
     // Look for MS2109 identifiers (VID: 534D, PID: 2109)
     else if (devicePath.contains("534D", Qt::CaseInsensitive) && 
              devicePath.contains("2109", Qt::CaseInsensitive)) {
         isMS2109 = true;
-        qCWarning(log_host_hid) << "✓ Detected MS2109 chipset from path (534D:2109)";
+        qCDebug(log_host_hid) << "Detected MS2109 chipset from path (534D:2109)";
     }
     // Also check for Windows style VID/PID format
     else if (devicePath.contains("vid_345f", Qt::CaseInsensitive) && 
              devicePath.contains("pid_2132", Qt::CaseInsensitive)) {
         isMS2130S = true;
-        qCWarning(log_host_hid) << "✓ Detected MS2130S chipset from Windows-style path";
+        qCDebug(log_host_hid) << "Detected MS2130S chipset from Windows-style path";
     }
     else if (devicePath.contains("vid_534d", Qt::CaseInsensitive) && 
              devicePath.contains("pid_2109", Qt::CaseInsensitive)) {
         isMS2109 = true;
-        qCWarning(log_host_hid) << "✓ Detected MS2109 chipset from Windows-style path";
+        qCDebug(log_host_hid) << "Detected MS2109 chipset from Windows-style path";
     }
     
     if (isMS2130S) {
         m_chipType = VideoChipType::MS2130S;
-        qCWarning(log_host_hid) << "=== CHIP TYPE SET TO: MS2130S ===";
     } else if (isMS2109) {
         m_chipType = VideoChipType::MS2109;
-        qCWarning(log_host_hid) << "=== CHIP TYPE SET TO: MS2109 ===";
     } else {
-        qCWarning(log_host_hid) << "✗ Unknown chipset in device path:" << devicePath;
+        qCDebug(log_host_hid) << "Unknown chipset in device path:" << devicePath;
         // If we couldn't detect the type but had a previous valid type, keep using it
         if (previousChipType != VideoChipType::UNKNOWN) {
             m_chipType = previousChipType;
@@ -127,29 +123,24 @@ void VideoHid::detectChipType() {
     }
 }
 
-
 // Update the start method to keep HID device continuously open
 void VideoHid::start() {
-    qCWarning(log_host_hid) << "=== VideoHid::start() called ===";
+    // Prevent multiple starts
+    if (timer) {
+        qCDebug(log_host_hid) << "VideoHid already started, ignoring duplicate start call";
+        return;
+    }
     
     // Initialize current device tracking from global settings
     QString currentPortChain = GlobalSetting::instance().getOpenterfacePortChain();
-    qCWarning(log_host_hid) << "Current port chain from settings:" << currentPortChain;
-    
     if (!currentPortChain.isEmpty()) {
         m_currentHIDPortChain = currentPortChain;
         QString hidPath = findMatchingHIDDevice(currentPortChain);
         
-        qCWarning(log_host_hid) << "Found HID path:" << hidPath;
-        
         // Set the current HID device path and detect chip type
         if (!hidPath.isEmpty()) {
             m_currentHIDDevicePath = hidPath;
-            qCWarning(log_host_hid) << "About to call detectChipType()";
             detectChipType();
-            qCWarning(log_host_hid) << "detectChipType() completed, chip type is:" 
-                                    << (m_chipType == VideoChipType::MS2109 ? "MS2109" :
-                                        m_chipType == VideoChipType::MS2130S ? "MS2130S" : "Unknown");
         }
         if (!hidPath.isEmpty()) {
             m_currentHIDDevicePath = hidPath;
@@ -158,51 +149,31 @@ void VideoHid::start() {
         }
     }
     
-    // CRITICAL FIX: Defer blocking HID operations to avoid blocking UI thread during startup
-    // This allows the main window to become responsive immediately
-    QTimer::singleShot(400, this, [this]() {
-        qCDebug(log_host_hid) << "Starting deferred HID initialization...";
-        
-        // Now perform blocking operations asynchronously
-        std::string captureCardFirmwareVersion = getFirmwareVersion();
-        qCDebug(log_host_hid) << "MS2109 firmware VERSION:" << QString::fromStdString(captureCardFirmwareVersion);
-        
-        GlobalVar::instance().setCaptureCardFirmwareVersion(captureCardFirmwareVersion);
-        isHardSwitchOnTarget = getSpdifout();
-        qCDebug(log_host_hid) << "SPDIFOUT:" << isHardSwitchOnTarget;
-        
-        if(eventCallback){
-            eventCallback->onSwitchableUsbToggle(isHardSwitchOnTarget);
-            setSpdifout(isHardSwitchOnTarget); //Follow the hard switch by default
-        }
-
-        // Open HID device once and keep it open for continuous monitoring
-        if (!beginTransaction()) {
-            qCWarning(log_host_hid) << "Failed to open HID device for continuous monitoring";
-            return;
-        }
-
-        // Log the detected chip type
-        qCDebug(log_host_hid) << "Starting timer with chip type:" << 
-                             (m_chipType == VideoChipType::MS2109 ? "MS2109" :
-                              m_chipType == VideoChipType::MS2130S ? "MS2130S" : "Unknown");
-        
-        // Start the monitoring timer
-        startMonitoringTimer();
-    });
+    std::string captureCardFirmwareVersion = getFirmwareVersion();
+    qCDebug(log_host_hid) << "MS2109 firmware VERSION:" << QString::fromStdString(captureCardFirmwareVersion);    //firmware VERSION
     
-    qCDebug(log_host_hid) << "VideoHid::start() completed (async initialization scheduled)";
-}
-
-
-// Extract timer initialization into a separate method
-void VideoHid::startMonitoringTimer() {
-    if (timer) {
-        qCWarning(log_host_hid) << "Timer already exists, stopping old timer";
-        timer->stop();
-        delete timer;
-        timer = nullptr;
+    GlobalVar::instance().setCaptureCardFirmwareVersion(captureCardFirmwareVersion);
+    isHardSwitchOnTarget = getSpdifout();
+    qCDebug(log_host_hid)  << "SPDIFOUT:" << isHardSwitchOnTarget;    //SPDIFOUT
+    if(eventCallback){
+        eventCallback->onSwitchableUsbToggle(isHardSwitchOnTarget);
+        setSpdifout(isHardSwitchOnTarget); //Follow the hard switch by default
     }
+
+    // Open HID device once and keep it open for continuous monitoring
+    if (!beginTransaction()) {
+        qCWarning(log_host_hid) << "Failed to open HID device for continuous monitoring";
+        return;
+    }
+
+    // Add longer delay to allow device to fully stabilize after opening
+    qCDebug(log_host_hid) << "Waiting for device stabilization before starting timer...";
+    QThread::msleep(500);
+
+    // Log the detected chip type
+    qCDebug(log_host_hid) << "Starting timer with chip type:" << 
+                         (m_chipType == VideoChipType::MS2109 ? "MS2109" :
+                          m_chipType == VideoChipType::MS2130S ? "MS2130S" : "Unknown");
                           
     //start a timer to get the HDMI connection status every 1 second
     timer = new QTimer(this);
@@ -213,6 +184,23 @@ void VideoHid::startMonitoringTimer() {
             bool hdmiConnected = isHdmiConnected();
 
             if (eventCallback) {
+                auto safeRead = [this](quint16 addr, quint8 defaultValue = 0) -> quint8 {
+                    auto result = usbXdataRead4Byte(addr);
+                    if (!result.second || result.first.isEmpty()) {
+                        qCWarning(log_host_hid) << "HID READ FAILED from address:" << QString("0x%1").arg(addr, 4, 16, QChar('0'))
+                                               << "result.second:" << result.second 
+                                               << "result.first.size():" << result.first.size()
+                                               << "chip type:" << (m_chipType == VideoChipType::MS2109 ? "MS2109" : 
+                                                                  m_chipType == VideoChipType::MS2130S ? "MS2130S" : "Unknown")
+                                               << "returning default value:" << defaultValue;
+                        return defaultValue;
+                    }
+                    quint8 value = static_cast<quint8>(result.first.at(0));
+                    qCDebug(log_host_hid) << "HID READ SUCCESS from address:" << QString("0x%1").arg(addr, 4, 16, QChar('0'))
+                                         << "value:" << QString("0x%1").arg(value, 2, 16, QChar('0')) << "(" << value << ")";
+                    return value;
+                };
+                
                 if (hdmiConnected) {
                     // Determine which registers to use based on chip type
                     uint16_t width_h_addr, width_l_addr, height_h_addr, height_l_addr;
@@ -244,39 +232,39 @@ void VideoHid::startMonitoringTimer() {
                     
                     // Get resolution-related information using the appropriate registers
                     qCDebug(log_host_hid) << "Reading width_h from address:" << QString("0x%1").arg(width_h_addr, 4, 16, QChar('0'));
-                    quint8 width_h = safeReadByte(width_h_addr);
+                    quint8 width_h = safeRead(width_h_addr);
                     qCDebug(log_host_hid) << "Width high byte raw value:" << width_h << "(" << QString("0x%1").arg(width_h, 2, 16, QChar('0')) << ")";
                     
                     qCDebug(log_host_hid) << "Reading width_l from address:" << QString("0x%1").arg(width_l_addr, 4, 16, QChar('0'));
-                    quint8 width_l = safeReadByte(width_l_addr);
+                    quint8 width_l = safeRead(width_l_addr);
                     qCDebug(log_host_hid) << "Width low byte raw value:" << width_l << "(" << QString("0x%1").arg(width_l, 2, 16, QChar('0')) << ")";
                     quint16 width = (width_h << 8) + width_l;
                     
                     qCDebug(log_host_hid) << "Reading height_h from address:" << QString("0x%1").arg(height_h_addr, 4, 16, QChar('0'));
-                    quint8 height_h = safeReadByte(height_h_addr);
+                    quint8 height_h = safeRead(height_h_addr);
                     qCDebug(log_host_hid) << "Height high byte raw value:" << height_h << "(" << QString("0x%1").arg(height_h, 2, 16, QChar('0')) << ")";
                     
                     qCDebug(log_host_hid) << "Reading height_l from address:" << QString("0x%1").arg(height_l_addr, 4, 16, QChar('0'));
-                    quint8 height_l = safeReadByte(height_l_addr);
+                    quint8 height_l = safeRead(height_l_addr);
                     qCDebug(log_host_hid) << "Height low byte raw value:" << height_l << "(" << QString("0x%1").arg(height_l, 2, 16, QChar('0')) << ")";
                     quint16 height = (height_h << 8) + height_l;
                     
                     qCDebug(log_host_hid) << "Reading fps_h from address:" << QString("0x%1").arg(fps_h_addr, 4, 16, QChar('0'));
-                    quint8 fps_h = safeReadByte(fps_h_addr);
+                    quint8 fps_h = safeRead(fps_h_addr);
                     qCDebug(log_host_hid) << "FPS high byte raw value:" << fps_h << "(" << QString("0x%1").arg(fps_h, 2, 16, QChar('0')) << ")";
                     
                     qCDebug(log_host_hid) << "Reading fps_l from address:" << QString("0x%1").arg(fps_l_addr, 4, 16, QChar('0'));
-                    quint8 fps_l = safeReadByte(fps_l_addr);
+                    quint8 fps_l = safeRead(fps_l_addr);
                     qCDebug(log_host_hid) << "FPS low byte raw value:" << fps_l << "(" << QString("0x%1").arg(fps_l, 2, 16, QChar('0')) << ")";
                     quint16 fps_raw = (fps_h << 8) + fps_l;
                     float fps = static_cast<float>(fps_raw) / 100;
                     
                     qCDebug(log_host_hid) << "Reading pixel clock high byte from address:" << QString("0x%1").arg(clk_h_addr, 4, 16, QChar('0'));
-                    quint8 clk_h = safeReadByte(clk_h_addr);
+                    quint8 clk_h = safeRead(clk_h_addr);
                     qCDebug(log_host_hid) << "Pixel clock high byte raw value:" << clk_h << "(" << QString("0x%1").arg(clk_h, 2, 16, QChar('0')) << ")";
                     
                     qCDebug(log_host_hid) << "Reading pixel clock low byte from address:" << QString("0x%1").arg(clk_l_addr, 4, 16, QChar('0'));
-                    quint8 clk_l = safeReadByte(clk_l_addr);
+                    quint8 clk_l = safeRead(clk_l_addr);
                     qCDebug(log_host_hid) << "Pixel clock low byte raw value:" << clk_l << "(" << QString("0x%1").arg(clk_l, 2, 16, QChar('0')) << ")";
                     quint16 clk_raw = (clk_h << 8) + clk_l;
                     float pixclk = clk_raw / 100.0;
@@ -385,7 +373,7 @@ void VideoHid::startMonitoringTimer() {
                         mask = 0xEF;
                     }
 
-                    quint8 spdifout = safeReadByte(ADDR_SPDIFOUT);
+                    quint8 spdifout = safeRead(ADDR_SPDIFOUT);
                     if (currentSwitchOnTarget) {
                         spdifout |= bit;
                     } else {
@@ -423,36 +411,6 @@ void VideoHid::stop() {
 Get the input resolution from capture card. 
 */
 QPair<int, int> VideoHid::getResolution() {
-    qCWarning(log_host_hid) << "=== getResolution() CALLED ===";
-    qCWarning(log_host_hid) << "Current HID device path:" << m_currentHIDDevicePath;
-    qCWarning(log_host_hid) << "Current chip type:" << (m_chipType == VideoChipType::MS2109 ? "MS2109" :
-                                                         m_chipType == VideoChipType::MS2130S ? "MS2130S" : "UNKNOWN");
-    qCWarning(log_host_hid) << "Transaction active:" << m_inTransaction;
-    
-    // Ensure we have a device path and chip type detected before reading registers
-    if (m_currentHIDDevicePath.isEmpty()) {
-        qCWarning(log_host_hid) << "getResolution: Device path not set, opening device to get path...";
-        // Open the device handle which will populate m_currentHIDDevicePath
-#ifdef _WIN32
-        if (!openHIDDeviceHandle()) {
-#else
-        if (!openHIDDevice()) {
-#endif
-            qCWarning(log_host_hid) << "getResolution: Failed to open HID device";
-            return qMakePair(0, 0);
-        }
-        closeHIDDeviceHandle(); // Close it, will reopen in transaction
-    }
-    
-    // Now detect chip type if not already done
-    if (m_chipType == VideoChipType::UNKNOWN && !m_currentHIDDevicePath.isEmpty()) {
-        qCWarning(log_host_hid) << "getResolution: Chip type UNKNOWN, detecting now...";
-        detectChipType();
-        qCWarning(log_host_hid) << "getResolution: After detection, chip type =" << (int)m_chipType 
-                               << (m_chipType == VideoChipType::MS2109 ? " (MS2109)" :
-                                   m_chipType == VideoChipType::MS2130S ? " (MS2130S)" : " (UNKNOWN)");
-    }
-    
     uint16_t width_h_addr, width_l_addr, height_h_addr, height_l_addr;
     
     // Use the appropriate registers based on chip type
@@ -479,64 +437,21 @@ QPair<int, int> VideoHid::getResolution() {
                             << QString::number(height_l_addr, 16).toUpper();
     }
     
-    // Read width high byte
-    QPair<QByteArray, bool> width_h_result = usbXdataRead4Byte(width_h_addr);
-    quint8 width_h = safeReadByte(width_h_addr);
-    
-    // For MS2130S, show all 11 bytes for width_h read
-    if (m_chipType == VideoChipType::MS2130S && width_h_result.second && !width_h_result.first.isEmpty()) {
-        QString fullHex;
-        for (int i = 0; i < width_h_result.first.size(); i++) {
-            fullHex += QString("%1 ").arg((quint8)width_h_result.first[i], 2, 16, QChar('0')).toUpper();
+    auto safeRead = [this](quint16 addr, quint8 defaultValue = 0) -> quint8 {
+        auto result = usbXdataRead4Byte(addr);
+        if (!result.second || result.first.isEmpty()) {
+            qCWarning(log_host_hid) << "Failed to read from address:" << QString("0x%1").arg(addr, 4, 16, QChar('0'))
+                                   << "returning default value:" << defaultValue;
+            return defaultValue;
         }
-        qCWarning(log_host_hid) << "MS2130S WIDTH_H full response (" << width_h_result.first.size() 
-                               << "bytes):" << fullHex << "-> extracted value:" << width_h;
-    }
+        return static_cast<quint8>(result.first.at(0));
+    };
     
-    // Read width low byte
-    QPair<QByteArray, bool> width_l_result = usbXdataRead4Byte(width_l_addr);
-    quint8 width_l = safeReadByte(width_l_addr);
-    
-    // For MS2130S, show all 11 bytes for width_l read
-    if (m_chipType == VideoChipType::MS2130S && width_l_result.second && !width_l_result.first.isEmpty()) {
-        QString fullHex;
-        for (int i = 0; i < width_l_result.first.size(); i++) {
-            fullHex += QString("%1 ").arg((quint8)width_l_result.first[i], 2, 16, QChar('0')).toUpper();
-        }
-        qCWarning(log_host_hid) << "MS2130S WIDTH_L full response (" << width_l_result.first.size() 
-                               << "bytes):" << fullHex << "-> extracted value:" << width_l;
-    }
-    
+    quint8 width_h = safeRead(width_h_addr);
+    quint8 width_l = safeRead(width_l_addr);
     quint16 width = (width_h << 8) + width_l;
-    
-    // Read height high byte
-    QPair<QByteArray, bool> height_h_result = usbXdataRead4Byte(height_h_addr);
-    quint8 height_h = safeReadByte(height_h_addr);
-    
-    // For MS2130S, show all 11 bytes for height_h read
-    if (m_chipType == VideoChipType::MS2130S && height_h_result.second && !height_h_result.first.isEmpty()) {
-        QString fullHex;
-        for (int i = 0; i < height_h_result.first.size(); i++) {
-            fullHex += QString("%1 ").arg((quint8)height_h_result.first[i], 2, 16, QChar('0')).toUpper();
-        }
-        qCWarning(log_host_hid) << "MS2130S HEIGHT_H full response (" << height_h_result.first.size() 
-                               << "bytes):" << fullHex << "-> extracted value:" << height_h;
-    }
-    
-    // Read height low byte
-    QPair<QByteArray, bool> height_l_result = usbXdataRead4Byte(height_l_addr);
-    quint8 height_l = safeReadByte(height_l_addr);
-    
-    // For MS2130S, show all 11 bytes for height_l read
-    if (m_chipType == VideoChipType::MS2130S && height_l_result.second && !height_l_result.first.isEmpty()) {
-        QString fullHex;
-        for (int i = 0; i < height_l_result.first.size(); i++) {
-            fullHex += QString("%1 ").arg((quint8)height_l_result.first[i], 2, 16, QChar('0')).toUpper();
-        }
-        qCWarning(log_host_hid) << "MS2130S HEIGHT_L full response (" << height_l_result.first.size() 
-                               << "bytes):" << fullHex << "-> extracted value:" << height_l;
-    }
-    
+    quint8 height_h = safeRead(height_h_addr);
+    quint8 height_l = safeRead(height_l_addr);
     quint16 height = (height_h << 8) + height_l;
     
     qCDebug(log_host_hid) << "getResolution: Read values width_h=" << width_h 
@@ -547,25 +462,6 @@ QPair<int, int> VideoHid::getResolution() {
 }
 
 float VideoHid::getFps() {
-    // Ensure we have a device path and chip type detected
-    if (m_currentHIDDevicePath.isEmpty()) {
-        qCDebug(log_host_hid) << "getFps: Device path not set, opening device to get path...";
-#ifdef _WIN32
-        if (!openHIDDeviceHandle()) {
-#else
-        if (!openHIDDevice()) {
-#endif
-            qCWarning(log_host_hid) << "getFps: Failed to open HID device";
-            return 0.0f;
-        }
-        closeHIDDeviceHandle();
-    }
-    
-    if (m_chipType == VideoChipType::UNKNOWN && !m_currentHIDDevicePath.isEmpty()) {
-        qCDebug(log_host_hid) << "getFps: Detecting chip type...";
-        detectChipType();
-    }
-    
     uint16_t fps_h_addr, fps_l_addr;
     
     // Use the appropriate registers based on chip type
@@ -584,34 +480,18 @@ float VideoHid::getFps() {
                             << QString::number(fps_l_addr, 16).toUpper();
     }
     
-    // Read FPS high byte
-    QPair<QByteArray, bool> fps_h_result = usbXdataRead4Byte(fps_h_addr);
-    quint8 fps_h = safeReadByte(fps_h_addr);
-    
-    // For MS2130S, show all 11 bytes for fps_h read
-    if (m_chipType == VideoChipType::MS2130S && fps_h_result.second && !fps_h_result.first.isEmpty()) {
-        QString fullHex;
-        for (int i = 0; i < fps_h_result.first.size(); i++) {
-            fullHex += QString("%1 ").arg((quint8)fps_h_result.first[i], 2, 16, QChar('0')).toUpper();
+    auto safeRead = [this](quint16 addr, quint8 defaultValue = 0) -> quint8 {
+        auto result = usbXdataRead4Byte(addr);
+        if (!result.second || result.first.isEmpty()) {
+            qCWarning(log_host_hid) << "Failed to read from address:" << QString("0x%1").arg(addr, 4, 16, QChar('0'))
+                                   << "returning default value:" << defaultValue;
+            return defaultValue;
         }
-        qCWarning(log_host_hid) << "MS2130S FPS_H full response (" << fps_h_result.first.size() 
-                               << "bytes):" << fullHex << "-> extracted value:" << fps_h;
-    }
+        return static_cast<quint8>(result.first.at(0));
+    };
     
-    // Read FPS low byte
-    QPair<QByteArray, bool> fps_l_result = usbXdataRead4Byte(fps_l_addr);
-    quint8 fps_l = safeReadByte(fps_l_addr);
-    
-    // For MS2130S, show all 11 bytes for fps_l read
-    if (m_chipType == VideoChipType::MS2130S && fps_l_result.second && !fps_l_result.first.isEmpty()) {
-        QString fullHex;
-        for (int i = 0; i < fps_l_result.first.size(); i++) {
-            fullHex += QString("%1 ").arg((quint8)fps_l_result.first[i], 2, 16, QChar('0')).toUpper();
-        }
-        qCWarning(log_host_hid) << "MS2130S FPS_L full response (" << fps_l_result.first.size() 
-                               << "bytes):" << fullHex << "-> extracted value:" << fps_l;
-    }
-    
+    quint8 fps_h = safeRead(fps_h_addr);
+    quint8 fps_l = safeRead(fps_l_addr);
     quint16 fps_raw = (fps_h << 8) + fps_l;
     float fps = static_cast<float>(fps_raw) / 100;
     
@@ -636,7 +516,17 @@ bool VideoHid::getGpio0() {
         gpio_addr = ADDR_GPIO0;
     }
     
-    bool result = safeReadByte(gpio_addr) & 0x01;
+    auto safeRead = [this](quint16 addr, quint8 defaultValue = 0) -> quint8 {
+        auto result = usbXdataRead4Byte(addr);
+        if (!result.second || result.first.isEmpty()) {
+            qCWarning(log_host_hid) << "Failed to read from address:" << QString("0x%1").arg(addr, 4, 16, QChar('0'))
+                                   << "returning default value:" << defaultValue;
+            return defaultValue;
+        }
+        return static_cast<quint8>(result.first.at(0));
+    };
+    
+    bool result = safeRead(gpio_addr) & 0x01;
     return result;
 }
 
@@ -660,10 +550,20 @@ float VideoHid::getPixelclk() {
     }
     
     qCDebug(log_host_hid) << "getPixelclk: Reading high byte from address:" << QString("0x%1").arg(clk_h_addr, 4, 16, QChar('0'));
-    quint8 clk_h = safeReadByte(clk_h_addr);
+    auto safeRead = [this](quint16 addr, quint8 defaultValue = 0) -> quint8 {
+        auto result = usbXdataRead4Byte(addr);
+        if (!result.second || result.first.isEmpty()) {
+            qCWarning(log_host_hid) << "Failed to read from address:" << QString("0x%1").arg(addr, 4, 16, QChar('0'))
+                                   << "returning default value:" << defaultValue;
+            return defaultValue;
+        }
+        return static_cast<quint8>(result.first.at(0));
+    };
+    
+    quint8 clk_h = safeRead(clk_h_addr);
     
     qCDebug(log_host_hid) << "getPixelclk: Reading low byte from address:" << QString("0x%1").arg(clk_l_addr, 4, 16, QChar('0'));
-    quint8 clk_l = safeReadByte(clk_l_addr);
+    quint8 clk_l = safeRead(clk_l_addr);
     
     quint16 clk_raw = (clk_h << 8) + clk_l;
     float result = clk_raw/100.0;
@@ -694,54 +594,32 @@ bool VideoHid::getSpdifout() {
     }
     Q_UNUSED(mask)  // Suppress unused variable warning
     
-    bool result = safeReadByte(spdifout_addr) & bit;
+    auto safeRead = [this](quint16 addr, quint8 defaultValue = 0) -> quint8 {
+        auto result = usbXdataRead4Byte(addr);
+        if (!result.second || result.first.isEmpty()) {
+            qCWarning(log_host_hid) << "Failed to read from address:" << QString("0x%1").arg(addr, 4, 16, QChar('0'))
+                                   << "returning default value:" << defaultValue;
+            return defaultValue;
+        }
+        return static_cast<quint8>(result.first.at(0));
+    };
+    
+    bool result = safeRead(spdifout_addr) & bit;
     return result;
 }
 
 void VideoHid::switchToHost() {
     qCDebug(log_host_hid)  << "Switch to host";
-    
-    // Use new serial-based switching for FE0C chips (if available)
-    bool serialSwitchSuccess = SerialPortManager::getInstance().switchUsbToHostViaSerial();
-    
-    if (serialSwitchSuccess) {
-        qCDebug(log_host_hid) << "USB switched to host via serial command (new FE0C protocol)";
-    } else {
-        qCDebug(log_host_hid) << "Using legacy HID register method for USB switch";
-        // Fall back to old method (setSpdifout)
-        setSpdifout(false);
-    }
-    
-    // Update global state regardless of method used
+    setSpdifout(false);
     GlobalVar::instance().setSwitchOnTarget(false);
     if(eventCallback) eventCallback->onSwitchableUsbToggle(false);
 }
 
 void VideoHid::switchToTarget() {
     qCDebug(log_host_hid)  << "Switch to target";
-    
-    // Use new serial-based switching for FE0C chips (if available)
-    bool serialSwitchSuccess = SerialPortManager::getInstance().switchUsbToTargetViaSerial();
-    
-    if (serialSwitchSuccess) {
-        qCDebug(log_host_hid) << "USB switched to target via serial command (new FE0C protocol)";
-    } else {
-        qCDebug(log_host_hid) << "Using legacy HID register method for USB switch";
-        // Fall back to old method (setSpdifout)
-        setSpdifout(true);
-    }
-    
-    // Update global state regardless of method used
+    setSpdifout(true);
     GlobalVar::instance().setSwitchOnTarget(true);
     if(eventCallback) eventCallback->onSwitchableUsbToggle(true);
-}
-
-/*
- * Get USB switch status via serial command (new FE0C protocol)
- * Returns: 0 if pointing to host, 1 if pointing to target, -1 on error or not supported
- */
-int VideoHid::getUsbStatusViaSerial() {
-    return SerialPortManager::getInstance().checkUsbStatusViaSerial();
 }
 
 /*
@@ -767,7 +645,17 @@ void VideoHid::setSpdifout(bool enable) {
         mask = 0xEF;
     }
 
-    quint8 spdifout = safeReadByte(spdifout_addr);
+    auto safeRead = [this](quint16 addr, quint8 defaultValue = 0) -> quint8 {
+        auto result = usbXdataRead4Byte(addr);
+        if (!result.second || result.first.isEmpty()) {
+            qCWarning(log_host_hid) << "Failed to read from address:" << QString("0x%1").arg(addr, 4, 16, QChar('0'))
+                                   << "returning default value:" << defaultValue;
+            return defaultValue;
+        }
+        return static_cast<quint8>(result.first.at(0));
+    };
+    
+    quint8 spdifout = safeRead(spdifout_addr);
     if (enable) {
         spdifout |= bit;
     } else {
@@ -968,11 +856,8 @@ bool VideoHid::isHdmiConnected() {
     
     QPair<QByteArray, bool> result = usbXdataRead4Byte(status_addr);
     
-    // CRITICAL FIX: Check both success flag AND that the result is not empty
-    // This prevents crash when device is plugged in before fully initialized
     if (!result.second || result.first.isEmpty()) {
-        qCWarning(log_host_hid) << "Failed to read HDMI connection status from address:" << QString::number(status_addr, 16)
-                                << "success:" << result.second << "isEmpty:" << result.first.isEmpty();
+        qCWarning(log_host_hid) << "Failed to read HDMI connection status from address:" << QString::number(status_addr, 16);
         return false;
     }
     
@@ -1009,10 +894,24 @@ void VideoHid::refreshHIDDevice() {
 
 QPair<QByteArray, bool> VideoHid::usbXdataRead4Byte(quint16 u16_address) {
     // Different approaches for different chip types
-    if (m_chipType == VideoChipType::MS2130S) {
-        return usbXdataRead4ByteMS2130S(u16_address);
+    qCDebug(log_host_hid) << "usbXdataRead4Byte called for address:" << QString("0x%1").arg(u16_address, 4, 16, QChar('0'))
+                         << "chip type:" << (m_chipType == VideoChipType::MS2109 ? "MS2109" : 
+                                           m_chipType == VideoChipType::MS2130S ? "MS2130S" : "Unknown");
+    auto result = (m_chipType == VideoChipType::MS2130S) ? usbXdataRead4ByteMS2130S(u16_address) : usbXdataRead4ByteMS2109(u16_address);
+    
+    // Normalize the result to have the data byte at position 0
+    if (result.second && !result.first.isEmpty()) {
+        quint8 dataByte;
+        if (m_chipType == VideoChipType::MS2130S) {
+            // MS2130S method already extracts data to position 0
+            dataByte = result.first.at(0);
+        } else {
+            // MS2109 returns data at position 0
+            dataByte = result.first.at(0);
+        }
+        return qMakePair(QByteArray(1, dataByte), true);
     } else {
-        return usbXdataRead4ByteMS2109(u16_address);
+        return qMakePair(QByteArray(1, 0), false);
     }
 }
 
@@ -1028,55 +927,40 @@ QPair<QByteArray, bool> VideoHid::usbXdataRead4ByteMS2130S(quint16 u16_address) 
     }
     
     // Define several strategies with different buffer sizes and report IDs
-    QByteArray readResult(11, 0);  // Store all 11 bytes instead of just 1
+    QByteArray readResult(1, 0);
     bool success = false;
     QString valueHex;
     
     qCDebug(log_host_hid) << "MS2130S reading from address:" << QString("0x%1").arg(u16_address, 4, 16, QChar('0'));
     
-    // Strategy 1: MS2130S uses 4-byte command format (report ID + cmd + addr_h + addr_l)
-    // Based on macOS implementation: [0x01, 0xB5, highByte, lowByte]
+    // Strategy 1: Standard buffer (11 bytes) with report ID 0
     if (!success) {
-        QByteArray ctrlData(4, 0);
-        QByteArray result(11, 0);  // Response is 11 bytes
+        QByteArray ctrlData(11, 0);
+        QByteArray result(11, 0);
         
-        ctrlData[0] = 0x01;  // Report ID for MS2130S
-        ctrlData[1] = MS2130S_CMD_XDATA_READ;  // 0xB5
-        ctrlData[2] = static_cast<char>((u16_address >> 8) & 0xFF);  // Address high
-        ctrlData[3] = static_cast<char>(u16_address & 0xFF);  // Address low
+        ctrlData[0] = 0x00;  // Report ID
+        ctrlData[1] = MS2130S_CMD_XDATA_READ;
+        ctrlData[2] = static_cast<char>((u16_address >> 8) & 0xFF);
+        ctrlData[3] = static_cast<char>(u16_address & 0xFF);
         
         // Use Windows-specific methods for more direct control
         #ifdef _WIN32
         bool openedForOperation = m_inTransaction || openHIDDeviceHandle();
         if (openedForOperation) {
-            BYTE buffer[4] = {0};
-            memcpy(buffer, ctrlData.data(), 4);
+            BYTE buffer[11] = {0};
+            memcpy(buffer, ctrlData.data(), 11);
             
-            if (sendFeatureReportWindows(buffer, 4)) {
-                // Prepare receive buffer for 11-byte response
-                BYTE responseBuffer[11] = {0};
-                responseBuffer[0] = 0x01;  // Report ID must be set for the read
+            if (sendFeatureReportWindows(buffer, 11)) {
+                // Clear the receive buffer
+                memset(buffer, 0, sizeof(buffer));
+                buffer[0] = 0x00;  // Report ID must be preserved
                 
-                if (getFeatureReportWindows(responseBuffer, 11)) {
-                    // Store all 11 bytes for later inspection
-                    memcpy(readResult.data(), responseBuffer, 11);
-                    
-                    // Log all 11 bytes to understand the response format
-                    QString fullHex;
-                    for (int i = 0; i < 11; i++) {
-                        fullHex += QString("%1 ").arg((quint8)responseBuffer[i], 2, 16, QChar('0')).toUpper();
-                    }
-                    qCWarning(log_host_hid) << "MS2130S 11-byte response (ReportID=1):" << fullHex;
-                    
-                    // For MS2130S, the data might be at a different position
-                    // Try buffer[4] first (same as MS2109), but log other positions too
-                    valueHex = QString("0x%1").arg((quint8)responseBuffer[4], 2, 16, QChar('0'));
-                    qCWarning(log_host_hid) << "MS2130S read from address:" 
+                if (getFeatureReportWindows(buffer, 11)) {
+                    readResult[0] = buffer[4];
+                    valueHex = QString("0x%1").arg((quint8)readResult[0], 2, 16, QChar('0'));
+                    qCDebug(log_host_hid) << "MS2130S direct Windows read success from address:" 
                                          << QString("0x%1").arg(u16_address, 4, 16, QChar('0')) 
-                                         << "buffer[4]=" << valueHex
-                                         << "buffer[5]=" << QString("0x%1").arg((quint8)responseBuffer[5], 2, 16, QChar('0'))
-                                         << "buffer[6]=" << QString("0x%1").arg((quint8)responseBuffer[6], 2, 16, QChar('0'))
-                                         << "buffer[7]=" << QString("0x%1").arg((quint8)responseBuffer[7], 2, 16, QChar('0'));
+                                         << "value:" << valueHex;
                     success = true;
                 }
             }
@@ -1089,30 +973,18 @@ QPair<QByteArray, bool> VideoHid::usbXdataRead4ByteMS2130S(quint16 u16_address) 
         // Standard approach for other platforms
         if (this->sendFeatureReport((uint8_t*)ctrlData.data(), ctrlData.size())) {
             if (this->getFeatureReport((uint8_t*)result.data(), result.size())) {
-                // Store all 11 bytes for later inspection
-                memcpy(readResult.data(), result.data(), 11);
-                
-                // Log all 11 bytes to understand the response format
-                QString fullHex;
-                for (int i = 0; i < 11; i++) {
-                    fullHex += QString("%1 ").arg((quint8)result[i], 2, 16, QChar('0')).toUpper();
-                }
-                qCWarning(log_host_hid) << "MS2130S 11-byte response (standard):" << fullHex;
-                
-                valueHex = QString("0x%1").arg((quint8)result[4], 2, 16, QChar('0'));
-                qCWarning(log_host_hid) << "MS2130S read success (11-byte buffer) from address:" 
+                readResult[0] = result[4];
+                valueHex = QString("0x%1").arg((quint8)readResult[0], 2, 16, QChar('0'));
+                qCDebug(log_host_hid) << "MS2130S read success (standard buffer) from address:" 
                                      << QString("0x%1").arg(u16_address, 4, 16, QChar('0')) 
-                                     << "buffer[4]=" << valueHex
-                                     << "buffer[5]=" << QString("0x%1").arg((quint8)result[5], 2, 16, QChar('0'))
-                                     << "buffer[6]=" << QString("0x%1").arg((quint8)result[6], 2, 16, QChar('0'))
-                                     << "buffer[7]=" << QString("0x%1").arg((quint8)result[7], 2, 16, QChar('0'));
+                                     << "value:" << valueHex;
                 success = true;
             }
         }
         #endif
     }
     
-    // Strategy 2: Try with report ID 1 if strategy 1 failed (11 bytes for MS2130S)
+    // Strategy 2: Try with report ID 1 if strategy 1 failed
     if (!success) {
         QByteArray ctrlData(11, 0);
         QByteArray result(11, 0);
@@ -1134,24 +1006,11 @@ QPair<QByteArray, bool> VideoHid::usbXdataRead4ByteMS2130S(quint16 u16_address) 
                 buffer[0] = 0x01;  // Report ID must be preserved
                 
                 if (getFeatureReportWindows(buffer, 11)) {
-                    // Store all 11 bytes for later inspection
-                    memcpy(readResult.data(), buffer, 11);
-                    
-                    // Log all 11 bytes to understand the response format
-                    QString fullHex;
-                    for (int i = 0; i < 11; i++) {
-                        fullHex += QString("%1 ").arg((quint8)buffer[i], 2, 16, QChar('0')).toUpper();
-                    }
-                    qCWarning(log_host_hid) << "MS2130S 11-byte response (ReportID=1):" << fullHex;
-                    
-                    // For MS2130S, the data might be at a different position
-                    valueHex = QString("0x%1").arg((quint8)buffer[4], 2, 16, QChar('0'));
-                    qCWarning(log_host_hid) << "MS2130S read from address:" 
+                    readResult[0] = buffer[4];
+                    valueHex = QString("0x%1").arg((quint8)readResult[0], 2, 16, QChar('0'));
+                    qCDebug(log_host_hid) << "MS2130S direct Windows read success (report ID 1) from address:" 
                                          << QString("0x%1").arg(u16_address, 4, 16, QChar('0')) 
-                                         << "buffer[4]=" << valueHex
-                                         << "buffer[5]=" << QString("0x%1").arg((quint8)buffer[5], 2, 16, QChar('0'))
-                                         << "buffer[6]=" << QString("0x%1").arg((quint8)buffer[6], 2, 16, QChar('0'))
-                                         << "buffer[7]=" << QString("0x%1").arg((quint8)buffer[7], 2, 16, QChar('0'));
+                                         << "value:" << valueHex;
                     success = true;
                 }
             }
@@ -1163,23 +1022,11 @@ QPair<QByteArray, bool> VideoHid::usbXdataRead4ByteMS2130S(quint16 u16_address) 
         #else
         if (this->sendFeatureReport((uint8_t*)ctrlData.data(), ctrlData.size())) {
             if (this->getFeatureReport((uint8_t*)result.data(), result.size())) {
-                // Store all 11 bytes for later inspection
-                memcpy(readResult.data(), result.data(), 11);
-                
-                // Log all 11 bytes to understand the response format
-                QString fullHex;
-                for (int i = 0; i < 11; i++) {
-                    fullHex += QString("%1 ").arg((quint8)result[i], 2, 16, QChar('0')).toUpper();
-                }
-                qCWarning(log_host_hid) << "MS2130S 11-byte response (ReportID=1, standard):" << fullHex;
-                
-                valueHex = QString("0x%1").arg((quint8)result[4], 2, 16, QChar('0'));
-                qCWarning(log_host_hid) << "MS2130S read success (report ID 1) from address:" 
+                readResult[0] = result[4];
+                valueHex = QString("0x%1").arg((quint8)readResult[0], 2, 16, QChar('0'));
+                qCDebug(log_host_hid) << "MS2130S read success (report ID 1) from address:" 
                                      << QString("0x%1").arg(u16_address, 4, 16, QChar('0')) 
-                                     << "buffer[4]=" << valueHex
-                                     << "buffer[5]=" << QString("0x%1").arg((quint8)result[5], 2, 16, QChar('0'))
-                                     << "buffer[6]=" << QString("0x%1").arg((quint8)result[6], 2, 16, QChar('0'))
-                                     << "buffer[7]=" << QString("0x%1").arg((quint8)result[7], 2, 16, QChar('0'));
+                                     << "value:" << valueHex;
                 success = true;
             }
         }
@@ -1218,9 +1065,11 @@ QPair<QByteArray, bool> VideoHid::usbXdataRead4ByteMS2130S(quint16 u16_address) 
         return qMakePair(QByteArray(4, 0), false);
     }
     
-    // Return all 11 bytes for MS2130S (instead of just 4 bytes like MS2109)
-    // This allows callers to inspect the full response if needed
-    return qMakePair(readResult, true);
+    // Create a 4-byte result for compatibility with existing code expecting that format
+    QByteArray finalResult(4, 0);
+    finalResult[0] = readResult[0];
+    
+    return qMakePair(finalResult, true);
 }
 
 QPair<QByteArray, bool> VideoHid::usbXdataRead4ByteMS2109(quint16 u16_address) {
@@ -1268,15 +1117,16 @@ bool VideoHid::usbXdataWrite4Byte(quint16 u16_address, QByteArray data) {
     
     // Select appropriate command and format based on chip type
     if (m_chipType == VideoChipType::MS2130S) {
-        // MS2130S uses 11-byte structure (not 9)
-        ctrlData = QByteArray(11, 0); // Initialize with 11 bytes set to 0
+        // MS2130S might need a different format or report ID
+        // Try with standard 9-byte structure first
+        ctrlData = QByteArray(9, 0); // Initialize with 9 bytes set to 0
         ctrlData[0] = 0x00; // Report ID - explicitly set to 0
         ctrlData[1] = MS2130S_CMD_XDATA_WRITE;
         ctrlData[2] = static_cast<char>((u16_address >> 8) & 0xFF);
         ctrlData[3] = static_cast<char>(u16_address & 0xFF);
         ctrlData.replace(4, 4, data);
     } else {
-        // MS2109 standard format (9 bytes)
+        // MS2109 standard format
         ctrlData = QByteArray(9, 0); // Initialize with 9 bytes set to 0
         ctrlData[1] = CMD_XDATA_WRITE;
         ctrlData[2] = static_cast<char>((u16_address >> 8) & 0xFF);
@@ -1351,52 +1201,6 @@ bool VideoHid::sendFeatureReport(uint8_t* buffer, size_t bufferLength) {
 #endif
 }
 
-/**
- * @brief Safely read a single byte from USB Xdata register
- * 
- * This is a safety wrapper around usbXdataRead4Byte that prevents crashes
- * when the device is not ready or returns empty data (e.g., during hotplug).
- * For MS2130S chips, this returns byte at index 4 from the 11-byte response.
- * For MS2109 chips, this returns byte at index 0 from the 4-byte response.
- * 
- * @param u16_address Register address to read from
- * @param defaultValue Value to return if read fails (default: 0)
- * @return quint8 The byte value read, or defaultValue if operation fails
- */
-quint8 VideoHid::safeReadByte(quint16 u16_address, quint8 defaultValue) {
-    QPair<QByteArray, bool> result = usbXdataRead4Byte(u16_address);
-    
-    // CRITICAL SAFETY CHECK: Verify both success flag AND non-empty result
-    // This prevents the assertion failure: "i >= 0 && i < size()" in qbytearray.h
-    if (!result.second || result.first.isEmpty()) {
-        qCDebug(log_host_hid) << "safeReadByte: Failed to read from address:" 
-                             << QString("0x%1").arg(u16_address, 4, 16, QChar('0'))
-                             << "- returning default value:" << defaultValue;
-        return defaultValue;
-    }
-    
-    // For MS2130S, the array has 11 bytes and data is at index 4
-    // For MS2109, the array has 4 bytes and data is at index 0
-    // Both chip types put the actual data byte at the same position (index 4 in the HID report)
-    // but MS2109's usbXdataRead4Byte already extracts bytes 4-7 from the 9-byte report
-    if (m_chipType == VideoChipType::MS2130S) {
-        // MS2130S returns all 11 bytes, data is at position 4
-        if (result.first.size() >= 5) {
-            return static_cast<quint8>(result.first.at(4));
-        }
-    } else {
-        // MS2109 returns 4 bytes (already extracted from positions 4-7 of original report)
-        if (result.first.size() >= 1) {
-            return static_cast<quint8>(result.first.at(0));
-        }
-    }
-    
-    qCWarning(log_host_hid) << "safeReadByte: Unexpected buffer size:" << result.first.size()
-                           << "for chip type:" << (m_chipType == VideoChipType::MS2130S ? "MS2130S" : "MS2109")
-                           << "- returning default value:" << defaultValue;
-    return defaultValue;
-}
-
 void VideoHid::closeHIDDeviceHandle() {
     #ifdef _WIN32
         if (deviceHandle != INVALID_HANDLE_VALUE) {
@@ -1445,15 +1249,13 @@ bool VideoHid::beginTransaction() {
             qCDebug(log_host_hid) << "Detected chip type:" << (m_chipType == VideoChipType::MS2130S ? "MS2130S" : 
                                                               m_chipType == VideoChipType::MS2109 ? "MS2109" : "Unknown");
             
-            // For MS2130S, configure the device for better stability
+            // Add stabilization delay for both chip types to ensure device is ready
             if (m_chipType == VideoChipType::MS2130S) {
                 qCDebug(log_host_hid) << "Performing MS2130S-specific initialization";
-                
-                // Add a short delay after opening to ensure device stability
-                QThread::msleep(50);
-                
-                // Perform any MS2130S-specific initialization here if needed
-                // ...
+                QThread::msleep(100);
+            } else if (m_chipType == VideoChipType::MS2109) {
+                qCDebug(log_host_hid) << "Performing MS2109-specific initialization";
+                QThread::msleep(100);
             }
         }
         
@@ -1541,6 +1343,10 @@ void VideoHid::connectToHotplugMonitor()
                 bool switchSuccess = switchToHIDDeviceByPortChain(device.portChain);
                 if (switchSuccess) {
                     qCInfo(log_host_hid) << "✓ HID device auto-switched to new device at port:" << device.portChain;
+                    
+                    // Add longer delay to allow device to fully stabilize after plugging in
+                    qCDebug(log_host_hid) << "Waiting for device stabilization after hotplug...";
+                    QThread::msleep(500);
                     
                     // Explicitly detect chip type when new device is plugged in
                     // Note: This is also called in switchToHIDDeviceByPortChain, but we call it again here
@@ -1733,41 +1539,64 @@ QString VideoHid::findMatchingHIDDevice(const QString& portChain) const
 
     // Use DeviceManager to look up device information by port chain
     DeviceManager& deviceManager = DeviceManager::getInstance();
-    QList<DeviceInfo> devices = deviceManager.getDevicesByPortChain(portChain);
     
-    if (devices.isEmpty()) {
-        qCWarning(log_host_hid) << "No devices found for port chain:" << portChain;
-        return QString();
-    }
+    // Retry logic for HID device detection - HID devices may take time to enumerate after hotplug
+    const int maxRetries = 3;
+    const int retryDelayMs = 200; // 200ms delay between retries
+    
+    for (int retry = 0; retry < maxRetries; ++retry) {
+        if (retry > 0) {
+            qCDebug(log_host_hid) << "HID device not found, retrying in" << retryDelayMs << "ms (attempt" << (retry + 1) << "/" << maxRetries << ")";
+            QThread::msleep(retryDelayMs);
+            
+            // Force fresh device discovery on retry
+            deviceManager.discoverDevices();
+        }
+        
+        QList<DeviceInfo> devices = deviceManager.getDevicesByPortChain(portChain);
+        
+        if (devices.isEmpty()) {
+            qCWarning(log_host_hid) << "No devices found for port chain:" << portChain;
+            continue; // Try again
+        }
 
-    qCDebug(log_host_hid) << "Found" << devices.size() << "device(s) for port chain:" << portChain;
+        qCDebug(log_host_hid) << "Found" << devices.size() << "device(s) for port chain:" << portChain;
 
-    // Look for a device that has HID information
-    DeviceInfo selectedDevice;
-    for (const DeviceInfo& device : devices) {
-        if (!device.hidDevicePath.isEmpty()) {
-            selectedDevice = device;
-            qCDebug(log_host_hid) << "Found device with HID info:" 
-                     << "hidDevicePath:" << device.hidDevicePath;
-            break;
+        // Look for a device that has HID information
+        DeviceInfo selectedDevice;
+        for (const DeviceInfo& device : devices) {
+            if (!device.hidDevicePath.isEmpty()) {
+                selectedDevice = device;
+                qCDebug(log_host_hid) << "Found device with HID info:" 
+                         << "hidDevicePath:" << device.hidDevicePath;
+                break;
+            }
+        }
+
+        if (selectedDevice.isValid() && !selectedDevice.hidDevicePath.isEmpty()) {
+            qCDebug(log_host_hid) << "Selected HID device path:" << selectedDevice.hidDevicePath;
+            
+            // Cache the found device path
+#ifdef _WIN32
+            const_cast<VideoHid*>(this)->m_cachedDevicePath = selectedDevice.hidDevicePath.toStdWString();
+#elif __linux__
+            const_cast<VideoHid*>(this)->m_cachedDevicePath = selectedDevice.hidDevicePath;
+#endif
+            
+            return selectedDevice.hidDevicePath;
+        }
+        
+        // If we get here, no HID device was found on this attempt
+        if (retry < maxRetries - 1) {
+            qCWarning(log_host_hid) << "No device with HID information found for port chain:" << portChain 
+                                   << "(attempt" << (retry + 1) << "/" << maxRetries << ")";
         }
     }
-
-    if (!selectedDevice.isValid() || selectedDevice.hidDevicePath.isEmpty()) {
-        qCWarning(log_host_hid) << "No device with HID information found for port chain:" << portChain;
-        return QString();
-    }
-
-    qCDebug(log_host_hid) << "Selected HID device path:" << selectedDevice.hidDevicePath;
     
-    // Cache the found device path
-#ifdef _WIN32
-    const_cast<VideoHid*>(this)->m_cachedDevicePath = selectedDevice.hidDevicePath.toStdWString();
-#elif __linux__
-    const_cast<VideoHid*>(this)->m_cachedDevicePath = selectedDevice.hidDevicePath;
-#endif
-    
-    return selectedDevice.hidDevicePath;
+    // All retries failed
+    qCWarning(log_host_hid) << "No device with HID information found for port chain:" << portChain 
+                           << "after" << maxRetries << "attempts";
+    return QString();
 }
 
 QString VideoHid::getCurrentHIDDevicePath() const
@@ -1882,14 +1711,6 @@ std::wstring VideoHid::getHIDDevicePath() {
     QString hidPath = findMatchingHIDDevice(portChain);
     
     if (!hidPath.isEmpty()) {
-        // Update current HID device path
-        if (m_currentHIDDevicePath != hidPath) {
-            m_currentHIDDevicePath = hidPath;
-            qCDebug(log_host_hid) << "HID device path updated to:" << hidPath;
-            // Note: Chip type detection is done in start() and switchToHIDDeviceByPortChain()
-            // No need to call it here as it would interfere with synchronous detection
-        }
-        
         // For MS2130S devices with VID_345F & PID_2132, we need to get the full device path
         // that Windows can use with CreateFileW, not just the device instance path
         if (hidPath.contains("VID_345F", Qt::CaseInsensitive) && 
@@ -2113,14 +1934,6 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
         return false;
     }
 
-    // Detect chip type if still unknown
-    if (m_chipType == VideoChipType::UNKNOWN && !m_currentHIDDevicePath.isEmpty()) {
-        qCDebug(log_host_hid) << "Chip type unknown - detecting from device path";
-        detectChipType();
-        qCDebug(log_host_hid) << "Detected chip type:" << (m_chipType == VideoChipType::MS2130S ? "MS2130S" : 
-                                                          m_chipType == VideoChipType::MS2109 ? "MS2109" : "Unknown");
-    }
-
     // Add debug info about the report being sent
     if (bufferSize > 0) {
         QString hexData;
@@ -2143,17 +1956,16 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     HIDP_CAPS caps;
     memset(&caps, 0, sizeof(HIDP_CAPS)); // Properly initialize all fields to zero
     
-    USHORT deviceFeatureReportLength = 0;
     if (HidD_GetPreparsedData(deviceHandle, &preparsedData)) {
         if (HidP_GetCaps(preparsedData, &caps) == HIDP_STATUS_SUCCESS) {
-            deviceFeatureReportLength = caps.FeatureReportByteLength;
             qCDebug(log_host_hid) << "Device capabilities - Feature Report Byte Length:" << caps.FeatureReportByteLength
                                  << "Input Report Byte Length:" << caps.InputReportByteLength
                                  << "Output Report Byte Length:" << caps.OutputReportByteLength;
             
-            // For MS2130S, use the actual device-reported size
-            if (m_chipType == VideoChipType::MS2130S && caps.FeatureReportByteLength > bufferSize) {
-                qCDebug(log_host_hid) << "MS2130S requires larger buffer size:" << caps.FeatureReportByteLength << "bytes";
+            // MS2130S reports a very large feature report size, but we know it works with smaller sizes
+            if (caps.FeatureReportByteLength > 1000 && m_chipType == VideoChipType::MS2130S) {
+                qCDebug(log_host_hid) << "Detected very large feature report size for MS2130S, using standard size instead";
+                // Don't try to adjust the buffer - we'll use our predefined size
             }
             // For normal cases, warn about size mismatch
             else if (bufferSize != caps.FeatureReportByteLength && caps.FeatureReportByteLength > 0) {
@@ -2164,65 +1976,27 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
         HidD_FreePreparsedData(preparsedData);
     }
 
-    // For MS2130S devices with large expected report sizes, use a properly sized buffer
+    // For MS2130S devices with large expected report sizes, use a direct method
     bool result = false;
     
-    if (m_chipType == VideoChipType::MS2130S && deviceFeatureReportLength > 0) {
-        // MS2130S uses a 4096-byte feature report
-        // Check if device uses report IDs or not
-        bool usesReportIds = (reportBuffer[0] != 0);
-        
-        // Allocate the properly sized buffer
-        std::vector<BYTE> paddedBuffer(deviceFeatureReportLength, 0);
-        
-        if (usesReportIds) {
-            // Include report ID in the buffer
-            memcpy(paddedBuffer.data(), reportBuffer, std::min<size_t>(bufferSize, deviceFeatureReportLength));
-            qCDebug(log_host_hid) << "MS2130S: Using report ID" << (int)reportBuffer[0] 
-                                 << "with padded buffer of" << deviceFeatureReportLength << "bytes";
-            
-            result = HidD_SetFeature(deviceHandle, paddedBuffer.data(), deviceFeatureReportLength);
-        } else {
-            // Device doesn't use report IDs - don't include the first byte (report ID)
-            // Copy data starting from reportBuffer[1] (skip the report ID byte)
-            if (bufferSize > 1) {
-                memcpy(paddedBuffer.data(), reportBuffer + 1, std::min<size_t>(bufferSize - 1, deviceFeatureReportLength));
-            }
-            qCDebug(log_host_hid) << "MS2130S: No report ID, using padded buffer of" << deviceFeatureReportLength << "bytes";
-            
-            result = HidD_SetFeature(deviceHandle, paddedBuffer.data(), deviceFeatureReportLength);
-        }
-        
-        if (!result) {
-            DWORD error = GetLastError();
-            qCWarning(log_host_hid) << "MS2130S padded buffer method failed. Error:" << error;
-        } else {
-            if (!m_inTransaction) {
-                closeHIDDeviceHandle();
-            }
-            return true;  // Success!
-        }
-    }
-    
-    // Fallback: try standard method
-    if (!result && m_chipType == VideoChipType::MS2130S) {
+    if (m_chipType == VideoChipType::MS2130S) {
         // For MS2130S, we need to use a special approach
-        qCDebug(log_host_hid) << "Trying MS2130S-specific feature report method";
+        qCDebug(log_host_hid) << "Using MS2130S-specific feature report method";
         
         // Try method 1: Use direct IOCTL
         DWORD bytesReturned = 0;
         OVERLAPPED overlapped;
         memset(&overlapped, 0, sizeof(OVERLAPPED));
         
-        // Create a standard HID report for MS2130S (11-bytes for specific commands)
-        BYTE specialReport[11] = {0};
+        // Create a standard HID report for MS2130S (9-bytes for specific commands)
+        BYTE specialReport[9] = {0};
         specialReport[0] = reportBuffer[0]; // Report ID
         specialReport[1] = reportBuffer[1]; // Command
         specialReport[2] = reportBuffer[2]; // Address High
         specialReport[3] = reportBuffer[3]; // Address Low
         if (bufferSize > 4) {
-            // Copy data bytes if available (up to 7 bytes for 11-byte total)
-            memcpy(&specialReport[4], &reportBuffer[4], std::min<DWORD>(7, bufferSize - 4));
+            // Copy data bytes if available
+            memcpy(&specialReport[4], &reportBuffer[4], std::min<DWORD>(5, bufferSize - 4));
         }
         
         // Try using the DeviceIoControl function directly
@@ -2253,11 +2027,27 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
         DWORD error = GetLastError();
         qCWarning(log_host_hid) << "Failed to send feature report. Windows error:" << error;
         
-        // MS2130S alternative methods all failed
+        // Try with a different approach for MS2130S
         if (m_chipType == VideoChipType::MS2130S) {
-            qCWarning(log_host_hid) << "MS2130S: All write methods failed with error 87";
-            qCWarning(log_host_hid) << "MS2130S might require different HID report structure or communication protocol";
-            // Don't try WriteFile - it can block or cause other issues
+            // Some devices require a different approach - try WriteFile
+            qCDebug(log_host_hid) << "Attempting alternative method (WriteFile) for MS2130S";
+            
+            // Try with a fixed small buffer
+            BYTE smallBuffer[9] = {0};
+            memcpy(smallBuffer, reportBuffer, std::min<DWORD>(9, bufferSize));
+            
+            DWORD bytesWritten = 0;
+            OVERLAPPED ol;
+            memset(&ol, 0, sizeof(OVERLAPPED));
+            
+            result = WriteFile(deviceHandle, smallBuffer, sizeof(smallBuffer), &bytesWritten, &ol);
+            
+            if (result) {
+                qCDebug(log_host_hid) << "Alternative write method succeeded, wrote" << bytesWritten << "bytes";
+            } else {
+                error = GetLastError();
+                qCWarning(log_host_hid) << "Alternative write method failed. Error:" << error;
+            }
         }
         
         if (!m_inTransaction) {
@@ -2272,7 +2062,6 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     return true;
 }
 
-#ifdef _WIN32
 bool VideoHid::openHIDDeviceHandle() {
     if (deviceHandle == INVALID_HANDLE_VALUE) {
         qCDebug(log_host_hid)  << "Opening HID device handle...";
@@ -2310,7 +2099,6 @@ bool VideoHid::openHIDDeviceHandle() {
     qCDebug(log_host_hid) << "Successfully opened device handle";
     return true;
 }
-#endif
 
 bool VideoHid::getFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     bool openedForOperation = m_inTransaction || openHIDDeviceHandle();
@@ -2318,14 +2106,6 @@ bool VideoHid::getFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     if (!openedForOperation) {
         qCDebug(log_host_hid) << "Failed to open device handle for getting feature report.";
         return false;
-    }
-
-    // Detect chip type if still unknown
-    if (m_chipType == VideoChipType::UNKNOWN && !m_currentHIDDevicePath.isEmpty()) {
-        qCDebug(log_host_hid) << "Chip type unknown - detecting from device path";
-        detectChipType();
-        qCDebug(log_host_hid) << "Detected chip type:" << (m_chipType == VideoChipType::MS2130S ? "MS2130S" : 
-                                                          m_chipType == VideoChipType::MS2109 ? "MS2109" : "Unknown");
     }
 
     // Add debug info about the report being requested
@@ -2339,12 +2119,9 @@ bool VideoHid::getFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     
     // Get device capabilities to better understand what's supported
     PHIDP_PREPARSED_DATA preparsedData = nullptr;
-    HIDP_CAPS caps;
-    USHORT deviceFeatureReportLength = 0;
-    
     if (HidD_GetPreparsedData(deviceHandle, &preparsedData)) {
+        HIDP_CAPS caps;
         if (HidP_GetCaps(preparsedData, &caps) == HIDP_STATUS_SUCCESS) {
-            deviceFeatureReportLength = caps.FeatureReportByteLength;
             qCDebug(log_host_hid) << "Device capabilities - Feature Report Byte Length:" << caps.FeatureReportByteLength
                                  << "Input Report Byte Length:" << caps.InputReportByteLength
                                  << "Output Report Byte Length:" << caps.OutputReportByteLength;
@@ -2352,56 +2129,12 @@ bool VideoHid::getFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
         HidD_FreePreparsedData(preparsedData);
     }
 
-    // For MS2130S with large buffer requirements, use proper buffer
+    // Send the Get Feature Report request
+    // For MS2130S devices, use a specialized approach first
     bool result = false;
     
-    if (m_chipType == VideoChipType::MS2130S && deviceFeatureReportLength > 0) {
-        // MS2130S uses a 4096-byte feature report
-        // Check if device uses report IDs or not
-        bool usesReportIds = (reportBuffer[0] != 0);
-        
-        qCDebug(log_host_hid) << "MS2130S: Preparing buffer of" << deviceFeatureReportLength << "bytes"
-                             << (usesReportIds ? "with" : "without") << "report ID";
-        
-        // Allocate the properly sized buffer
-        std::vector<BYTE> paddedBuffer(deviceFeatureReportLength, 0);
-        
-        if (usesReportIds) {
-            // Include the report ID in the buffer
-            paddedBuffer[0] = reportBuffer[0];
-            result = HidD_GetFeature(deviceHandle, paddedBuffer.data(), deviceFeatureReportLength);
-            
-            if (result) {
-                // Copy the response back to the original buffer (including report ID)
-                memcpy(reportBuffer, paddedBuffer.data(), std::min<size_t>(bufferSize, deviceFeatureReportLength));
-            }
-        } else {
-            // Device doesn't use report IDs
-            // Don't set paddedBuffer[0] - leave it as 0
-            result = HidD_GetFeature(deviceHandle, paddedBuffer.data(), deviceFeatureReportLength);
-            
-            if (result) {
-                // Copy response to reportBuffer, but add back the report ID byte at position 0
-                reportBuffer[0] = 0;  // Keep the report ID as 0
-                // Copy the actual data starting at reportBuffer[1]
-                memcpy(reportBuffer + 1, paddedBuffer.data(), std::min<size_t>(bufferSize - 1, deviceFeatureReportLength));
-            }
-        }
-        
-        if (!result) {
-            DWORD error = GetLastError();
-            qCWarning(log_host_hid) << "MS2130S padded buffer get failed. Error:" << error;
-        } else {
-            if (!m_inTransaction) {
-                closeHIDDeviceHandle();
-            }
-            return true;
-        }
-    }
-    
-    // Fallback: Try standard method or MS2130S-specific method
-    if (!result && m_chipType == VideoChipType::MS2130S) {
-        qCDebug(log_host_hid) << "Trying MS2130S-specific get feature report method";
+    if (m_chipType == VideoChipType::MS2130S) {
+        qCDebug(log_host_hid) << "Using MS2130S-specific get feature report method";
         
         // Try with a fixed small buffer size that's known to work with MS2130S
         const DWORD MS2130S_BUFFER_SIZE = 64;
@@ -2446,12 +2179,34 @@ bool VideoHid::getFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
         DWORD error = GetLastError();
         qCWarning(log_host_hid) << "Failed to get feature report. Windows error:" << error;
         
-        // MS2130S alternative methods all failed
+        // Try with a different approach for MS2130S
         if (m_chipType == VideoChipType::MS2130S) {
-            qCWarning(log_host_hid) << "MS2130S: All communication methods failed with error 87";
-            qCWarning(log_host_hid) << "MS2130S might require different HID report structure or driver";
-            qCWarning(log_host_hid) << "Device capabilities show 4096-byte feature reports, but all access methods fail";
-            // Don't try ReadFile - it can block indefinitely
+            // Some MS2130S devices might need a different approach
+            qCDebug(log_host_hid) << "Attempting alternative method for MS2130S get feature report";
+            
+            // Try ReadFile approach with a fixed, smaller buffer
+            const DWORD SAFE_BUFFER_SIZE = 64;
+            DWORD bytesRead = 0;
+            OVERLAPPED ol;
+            memset(&ol, 0, sizeof(OVERLAPPED));
+            
+            // Prepare buffer for ReadFile with a reasonable size
+            BYTE* readBuffer = new BYTE[SAFE_BUFFER_SIZE];
+            memset(readBuffer, 0, SAFE_BUFFER_SIZE);
+            readBuffer[0] = reportBuffer[0]; // Copy the report ID
+            
+            result = ReadFile(deviceHandle, readBuffer, SAFE_BUFFER_SIZE, &bytesRead, &ol);
+            
+            if (result) {
+                qCDebug(log_host_hid) << "Alternative read method succeeded, read" << bytesRead << "bytes";
+                // Copy the data back to the original buffer
+                memcpy(reportBuffer, readBuffer, std::min<DWORD>(bufferSize, bytesRead));
+            } else {
+                error = GetLastError();
+                qCWarning(log_host_hid) << "Alternative read method failed. Error:" << error;
+            }
+            
+            delete[] readBuffer;
         }
     }
 

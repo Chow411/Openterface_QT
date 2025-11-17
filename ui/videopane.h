@@ -80,7 +80,7 @@ public:
     bool isDirectFFmpegModeEnabled() const { return m_directFFmpegMode; }
 
     // Mouse position transformation for InputHandler
-    QPoint getTransformedMousePosition(const QPoint& viewportPos);
+    QPointF getTransformedMousePosition(const QPoint& viewportPos);
     
     // Debug helper to validate coordinate transformation consistency
     void validateMouseCoordinates(const QPoint& original, const QString& eventType);

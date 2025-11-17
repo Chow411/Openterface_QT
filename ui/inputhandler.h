@@ -86,6 +86,10 @@ private:
     int m_lastAbsoluteY = 0;
     bool m_hasLastAbsolutePosition = false;
     
+    // Cache the last sent move position to use for press/release in absolute mode
+    int m_lastMoveAbsX = 0;
+    int m_lastMoveAbsY = 0;
+    
     // Cache for double-click: Store coordinates from first press to reuse on second press
     int m_doubleClickCachedX = 0;
     int m_doubleClickCachedY = 0;

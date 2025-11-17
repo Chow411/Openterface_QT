@@ -31,7 +31,7 @@ Q_LOGGING_CATEGORY(log_ui_input, "opf.ui.input")
 InputHandler::InputHandler(VideoPane *videoPane, QObject *parent)
     : QObject(parent), m_videoPane(videoPane), m_currentEventTarget(nullptr),
       m_mouseMoveTimer(nullptr), m_pendingMouseMoveEvent(nullptr),
-      m_mouseMoveInterval(8), m_droppedMouseEvents(0)
+      m_mouseMoveInterval(16), m_droppedMouseEvents(0)
 {
     if (m_videoPane) {
         m_videoPane->installEventFilter(this);
@@ -107,7 +107,7 @@ MouseEventDTO* InputHandler::calculateAbsolutePosition(QMouseEvent *event) {
     // 2. Zoom/scroll transformations
     // 3. Direct GStreamer/FFmpeg overlay positioning
     // This ensures mouse coordinates map correctly to the actual video area, not including black bars
-    QPoint videoPos = rawPos;
+    QPointF videoPos = QPointF(rawPos);
     if (m_videoPane) {
         videoPos = m_videoPane->getTransformedMousePosition(rawPos);
         // qCDebug(log_ui_input) << "    [calcAbsolute] Transformed pos:" << videoPos;
@@ -134,6 +134,8 @@ MouseEventDTO* InputHandler::calculateAbsolutePosition(QMouseEvent *event) {
     // Single rounding step at the end - no intermediate conversions
     int absX = qBound(0, qRound(absoluteX), 4096);
     int absY = qBound(0, qRound(absoluteY), 4096);
+    
+    qCDebug(log_ui_input) << "    [calcAbsolute] absX:" << absX << "absY:" << absY;
     
     qCDebug(log_ui_input) << "    [calcAbsolute] After rounding - absX/Y:" << absX << absY;
     
@@ -238,7 +240,7 @@ bool InputHandler::eventFilter(QObject *watched, QEvent *event)
     if (event->type() == QEvent::MouseMove) {
         QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
         handleMouseMoveEvent(mouseEvent);
-        return true;
+        return false;  // Allow VideoPane to process the event for status bar updates
     }
     
     // PERFORMANCE: Reduce excessive debug logging for other mouse events
@@ -407,6 +409,10 @@ void InputHandler::processPendingMouseMove()
     }
 
     HostManager::getInstance().handleMouseMove(eventDto.get());
+    
+    // Cache the last sent move position
+    m_lastMoveAbsX = eventDto->getX();
+    m_lastMoveAbsY = eventDto->getY();
 }
 
 void InputHandler::handleMousePressEvent(QMouseEvent* event)
@@ -429,8 +435,7 @@ void InputHandler::handleMousePressEvent(QMouseEvent* event)
     
     // Only filter if:
     // 1. Same button AND same position
-    // 2. Time is extremely short (< 5ms) - true duplicates
-    // 3. NOT a double-click (double-clicks are typically 100-500ms apart)
+    // 2. Time is extremely short (< 2ms) - true duplicates
     if (m_lastPressButton == currentButton && 
         m_lastMousePressPos == currentPos &&
         timeSinceLastPress < 2) {
@@ -472,39 +477,8 @@ void InputHandler::handleMousePressEvent(QMouseEvent* event)
     // BUT: Only reuse coordinates if mouse hasn't moved to a new position
     
     if (GlobalVar::instance().isAbsoluteMouseMode()) {
-        // If this is likely a SECOND press in a double-click at the SAME position, reuse coordinates from FIRST press
-        if (isPotentialDoubleClick && m_hasDoubleClickCache && 
-            (currentTime - m_doubleClickCacheTime) < 500 && !mousePositionChanged) {
-            qCWarning(log_ui_input) << "  Using DOUBLE-CLICK CACHED position (from first press):" 
-                                   << QPoint(m_doubleClickCachedX, m_doubleClickCachedY);
-            eventDto.reset(new MouseEventDTO(m_doubleClickCachedX, m_doubleClickCachedY, true));
-        }
-        // If mouse moved to a new position, ALWAYS calculate fresh coordinates
-        else if (mousePositionChanged) {
-            qCWarning(log_ui_input) << "  Mouse moved to new position - calculating fresh coordinates";
-            eventDto.reset(calculateMouseEventDto(event));
-        }
-        // Mouse is at same position and we have recent cache - reuse it
-        else if (m_hasLastAbsolutePosition && !mousePositionChanged) {
-            qCWarning(log_ui_input) << "  Using CACHED absolute position (same position):" << QPoint(m_lastAbsoluteX, m_lastAbsoluteY);
-            eventDto.reset(new MouseEventDTO(m_lastAbsoluteX, m_lastAbsoluteY, true));
-        }
-        else {
-            qCWarning(log_ui_input) << "  Calculating new position (no cache available)";
-            eventDto.reset(calculateMouseEventDto(event));
-        }
-        
-        // ALWAYS save coordinates for potential future double-click
-        // This ensures FIRST press saves coordinates that SECOND press can reuse
-        m_doubleClickCachedX = eventDto->getX();
-        m_doubleClickCachedY = eventDto->getY();
-        m_hasDoubleClickCache = true;
-        m_doubleClickCacheTime = currentTime;
-        qCWarning(log_ui_input) << "  Saved coordinates for potential double-click:" 
-                               << QPoint(m_doubleClickCachedX, m_doubleClickCachedY);
+        eventDto.reset(new MouseEventDTO(m_lastMoveAbsX, m_lastMoveAbsY, true));
     } else {
-        // Relative mode - calculate normally
-        qCWarning(log_ui_input) << "  Calculating new position (relative mode)";
         eventDto.reset(calculateMouseEventDto(event));
     }
     
@@ -604,7 +578,7 @@ void InputHandler::handleWheelEvent(QWheelEvent *event)
         }
         
         // Transform the position (handles letterboxing, zoom, etc.)
-        QPoint videoPos = m_videoPane->getTransformedMousePosition(wheelPos);
+        QPointF videoPos = m_videoPane->getTransformedMousePosition(wheelPos);
         
         int targetWidth = effectiveWidget->width();
         int targetHeight = effectiveWidget->height();

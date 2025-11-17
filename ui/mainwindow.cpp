@@ -401,7 +401,12 @@ void MainWindow::onResolutionChange(const int& width, const int& height, const f
     
     GlobalVar::instance().setInputWidth(width);
     GlobalVar::instance().setInputHeight(height);
+    GlobalVar::instance().setInputFps(fps);
+    GlobalVar::instance().setCaptureWidth(width);
+    GlobalVar::instance().setCaptureHeight(height);
+    GlobalVar::instance().setCaptureFps(fps);
     m_statusBarManager->setInputResolution(width, height, fps, pixelClk);
+    m_statusBarManager->setCaptureResolution(width, height, fps);
     
     // No popup message for resolution changes
 }

@@ -697,6 +697,9 @@ bool FFmpegBackendHandler::startDirectCapture(const QString& devicePath, const Q
     m_captureRunning = true;
     m_captureThread->start();
     
+    // Set lower priority for capture thread to not starve UI thread
+    m_captureThread->setPriority(QThread::LowPriority);
+    
     // Start performance monitoring
     if (m_performanceTimer) {
         m_performanceTimer->start();
@@ -822,10 +825,11 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     av_dict_set(&options, "framerate", QString::number(framerate).toUtf8().constData(), 0);
     
     // CRITICAL LOW-LATENCY OPTIMIZATIONS for KVM responsiveness:
-    av_dict_set(&options, "rtbufsize", "4M", 0);          // Reduced buffer for lower latency (was 100M)
-    av_dict_set(&options, "fflags", "nobuffer", 0);       // Disable buffering
+    av_dict_set(&options, "rtbufsize", "256K", 0);        // Minimized buffer for lowest latency
+    av_dict_set(&options, "fflags", "nobuffer+discardcorrupt", 0); // No buffering, discard corrupt frames
     av_dict_set(&options, "flags", "low_delay", 0);       // Enable low delay mode
-    av_dict_set(&options, "probesize", "32", 0);          // Minimal probe size for faster start
+    av_dict_set(&options, "max_delay", "0", 0);           // Minimize delay
+    av_dict_set(&options, "probesize", "16", 0);          // Minimal probe size for fastest start
     av_dict_set(&options, "analyzeduration", "0", 0);     // Skip analysis to reduce startup delay
     
     // CRITICAL FIX: Add timeout to prevent blocking on device reconnection
@@ -1125,7 +1129,13 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     // CRITICAL: Set low-latency codec options before opening
     m_codecContext->flags |= AV_CODEC_FLAG_LOW_DELAY;      // Enable low-delay decoding
     m_codecContext->flags2 |= AV_CODEC_FLAG2_FAST;         // Prioritize speed over quality
-    m_codecContext->thread_count = 1;                      // Single thread for minimal latency
+    
+    // Use multi-threading for hardware acceleration, single thread for software (for latency)
+    if (usingHwDecoder) {
+        m_codecContext->thread_count = 4;  // Multi-thread for GPU acceleration
+    } else {
+        m_codecContext->thread_count = 1;  // Single thread for software decoding latency
+    }
     
     // Set hardware device context if using hardware decoder AND context is available
     // Note: CUVID on Windows doesn't require a device context, so we skip this step for CUDA
@@ -1175,17 +1185,14 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     // Prepare decoder options for CUDA/NVDEC optimization
     AVDictionary* codecOptions = nullptr;
     if (usingHwDecoder && m_hwDeviceType == AV_HWDEVICE_TYPE_CUDA) {
-        // CUDA/NVDEC specific options for better performance
-        // These options help optimize the GPU decoding pipeline
+        // CUDA/NVDEC specific options for ultra-low latency
         av_dict_set(&codecOptions, "gpu", "0", 0);  // Use first GPU (can be changed if multiple GPUs)
-        av_dict_set(&codecOptions, "surfaces", "20", 0);  // Number of decode surfaces (helps with throughput)
+        av_dict_set(&codecOptions, "surfaces", "1", 0);  // Minimal surfaces for lowest latency
+        av_dict_set(&codecOptions, "low_latency", "1", 0);  // Enable low latency mode for CUVID decoders
+        av_dict_set(&codecOptions, "delay", "0", 0);  // No delay
+        av_dict_set(&codecOptions, "rgb_mode", "1", 0);  // Output RGB directly from GPU for faster rendering
         
-        // For MJPEG CUVID, we may want to output directly to system memory for compatibility
-        // This still uses GPU for decoding but outputs in a format we can easily use
-        // Uncomment if you want to force specific output format:
-        // av_dict_set(&codecOptions, "rgb_mode", "0", 0);  // Output in YUV format
-        
-        qCInfo(log_ffmpeg_backend) << "Setting CUDA/NVDEC decoder options: gpu=0, surfaces=20";
+        qCInfo(log_ffmpeg_backend) << "Setting CUDA/NVDEC decoder options: gpu=0, surfaces=1, low_latency=1, delay=0, rgb_mode=1";
     }
     
     // Open codec
@@ -1422,8 +1429,8 @@ void FFmpegBackendHandler::processFrame()
     }
     
     // Drop frames if we're processing too slowly, but be less aggressive when recording
-    // REDUCED threshold for lower latency - was 12ms/8ms, now 6ms/4ms (250 FPS / 166 FPS)
-    int frameDropThreshold = isRecording ? 4 : 6; 
+    // ULTRA LOW LATENCY: Very aggressive frame dropping for minimal delay
+    int frameDropThreshold = isRecording ? 1 : 2; 
     if (currentTime - lastProcessTime < frameDropThreshold) {
         droppedFrames++;
         av_packet_unref(m_packet);
@@ -1896,10 +1903,37 @@ QPixmap FFmpegBackendHandler::convertFrameToPixmap(AVFrame* frame)
     conversionLogCounter++;
     
     const char* formatName = av_get_pix_fmt_name(format);
-    if (conversionLogCounter <= 10 || conversionLogCounter % 1000 == 1) {
-        qCDebug(log_ffmpeg_backend) << "convertFrameToPixmap: frame" << width << "x" << height 
-                                   << "format:" << format << "(" << (formatName ? formatName : "unknown") << ")"
-                                   << "linesize:" << frame->linesize[0];
+    // TEMP: Always log format for debugging
+    qCDebug(log_ffmpeg_backend) << "convertFrameToPixmap: frame" << width << "x" << height 
+                               << "format:" << format << "(" << (formatName ? formatName : "unknown") << ")"
+                               << "linesize:" << frame->linesize[0];
+    
+    // FAST PATH: If frame is already RGB, create QImage directly without scaling
+    if (format == AV_PIX_FMT_RGB24 || format == AV_PIX_FMT_BGR24 || 
+        format == AV_PIX_FMT_RGBA || format == AV_PIX_FMT_BGRA ||
+        format == AV_PIX_FMT_BGR0 || format == AV_PIX_FMT_RGB0) {
+        
+        qCDebug(log_ffmpeg_backend) << "Using RGB fast path for format:" << formatName;
+        
+        QImage::Format qtFormat;
+        if (format == AV_PIX_FMT_RGB24) qtFormat = QImage::Format_RGB888;
+        else if (format == AV_PIX_FMT_BGR24) qtFormat = QImage::Format_RGB888; // Qt will handle BGR->RGB
+        else if (format == AV_PIX_FMT_RGBA) qtFormat = QImage::Format_RGBA8888;
+        else if (format == AV_PIX_FMT_BGRA) qtFormat = QImage::Format_RGBA8888;
+        else if (format == AV_PIX_FMT_BGR0) qtFormat = QImage::Format_RGB32;
+        else if (format == AV_PIX_FMT_RGB0) qtFormat = QImage::Format_RGB32;
+        else qtFormat = QImage::Format_RGB888; // fallback
+        
+        // Create QImage directly from frame data
+        QImage image(frame->data[0], width, height, frame->linesize[0], qtFormat);
+        if (qtFormat == QImage::Format_RGB888 && format == AV_PIX_FMT_BGR24) {
+            // Need to swap BGR to RGB
+            image = image.rgbSwapped();
+        }
+        
+        QPixmap pixmap = QPixmap::fromImage(image);
+        qCDebug(log_ffmpeg_backend) << "Created pixmap from RGB fast path, size:" << pixmap.size() << "isNull:" << pixmap.isNull();
+        return pixmap;
     }
     
     // Check if we need to recreate the scaling context (format or size changed)

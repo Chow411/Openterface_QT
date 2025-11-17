@@ -42,6 +42,7 @@ VideoPane::VideoPane(QWidget *parent) : QGraphicsView(parent),
     m_pixmapItem(nullptr),
     m_aspectRatioMode(Qt::KeepAspectRatio),
     m_scaleFactor(1.0),
+    m_originalVideoSize(QSize(GlobalVar::instance().getWinWidth(), GlobalVar::instance().getWinHeight())),
     m_maintainAspectRatio(true),
     m_directGStreamerMode(false),
     m_overlayWidget(nullptr),
@@ -621,7 +622,7 @@ void VideoPane::updateScrollBarsAndSceneRect()
     }
 }
 
-QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
+QPointF VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
 {
     // qCDebug(log_ui_video) << "      [getTransformed] Input viewportPos:" << viewportPos;
     
@@ -637,12 +638,51 @@ QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
         targetItem = m_videoItem;
         itemRect = m_videoItem->boundingRect();
         // qCDebug(log_ui_video) << "      [getTransformed] Using video item";
+    } else if (m_directGStreamerMode) {
+        // Special handling for GStreamer mode
+        QRectF viewRect = viewport()->rect();
+        double videoAspect = (double)m_originalVideoSize.width() / m_originalVideoSize.height();
+        double viewAspect = viewRect.width() / viewRect.height();
+        double scale;
+        if (videoAspect > viewAspect) {
+            scale = viewRect.width() / m_originalVideoSize.width();
+        } else {
+            scale = viewRect.height() / m_originalVideoSize.height();
+        }
+        double scaledWidth = m_originalVideoSize.width() * scale;
+        double scaledHeight = m_originalVideoSize.height() * scale;
+        double x = (viewRect.width() - scaledWidth) / 2;
+        double y = (viewRect.height() - scaledHeight) / 2;
+        QRectF videoRect(x, y, scaledWidth, scaledHeight);
+        
+        // Calculate itemPos manually
+        QPointF itemPos = viewportPos - videoRect.topLeft();
+        double itemWidth = videoRect.width();
+        double itemHeight = videoRect.height();
+        if (itemWidth <= 0 || itemHeight <= 0) {
+            return viewportPos;
+        }
+        double relativeX = itemPos.x() / itemWidth;
+        double relativeY = itemPos.y() / itemHeight;
+        double normalizedX = qBound(0.0, relativeX, 1.0);
+        double normalizedY = qBound(0.0, relativeY, 1.0);
+        double transformedXDouble = normalizedX * viewRect.width();
+        double transformedYDouble = normalizedY * viewRect.height();
+        int transformedX = qRound(transformedXDouble);
+        int transformedY = qRound(transformedYDouble);
+        QPointF finalResult(transformedXDouble, transformedYDouble);
+        if (m_scaleFactor > 1.0) {
+            transformedX += m_zoomOffsetCorrectionX;
+            transformedY += m_zoomOffsetCorrectionY;
+            finalResult = QPointF(transformedX + m_zoomOffsetCorrectionX, transformedY + m_zoomOffsetCorrectionY);
+        }
+        return finalResult;
     }
     
     // If no valid target item, return the original position
     if (!targetItem || itemRect.isEmpty()) {
         // qCDebug(log_ui_video) << "      [getTransformed] No valid item, returning original pos";
-        return viewportPos;
+        return QPointF(viewportPos);
     }
     
     QRectF viewRect = viewport()->rect();
@@ -697,7 +737,7 @@ QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
     // qCDebug(log_ui_video) << "      [getTransformed] After qRound:" << transformedX << transformedY;
     
     // For zoomed mode, we need to apply additional logic to handle the scrolled view
-    QPoint finalResult;
+    QPointF finalResult;
     if (m_scaleFactor > 1.0) {
         // When zoomed, we take the normalizedX/Y coordinates (relative position within the video)
         // and map them to the target device's coordinate system
@@ -707,11 +747,11 @@ QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
         transformedX += m_zoomOffsetCorrectionX;
         transformedY += m_zoomOffsetCorrectionY;
         
-        finalResult = QPoint(transformedX, transformedY);
+        finalResult = QPointF(transformedX, transformedY);
         // qCDebug(log_ui_video) << "      [getTransformed] Zoomed mode - with correction:" << finalResult;
     } else {
         // When not zoomed, use the straightforward transformation
-        finalResult = QPoint(transformedX, transformedY);
+        finalResult = QPointF(transformedXDouble, transformedYDouble);
     }
     
     // qCDebug(log_ui_video) << "      [getTransformed] Final result:" << finalResult;
@@ -722,7 +762,8 @@ QPoint VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
 void VideoPane::validateMouseCoordinates(const QPoint& original, const QString& eventType)
 {
     // This method helps debug coordinate transformation consistency
-    QPoint transformed = getTransformedMousePosition(original);
+    QPointF transformedF = getTransformedMousePosition(original);
+    QPoint transformed = QPoint(qRound(transformedF.x()), qRound(transformedF.y()));
     
     static QPoint lastOriginal, lastTransformed;
     static QString lastEventType;
@@ -764,7 +805,8 @@ void VideoPane::mousePressEvent(QMouseEvent *event)
     validateMouseCoordinates(event->pos(), "Press");
     
     // Transform the mouse position ONCE and cache it
-    QPoint transformedPos = getTransformedMousePosition(event->pos());
+    QPointF transformedPosF = getTransformedMousePosition(event->pos());
+    QPoint transformedPos = QPoint(qRound(transformedPosF.x()), qRound(transformedPosF.y()));
     
     // Emit signal for status bar update
     emit mouseMoved(transformedPos, "Press");
@@ -798,7 +840,8 @@ void VideoPane::mouseMoveEvent(QMouseEvent *event)
     }
     
     // Transform the mouse position for status bar display only
-    QPoint transformedPos = getTransformedMousePosition(event->pos());
+    QPointF transformedPosF = getTransformedMousePosition(event->pos());
+    QPoint transformedPos = QPoint(qRound(transformedPosF.x()), qRound(transformedPosF.y()));
     
     // Emit signal for status bar update
     emit mouseMoved(transformedPos, "Move");
@@ -820,7 +863,8 @@ void VideoPane::mouseReleaseEvent(QMouseEvent *event)
     validateMouseCoordinates(event->pos(), "Release");
     
     // Transform the mouse position for status bar display only
-    QPoint transformedPos = getTransformedMousePosition(event->pos());
+    QPointF transformedPosF = getTransformedMousePosition(event->pos());
+    QPoint transformedPos = QPoint(qRound(transformedPosF.x()), qRound(transformedPosF.y()));
     
     // Emit signal for status bar update
     emit mouseMoved(transformedPos, "Release");
@@ -964,6 +1008,9 @@ void VideoPane::updateVideoFrame(const QPixmap& frame)
     if (!m_directFFmpegMode || frame.isNull()) {
         return;
     }
+    
+    // Update native video size for FFmpeg mode
+    m_originalVideoSize = frame.size();
     
     // RESPONSIVENESS OPTIMIZATION: Reduce frame rate limiting for better mouse response
     // More aggressive frame dropping to prioritize mouse responsiveness

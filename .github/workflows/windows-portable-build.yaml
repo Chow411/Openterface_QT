@@ -196,6 +196,7 @@ jobs:
           echo "Configuring with CMake..."
           cmake -G "MinGW Makefiles" ^
             -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_PREFIX_PATH=C:\Qt6 ^
             -DFFMPEG_PREFIX=C:\ffmpeg-static ^
             -DOPENTERFACE_BUILD_STATIC=ON ^
             ${{ env.SOURCE_DIR }}

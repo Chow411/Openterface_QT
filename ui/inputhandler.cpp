@@ -100,7 +100,7 @@ MouseEventDTO* InputHandler::calculateAbsolutePosition(QMouseEvent *event) {
     
     // CRITICAL DEBUG: Log the transformation steps
     QPoint rawPos = event->pos();
-    qCDebug(log_ui_input) << "    [calcAbsolute] Raw event->pos():" << rawPos;
+    // qCDebug(log_ui_input) << "    [calcAbsolute] Raw event->pos():" << rawPos;
     
     // CRITICAL FIX: ALWAYS use getTransformedMousePosition to handle:
     // 1. Letterboxing/pillarboxing (black bars when aspect ratio doesn't match)
@@ -129,15 +129,15 @@ MouseEventDTO* InputHandler::calculateAbsolutePosition(QMouseEvent *event) {
     qreal absoluteX = (static_cast<qreal>(videoPos.x()) * 4096.0)  / targetWidth;
     qreal absoluteY = (static_cast<qreal>(videoPos.y()) * 4096.0) / targetHeight;
     
-    qCDebug(log_ui_input) << "    [calcAbsolute] Before rounding - absoluteX/Y:" << absoluteX << absoluteY;
+    // qCDebug(log_ui_input) << "    [calcAbsolute] Before rounding - absoluteX/Y:" << absoluteX << absoluteY;
     
     // Single rounding step at the end - no intermediate conversions
     int absX = qBound(0, qRound(absoluteX), 4096);
     int absY = qBound(0, qRound(absoluteY), 4096);
     
-    qCDebug(log_ui_input) << "    [calcAbsolute] absX:" << absX << "absY:" << absY;
+    // qCDebug(log_ui_input) << "    [calcAbsolute] absX:" << absX << "absY:" << absY;
     
-    qCDebug(log_ui_input) << "    [calcAbsolute] After rounding - absX/Y:" << absX << absY;
+    // qCDebug(log_ui_input) << "    [calcAbsolute] After rounding - absX/Y:" << absX << absY;
     
     // CRITICAL FIX: Always store viewport coordinates in lastX/lastY, not absolute coords
     // This ensures relative mode calculations work correctly if mode switches
@@ -150,8 +150,8 @@ MouseEventDTO* InputHandler::calculateAbsolutePosition(QMouseEvent *event) {
     m_lastAbsoluteY = absY;
     m_hasLastAbsolutePosition = true;
     
-    qCDebug(log_ui_input) << "    [calcAbsolute] Stored lastX/lastY:" << QPoint(lastX, lastY);
-    qCDebug(log_ui_input) << "    [calcAbsolute] Cached absolute:" << QPoint(absX, absY);
+    // qCDebug(log_ui_input) << "    [calcAbsolute] Stored lastX/lastY:" << QPoint(lastX, lastY);
+    // qCDebug(log_ui_input) << "    [calcAbsolute] Cached absolute:" << QPoint(absX, absY);
     
     return new MouseEventDTO(absX, absY, true);
 }
@@ -404,7 +404,7 @@ void InputHandler::processPendingMouseMove()
 
     //Only handle the event if it's under absolute mouse control or relative mode is enabled
     if(!eventDto->isAbsoluteMode() && !m_videoPane->isRelativeModeEnabled()) {
-        qCDebug(log_ui_input) << "InputHandler: Mouse move event rejected - not in correct mode";
+        // qCDebug(log_ui_input) << "InputHandler: Mouse move event rejected - not in correct mode";
         return;
     }
 
@@ -439,17 +439,17 @@ void InputHandler::handleMousePressEvent(QMouseEvent* event)
     if (m_lastPressButton == currentButton && 
         m_lastMousePressPos == currentPos &&
         timeSinceLastPress < 2) {
-        qCWarning(log_ui_input) << "=== DUPLICATE PRESS FILTERED ===" 
-                                << "pos:" << currentPos 
-                                << "time since last:" << timeSinceLastPress << "ms";
+        // qCWarning(log_ui_input) << "=== DUPLICATE PRESS FILTERED ===" 
+        //                         << "pos:" << currentPos 
+        //                         << "time since last:" << timeSinceLastPress << "ms";
         return; // Ignore duplicate
     }
     
     // Log if this might be a double-click (100-500ms is typical double-click speed)
     if (timeSinceLastPress > 0 && timeSinceLastPress < 500) {
-        qCDebug(log_ui_input) << "=== FAST CLICK DETECTED ===" 
-                               << "time since last:" << timeSinceLastPress << "ms"
-                               << "pos:" << currentPos;
+        // qCDebug(log_ui_input) << "=== FAST CLICK DETECTED ===" 
+        //                        << "time since last:" << timeSinceLastPress << "ms"
+        //                        << "pos:" << currentPos;
     }
     
     // CRITICAL: Check if mouse has moved to a different position BEFORE updating m_lastMousePressPos
@@ -461,10 +461,10 @@ void InputHandler::handleMousePressEvent(QMouseEvent* event)
     m_lastPressButton = currentButton;
     
     // CRITICAL DEBUG: Log exact coordinates at press
-    qCWarning(log_ui_input) << "=== MOUSE PRESS ===";
-    qCWarning(log_ui_input) << "  Raw event->pos():" << event->pos();
-    qCWarning(log_ui_input) << "  Before calc - lastX/lastY:" << QPoint(lastX, lastY);
-    qCWarning(log_ui_input) << "  Mouse position changed:" << mousePositionChanged;
+    // qCWarning(log_ui_input) << "=== MOUSE PRESS ===";
+    // qCWarning(log_ui_input) << "  Raw event->pos():" << event->pos();
+    // qCWarning(log_ui_input) << "  Before calc - lastX/lastY:" << QPoint(lastX, lastY);
+    // qCWarning(log_ui_input) << "  Mouse position changed:" << mousePositionChanged;
     
     QScopedPointer<MouseEventDTO> eventDto;
     
@@ -482,9 +482,9 @@ void InputHandler::handleMousePressEvent(QMouseEvent* event)
         eventDto.reset(calculateMouseEventDto(event));
     }
     
-    qCWarning(log_ui_input) << "  After calc - DTO x/y:" << eventDto->getX() << eventDto->getY();
-    qCWarning(log_ui_input) << "  After calc - lastX/lastY:" << QPoint(lastX, lastY);
-    qCWarning(log_ui_input) << "  Absolute mode:" << eventDto->isAbsoluteMode();
+    // qCWarning(log_ui_input) << "  After calc - DTO x/y:" << eventDto->getX() << eventDto->getY();
+    // qCWarning(log_ui_input) << "  After calc - lastX/lastY:" << QPoint(lastX, lastY);
+    // qCWarning(log_ui_input) << "  Absolute mode:" << eventDto->isAbsoluteMode();
     
     eventDto->setMouseButton(lastMouseButton = getMouseButton(event));
     setDragging(true);

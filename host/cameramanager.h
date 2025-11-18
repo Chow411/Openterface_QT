@@ -77,7 +77,7 @@ public:
 
     // Camera initialization with video output
     bool initializeCameraWithVideoOutput(QGraphicsVideoItem* videoOutput);
-    bool initializeCameraWithVideoOutput(VideoPane* videoPane);
+    bool initializeCameraWithVideoOutput(VideoPane* videoPane, bool startCapture = true);
     
     // Check if there's an active camera device
     bool hasActiveCameraDevice() const;

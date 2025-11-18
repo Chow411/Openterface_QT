@@ -793,13 +793,48 @@ bool CameraManager::switchToCameraDevice(const QCameraDevice &cameraDevice, cons
     
     qCDebug(log_ui_camera) << "Switching to camera device:" << cameraDevice.description() << "with port chain:" << portChain;
     
+    // Check if switching to the same device with the same port chain
+    QString targetDevicePath = convertCameraDeviceToPath(cameraDevice);
+    bool isSameDevice = (m_currentCameraDevice.isNull() == false) && 
+                       (QString::fromUtf8(m_currentCameraDevice.id()) == QString::fromUtf8(cameraDevice.id()));
+    bool isSamePortChain = (m_currentCameraPortChain == portChain);
+    
+    if (isSameDevice && isSamePortChain) {
+        qCDebug(log_ui_camera) << "Switching to same device with same port chain, doing nothing";
+        return true;
+    }
+    
     // Update current device tracking
     m_currentCameraDevice = cameraDevice;
     m_currentCameraDeviceId = QString::fromUtf8(cameraDevice.id());
     m_currentCameraPortChain = portChain;
     
+    if (isSameDevice) {
+        qCDebug(log_ui_camera) << "Switching to same device, updating port chain only";
+        // Just update the port chain in the backend
+        if (FFmpegBackendHandler* ffmpegHandler = dynamic_cast<FFmpegBackendHandler*>(m_backendHandler.get())) {
+            ffmpegHandler->setCurrentDevicePortChain(portChain);
+        }
+        emit cameraDeviceSwitchComplete(cameraDevice.description());
+        return true;
+    }
+    
     // Stop current camera if running
+    bool wasRunning = false;
+    if (m_backendHandler && isFFmpegBackend()) {
+        FFmpegBackendHandler* ffmpegHandler = dynamic_cast<FFmpegBackendHandler*>(m_backendHandler.get());
+        if (ffmpegHandler) {
+            wasRunning = ffmpegHandler->isDirectCaptureRunning();
+        }
+    }
+    
     stopCamera();
+    
+    // Add delay to allow device to be properly released (Windows needs this)
+    if (wasRunning) {
+        QThread::msleep(500); // Wait for device to be fully released
+        qCDebug(log_ui_camera) << "Waited 500ms for device to be released";
+    }
     
     // Configure backend with new device
     if (m_backendHandler) {
@@ -808,7 +843,10 @@ bool CameraManager::switchToCameraDevice(const QCameraDevice &cameraDevice, cons
         // Pass port chain to backend for hotplug tracking
         if (FFmpegBackendHandler* ffmpegHandler = dynamic_cast<FFmpegBackendHandler*>(m_backendHandler.get())) {
             ffmpegHandler->setCurrentDevicePortChain(portChain);
-            qCDebug(log_ui_camera) << "Set port chain in FFmpeg backend:" << portChain;
+            // Set the current device path for FFmpeg backend
+            QString devicePath = convertCameraDeviceToPath(cameraDevice);
+            ffmpegHandler->setCurrentDevice(devicePath);
+            qCDebug(log_ui_camera) << "Set device path in FFmpeg backend:" << devicePath;
         }
         
         // Start camera with new device
@@ -1000,6 +1038,7 @@ QCameraDevice CameraManager::findMatchingCameraDevice(const QString& portChain) 
 
     if (!selectedDevice.isValid() || (selectedDevice.cameraDeviceId.isEmpty() && selectedDevice.cameraDevicePath.isEmpty())) {
         qCWarning(log_ui_camera) << "No device with camera information found for port chain:" << portChain;
+        qCInfo(log_ui_camera) << "Device info may not be populated yet - camera switch will fail, needs retry";
         return QCameraDevice();
     }
 
@@ -1257,9 +1296,9 @@ bool CameraManager::initializeCameraWithVideoOutput(QGraphicsVideoItem* videoOut
     return switchSuccess;
 }
 
-bool CameraManager::initializeCameraWithVideoOutput(VideoPane* videoPane)
+bool CameraManager::initializeCameraWithVideoOutput(VideoPane* videoPane, bool startCapture)
 {
-    qDebug() << "Initializing camera with VideoPane output";
+    qDebug() << "Initializing camera with VideoPane output, startCapture:" << startCapture;
     
     if (!videoPane) {
         qCWarning(log_ui_camera) << "Cannot initialize camera with null VideoPane";
@@ -1371,21 +1410,27 @@ bool CameraManager::initializeCameraWithVideoOutput(VideoPane* videoPane)
             }
 #endif
             
-            qDebug() << "Starting FFmpeg direct capture with device:" << devicePath;
-            bool captureStarted = ffmpegHandler->startDirectCapture(devicePath, resolution, framerate);
-            
-            if (captureStarted) {
-                qDebug() << "✓ FFmpeg direct capture started successfully";
-                qDebug() << "✓ Camera successfully initialized with video output";
-                m_currentCameraPortChain = devicePath; // Store device path as port chain
+            // Only start capture if requested (otherwise just set up the pipeline)
+            if (startCapture) {
+                qDebug() << "Starting FFmpeg direct capture with device:" << devicePath;
+                bool captureStarted = ffmpegHandler->startDirectCapture(devicePath, resolution, framerate);
                 
-                // Emit camera active signal to trigger UI updates (e.g., switch to VideoPane)
-                emit cameraActiveChanged(true);
-                
-                return true;
+                if (captureStarted) {
+                    qDebug() << "✓ FFmpeg direct capture started successfully";
+                    qDebug() << "✓ Camera successfully initialized with video output";
+                    m_currentCameraPortChain = devicePath; // Store device path as port chain
+                    
+                    // Emit camera active signal to trigger UI updates (e.g., switch to VideoPane)
+                    emit cameraActiveChanged(true);
+                    
+                    return true;
+                } else {
+                    qCWarning(log_ui_camera) << "Failed to start FFmpeg direct capture";
+                    // Fall back to standard Qt camera approach
+                }
             } else {
-                qCWarning(log_ui_camera) << "Failed to start FFmpeg direct capture";
-                // Fall back to standard Qt camera approach
+                qDebug() << "✓ FFmpeg video pipeline set up (capture will start on device switch)";
+                return true;
             }
         } else {
             qCWarning(log_ui_camera) << "Failed to cast to FFmpegBackendHandler";

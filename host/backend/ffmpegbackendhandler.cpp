@@ -369,12 +369,9 @@ void FFmpegBackendHandler::startCamera()
     qCDebug(log_ffmpeg_backend) << "Current resolution:" << m_currentResolution;
     qCDebug(log_ffmpeg_backend) << "Current framerate:" << m_currentFramerate;
     
-    // If no device is set or device is not available, wait for device activation
-    if (m_currentDevice.isEmpty() || !checkCameraAvailable(m_currentDevice)) {
-        qCInfo(log_ffmpeg_backend) << "Device not available, waiting for device activation:" << m_currentDevice;
-        waitForDeviceActivation(m_currentDevice, 30000); // Wait up to 30 seconds
-        return;
-    }
+    // Skip availability check - just try to open the device directly
+    // The checkCameraAvailable() opens the device which can interfere with immediate reopening
+    // We'll rely on startDirectCapture() to handle device availability
     
     // Use direct FFmpeg capture
     qCDebug(log_ffmpeg_backend) << "FFmpeg: Using direct capture";
@@ -636,6 +633,9 @@ bool FFmpegBackendHandler::startDirectCapture(const QString& devicePath, const Q
         stopDirectCapture();
     }
     
+    // Set current device
+    m_currentDevice = devicePath;
+    
     // Reset error suppression flag when starting capture
     m_suppressErrors = false;
     
@@ -800,6 +800,10 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
 #ifdef Q_OS_WIN
     // WINDOWS: Use DirectShow for video capture
     qCDebug(log_ffmpeg_backend) << "Windows platform detected - using DirectShow input";
+    
+    // Add small delay to ensure device is not held by Qt's device enumeration (Windows issue)
+    QThread::msleep(200);
+    qCDebug(log_ffmpeg_backend) << "Waited 200ms before opening device (Windows workaround)";
     
     // Allocate format context
     m_formatContext = avformat_alloc_context();
@@ -1132,7 +1136,7 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     
     // Use multi-threading for hardware acceleration, single thread for software (for latency)
     if (usingHwDecoder) {
-        m_codecContext->thread_count = 4;  // Multi-thread for GPU acceleration
+        m_codecContext->thread_count = 2;  // Multi-thread for GPU acceleration
     } else {
         m_codecContext->thread_count = 1;  // Single thread for software decoding latency
     }
@@ -1904,9 +1908,9 @@ QPixmap FFmpegBackendHandler::convertFrameToPixmap(AVFrame* frame)
     
     const char* formatName = av_get_pix_fmt_name(format);
     // TEMP: Always log format for debugging
-    qCDebug(log_ffmpeg_backend) << "convertFrameToPixmap: frame" << width << "x" << height 
-                               << "format:" << format << "(" << (formatName ? formatName : "unknown") << ")"
-                               << "linesize:" << frame->linesize[0];
+    // qCDebug(log_ffmpeg_backend) << "convertFrameToPixmap: frame" << width << "x" << height 
+    //                            << "format:" << format << "(" << (formatName ? formatName : "unknown") << ")"
+    //                            << "linesize:" << frame->linesize[0];
     
     // FAST PATH: If frame is already RGB, create QImage directly without scaling
     if (format == AV_PIX_FMT_RGB24 || format == AV_PIX_FMT_BGR24 || 
@@ -2122,6 +2126,34 @@ bool FFmpegBackendHandler::checkCameraAvailable(const QString& devicePath)
     
     qCDebug(log_ffmpeg_backend) << "Checking camera availability for device:" << device;
     
+#ifdef Q_OS_WIN
+    // On Windows, DirectShow device names like "video=Openterface" are not file paths
+    // Skip file existence check for DirectShow devices
+    if (device.startsWith("video=")) {
+        qCDebug(log_ffmpeg_backend) << "DirectShow device detected, skipping file existence check:" << device;
+    } else {
+        // Check if device file exists and is accessible (for V4L2 devices)
+        QFile deviceFile(device);
+        if (!deviceFile.exists()) {
+            qCDebug(log_ffmpeg_backend) << "Device file does not exist:" << device;
+            return false;
+        }
+        
+        // Try to open the device for reading to verify it's accessible
+        // Skip this check if we're currently capturing to avoid device conflicts
+        if (device == m_currentDevice && m_captureRunning) {
+            qCDebug(log_ffmpeg_backend) << "Device is currently in use for capture, skipping file open check";
+            return true;
+        }
+        
+        if (!deviceFile.open(QIODevice::ReadOnly)) {
+            qCDebug(log_ffmpeg_backend) << "Cannot open device for reading:" << device << "Error:" << deviceFile.errorString();
+            return false;
+        }
+        
+        deviceFile.close();
+    }
+#else
     // Check if device file exists and is accessible
     QFile deviceFile(device);
     if (!deviceFile.exists()) {
@@ -2142,8 +2174,9 @@ bool FFmpegBackendHandler::checkCameraAvailable(const QString& devicePath)
     }
     
     deviceFile.close();
+#endif
     
-    // Additional check: try to briefly open with FFmpeg to verify V4L2 compatibility
+    // Additional check: try to briefly open with FFmpeg to verify compatibility
     // Skip this intrusive check if device is currently being used for capture
     if (device == m_currentDevice && m_captureRunning) {
         qCDebug(log_ffmpeg_backend) << "Device is currently in use for capture, skipping FFmpeg compatibility check";
@@ -2157,12 +2190,22 @@ bool FFmpegBackendHandler::checkCameraAvailable(const QString& devicePath)
         return false;
     }
     
+#ifdef Q_OS_WIN
+    // On Windows, use DirectShow input format
+    const AVInputFormat* inputFormat = av_find_input_format("dshow");
+    if (!inputFormat) {
+        qCDebug(log_ffmpeg_backend) << "DirectShow input format not available";
+        avformat_free_context(testContext);
+        return false;
+    }
+#else
     const AVInputFormat* inputFormat = av_find_input_format("v4l2");
     if (!inputFormat) {
         qCDebug(log_ffmpeg_backend) << "V4L2 input format not available";
         avformat_free_context(testContext);
         return false;
     }
+#endif
     
     // Try to open the device with minimal options
     AVDictionary* options = nullptr;
@@ -2185,7 +2228,7 @@ bool FFmpegBackendHandler::checkCameraAvailable(const QString& devicePath)
     qCDebug(log_ffmpeg_backend) << "Camera device is available:" << device;
     return true;
 #else
-    qCDebug(log_ffmpeg_backend) << "FFmpeg not available, basic file check passed for:" << device;
+    qCDebug(log_ffmpeg_backend) << "FFmpeg not available, basic check passed for:" << device;
     return true;
 #endif
 }
@@ -2542,6 +2585,12 @@ void FFmpegBackendHandler::setCurrentDevicePortChain(const QString& portChain)
 {
     m_currentDevicePortChain = portChain;
     qCDebug(log_ffmpeg_backend) << "Set current device port chain to:" << m_currentDevicePortChain;
+}
+
+void FFmpegBackendHandler::setCurrentDevice(const QString& devicePath)
+{
+    m_currentDevice = devicePath;
+    qCDebug(log_ffmpeg_backend) << "Set current device to:" << m_currentDevice;
 }
 
 // ============================================================================

@@ -395,9 +395,9 @@ void MainWindow::onToggleSwitchStateChanged(int state)
 void MainWindow::onResolutionChange(const int& width, const int& height, const float& fps, const float& pixelClk)
 {
     // Log the resolution information received from the HID device
-    qCDebug(log_ui_mainwindow) << "Resolution received from HID device - Width:" << width 
-                              << "Height:" << height << "FPS:" << fps 
-                              << "PixelClock:" << pixelClk << "MHz";
+    // qCDebug(log_ui_mainwindow) << "Resolution received from HID device - Width:" << width 
+    //                           << "Height:" << height << "FPS:" << fps 
+    //                           << "PixelClock:" << pixelClk << "MHz";
     
     GlobalVar::instance().setInputWidth(width);
     GlobalVar::instance().setInputHeight(height);
@@ -942,20 +942,64 @@ void MainWindow::onPortConnected(const QString& port, const int& baudrate) {
             qCDebug(log_ui_mainwindow) << "Only one device connected, auto-selecting and starting all components:" << device.getUniqueKey();
             m_deviceAutoSelected = true; // Prevent multiple auto-selections
             
-            // Defer the device switching to avoid blocking the UI thread
-            QTimer::singleShot(100, this, [this, device]() {
+            // Defer the device switching to allow device info to be populated
+            // Camera device info may take a moment to be detected and populated
+            QTimer::singleShot(500, this, [this, device]() {
                 DeviceManager& deviceManager = DeviceManager::getInstance();
-                // Switch to the device's camera, HID, and audio components (serial already connected)
+                
+                // Retry camera switch if it fails (device info may not be ready yet)
+                auto attemptCameraSwitch = [this, &device]() -> bool {
+                    bool cameraSuccess = m_cameraManager->switchToCameraDeviceByPortChain(device.portChain);
+                    if (!cameraSuccess) {
+                        qCDebug(log_ui_mainwindow) << "Camera switch failed, will retry...";
+                    }
+                    return cameraSuccess;
+                };
+                
+                // Switch to the device's HID and audio components first (serial already connected)
                 bool hidSuccess = deviceManager.switchHIDDeviceByPortChain(device.portChain);
                 bool audioSuccess = deviceManager.switchAudioDeviceByPortChain(device.portChain);
-                bool cameraSuccess = m_cameraManager->switchToCameraDeviceByPortChain(device.portChain);
                 
-                if (hidSuccess && audioSuccess && cameraSuccess) {
-                    qCDebug(log_ui_mainwindow) << "Successfully auto-selected and started device components (HID, audio, camera)";
+                // Try camera switch with retry mechanism
+                bool cameraSuccess = attemptCameraSwitch();
+                if (!cameraSuccess) {
+                    // Retry after another 500ms if camera info wasn't ready
+                    // Force device re-discovery to populate camera/audio info
+                    QTimer::singleShot(500, this, [this, device, hidSuccess, audioSuccess]() {
+                        qCDebug(log_ui_mainwindow) << "Triggering device re-discovery to populate camera info...";
+                        DeviceManager::getInstance().forceRefresh();
+                        
+                        // Give device info time to populate after discovery
+                        QTimer::singleShot(300, this, [this, device, hidSuccess, audioSuccess]() {
+                            bool cameraSuccess = m_cameraManager->switchToCameraDeviceByPortChain(device.portChain);
+                            
+                            // If port chain matching still fails, reinitialize and start camera with any Openterface device
+                            if (!cameraSuccess) {
+                                qCWarning(log_ui_mainwindow) << "Port chain camera switch failed, attempting to reinitialize and start camera...";
+                                // Reinitialize with startCapture=true to find device and start capture
+                                cameraSuccess = m_cameraManager->initializeCameraWithVideoOutput(videoPane, true);
+                                if (cameraSuccess) {
+                                    qCDebug(log_ui_mainwindow) << "Camera reinitialized and started successfully (bypassing port chain)";
+                                } else {
+                                    qCWarning(log_ui_mainwindow) << "Failed to reinitialize camera";
+                                }
+                            }
+                            
+                            if (hidSuccess && audioSuccess && cameraSuccess) {
+                                qCDebug(log_ui_mainwindow) << "Successfully auto-selected all device components (after retry)";
+                            } else {
+                                qCWarning(log_ui_mainwindow) << "Failed to auto-select some device components (after retry) - HID:" 
+                                                            << hidSuccess << " Audio:" << audioSuccess << " Camera:" << cameraSuccess;
+                            }
+                        });
+                    });
                 } else {
-                    qCWarning(log_ui_mainwindow) << "Failed to auto-select some device components - HID:" 
-                                                << hidSuccess << " Audio:" << audioSuccess << " Camera:" << cameraSuccess;
-                    // Don't reset the flag on partial failure, as some components might have succeeded
+                    if (hidSuccess && audioSuccess && cameraSuccess) {
+                        qCDebug(log_ui_mainwindow) << "Successfully auto-selected and started device components (HID, audio, camera)";
+                    } else {
+                        qCWarning(log_ui_mainwindow) << "Failed to auto-select some device components - HID:" 
+                                                    << hidSuccess << " Audio:" << audioSuccess << " Camera:" << cameraSuccess;
+                    }
                 }
             });
         }
@@ -1331,6 +1375,7 @@ void MainWindow::initializeKeyboardLayouts() {
     qCDebug(log_ui_mainwindow) << "Read layout" << defaultLayout;
 
     m_cornerWidgetManager->initializeKeyboardLayouts(layouts, defaultLayout);
+    m_cornerWidgetManager->updatePosition(width(), menuBar()->height(), m_windowLayoutCoordinator->isFullScreenMode());
     if (layouts.contains(defaultLayout)) {
         changeKeyboardLayout(defaultLayout);
     } else if (!layouts.isEmpty()) {

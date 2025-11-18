@@ -141,6 +141,7 @@ public:
     void handleDeviceActivation(const QString& devicePath, const QString& portChain = QString());
     void handleDeviceDeactivation(const QString& devicePath);
     void setCurrentDevicePortChain(const QString& portChain);  // Set port chain for current device
+    void setCurrentDevice(const QString& devicePath);  // Set current device path
     
     // Stub for MOC compatibility (might be leftover from autocomplete)
     void checkDeviceReconnection() { /* stub */ }

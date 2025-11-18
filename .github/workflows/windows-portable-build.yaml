@@ -60,9 +60,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: C:\Qt6
-          key: qt-static-6.6.3-windows
+          key: qt-static-6.6.3-windows-v2
           restore-keys: |
-            qt-static-6.6.3-windows
+            qt-static-6.6.3-windows-v2
 
       - name: Set up Python
         uses: actions/setup-python@v5

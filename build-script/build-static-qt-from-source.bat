@@ -49,7 +49,7 @@ for %%m in (%MODULES%) do (
     )
 )
 
-# Build qtbase first
+REM Build qtbase first
 cd "%BUILD_DIR%\qtbase"
 mkdir build
 cd build
@@ -69,7 +69,7 @@ cmake -G "Ninja" ^
     -DOPENSSL_SSL_LIBRARY="%OPENSSL_LIB_DIR%\libssl.a" ^
     -DCMAKE_C_FLAGS="-I%OPENSSL_INCLUDE_DIR%" ^
     -DCMAKE_CXX_FLAGS="-I%OPENSSL_INCLUDE_DIR%" ^
-    -DCMAKE_EXE_LINKER_FLAGS="-L%OPENSSL_LIB_DIR% -lws2_32 -lcrypt32 -ladvapi32 -lmingw32 -lmingwex" ^
+    -DCMAKE_EXE_LINKER_FLAGS="-mconsole -L%OPENSSL_LIB_DIR% -lws2_32 -lcrypt32 -ladvapi32 -lmingw32 -lmingwex" ^
     -DCMAKE_STATIC_LINKER_FLAGS="-lmingw32 -lmingwex" ^
     -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%\scripts\buildsystems\vcpkg.cmake" ^
     -DVCPKG_TARGET_TRIPLET=x64-mingw-static ^
@@ -91,7 +91,7 @@ for %%m in (%MODULES%) do (
             -DOPENSSL_INCLUDE_DIR="%OPENSSL_INCLUDE_DIR%" ^
             -DOPENSSL_CRYPTO_LIBRARY="%OPENSSL_LIB_DIR%\libcrypto.a" ^
             -DOPENSSL_SSL_LIBRARY="%OPENSSL_LIB_DIR%\libssl.a" ^
-            -DCMAKE_EXE_LINKER_FLAGS="-L%OPENSSL_LIB_DIR% -lmingw32 -lmingwex" ^
+            -DCMAKE_EXE_LINKER_FLAGS="-mconsole -L%OPENSSL_LIB_DIR% -lmingw32 -lmingwex" ^
             -DCMAKE_STATIC_LINKER_FLAGS="-lmingw32 -lmingwex" ^
             -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%\scripts\buildsystems\vcpkg.cmake" ^
             -DVCPKG_TARGET_TRIPLET=x64-mingw-static ^

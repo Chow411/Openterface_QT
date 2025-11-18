@@ -721,6 +721,9 @@ void FFmpegBackendHandler::stopDirectCapture()
     
     m_captureRunning = false;
     
+    // Set interrupt flag to break out of any blocking FFmpeg operations
+    m_interruptRequested = true;
+    
     // Stop capture thread
     if (m_captureThread) {
         m_captureThread->setRunning(false);
@@ -829,11 +832,11 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     av_dict_set(&options, "framerate", QString::number(framerate).toUtf8().constData(), 0);
     
     // CRITICAL LOW-LATENCY OPTIMIZATIONS for KVM responsiveness:
-    av_dict_set(&options, "rtbufsize", "256K", 0);        // Minimized buffer for lowest latency
+    av_dict_set(&options, "rtbufsize", "10000000", 0);        // 10MB buffer to prevent frame drops
     av_dict_set(&options, "fflags", "nobuffer+discardcorrupt", 0); // No buffering, discard corrupt frames
     av_dict_set(&options, "flags", "low_delay", 0);       // Enable low delay mode
-    av_dict_set(&options, "max_delay", "0", 0);           // Minimize delay
-    av_dict_set(&options, "probesize", "16", 0);          // Minimal probe size for fastest start
+    av_dict_set(&options, "max_delay", "2000", 0);           // Allow 3ms delay for stability
+    av_dict_set(&options, "probesize", "32", 0);          // Minimal probe size for fastest start (minimum allowed)
     av_dict_set(&options, "analyzeduration", "0", 0);     // Skip analysis to reduce startup delay
     
     // CRITICAL FIX: Add timeout to prevent blocking on device reconnection
@@ -1134,9 +1137,9 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     m_codecContext->flags |= AV_CODEC_FLAG_LOW_DELAY;      // Enable low-delay decoding
     m_codecContext->flags2 |= AV_CODEC_FLAG2_FAST;         // Prioritize speed over quality
     
-    // Use multi-threading for hardware acceleration, single thread for software (for latency)
+    // Use single-threading for lower latency, even with hardware acceleration
     if (usingHwDecoder) {
-        m_codecContext->thread_count = 2;  // Multi-thread for GPU acceleration
+        m_codecContext->thread_count = 1;  // Single thread for lowest latency with GPU
     } else {
         m_codecContext->thread_count = 1;  // Single thread for software decoding latency
     }
@@ -1191,7 +1194,7 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     if (usingHwDecoder && m_hwDeviceType == AV_HWDEVICE_TYPE_CUDA) {
         // CUDA/NVDEC specific options for ultra-low latency
         av_dict_set(&codecOptions, "gpu", "0", 0);  // Use first GPU (can be changed if multiple GPUs)
-        av_dict_set(&codecOptions, "surfaces", "1", 0);  // Minimal surfaces for lowest latency
+        av_dict_set(&codecOptions, "surfaces", "1", 0);  // Minimal surfaces for lowest latency (deprecated but still used)
         av_dict_set(&codecOptions, "low_latency", "1", 0);  // Enable low latency mode for CUVID decoders
         av_dict_set(&codecOptions, "delay", "0", 0);  // No delay
         av_dict_set(&codecOptions, "rgb_mode", "1", 0);  // Output RGB directly from GPU for faster rendering

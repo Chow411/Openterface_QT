@@ -368,18 +368,30 @@ void MainWindow::onActionResetSerialPortTriggered()
 
 void MainWindow::onActionSwitchToHostTriggered()
 {
-    qCDebug(log_ui_mainwindow) << "Switchable USB to host...";
-    VideoHid::getInstance().switchToHost();
-    ui->actionTo_Host->setChecked(true);
-    ui->actionTo_Target->setChecked(false);
+    bool isFE0C = SerialPortManager::getInstance().isChipTypeFE0C();
+    if(isFE0C){
+        SerialPortManager::getInstance().switchUsbToHostViaSerial();
+    }else{
+        qCDebug(log_ui_mainwindow) << "Switchable USB to host...";
+        VideoHid::getInstance().switchToHost();
+        ui->actionTo_Host->setChecked(true);
+        ui->actionTo_Target->setChecked(false);
+    }
+
 }
 
 void MainWindow::onActionSwitchToTargetTriggered()
 {
-    qCDebug(log_ui_mainwindow) << "Switchable USB to target...";
-    VideoHid::getInstance().switchToTarget();
-    ui->actionTo_Host->setChecked(false);
-    ui->actionTo_Target->setChecked(true);
+    bool isFE0C = SerialPortManager::getInstance().isChipTypeFE0C();
+    if(isFE0C){
+        SerialPortManager::getInstance().switchUsbToTargetViaSerial();
+    }else{
+        qCDebug(log_ui_mainwindow) << "Switchable USB to target...";
+        VideoHid::getInstance().switchToTarget();
+        ui->actionTo_Host->setChecked(false);
+        ui->actionTo_Target->setChecked(true);
+    }
+
 }
 
 void MainWindow::onToggleSwitchStateChanged(int state)
@@ -1068,7 +1080,8 @@ void MainWindow::checkMousePosition()
 void MainWindow::onVideoSettingsChanged() {
     if (m_cameraManager) {
         // Reinitialize camera with graphics video output to ensure proper connection
-        bool success = m_cameraManager->initializeCameraWithVideoOutput(videoPane);
+        // Do not start capture again since it's already running with new settings
+        bool success = m_cameraManager->initializeCameraWithVideoOutput(videoPane, false);
         if (!success) {
             // Fallback to just setting video output
             m_cameraManager->setVideoOutput(videoPane->getVideoItem());

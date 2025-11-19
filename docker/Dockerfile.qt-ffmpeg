@@ -5,6 +5,12 @@ ARG TARGETARCH=amd64
 
 FROM ${BASE_IMAGE}
 
+# Define build paths and versions (adjust as needed)
+ARG BUILD_DIR=/workspace/qt-build
+ARG FFMPEG_PREFIX=/opt/ffmpeg
+ARG FFMPEG_VERSION=6.1.1
+ARG LIBUSB_VERSION=1.0.27
+
 # Proxy settings
 ARG http_proxy
 ARG https_proxy

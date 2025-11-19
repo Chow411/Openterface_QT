@@ -179,6 +179,12 @@ jobs:
           path: C:\ffmpeg-static
           key: ffmpeg-static-6.1.1-${{ hashFiles('build-script/build-static-ffmpeg-windows.bat', 'build-script/build-static-ffmpeg-windows.sh') }}-windows
 
+      - name: Cache vcpkg
+        uses: actions/cache@v3
+        with:
+          path: C:\vcpkg
+          key: vcpkg-openssl-windows
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

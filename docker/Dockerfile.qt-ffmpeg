@@ -76,8 +76,6 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with hardware acceleration..." && \
         --enable-libmfx \
         --enable-cuda \
         --enable-cuvid \
-        --enable-nvenc \
-        --enable-cuda-nvcc \
         --enable-postproc \
         --enable-decoder=mjpeg \
         --enable-decoder=mjpeg_vaapi && \

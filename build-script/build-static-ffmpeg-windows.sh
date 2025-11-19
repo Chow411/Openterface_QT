@@ -57,19 +57,46 @@ pacman -S --needed --noconfirm \
 echo "✓ Dependencies installed"
 echo ""
 
-# Check for Intel Media SDK
-echo "Checking for Intel Media SDK..."
-INTEL_MEDIA_SDK_PATH="/c/Program Files (x86)/Intel/Media SDK"
-if [ ! -d "$INTEL_MEDIA_SDK_PATH" ]; then
-    echo "⚠ Intel Media SDK not found - QSV hardware acceleration will be limited"
-    echo "  Download from: https://github.com/Intel-Media-SDK/MediaSDK/releases"
-    echo "  Or install Intel Media Driver from: https://www.intel.com/content/www/us/en/download/19344/"
-    echo ""
-    echo "Note: For QSV to work, you'll need Intel integrated graphics or a discrete Intel GPU"
-    echo "      Continuing with libmfx support (works with newer Intel drivers)..."
+# Check for Intel Media SDK/Media Driver
+echo "Checking for Intel QSV support..."
+echo "Note: Intel QSV works with modern Intel graphics drivers that include Media Driver components"
+echo "      The old standalone Media SDK is deprecated"
+echo ""
+
+# Check for Intel graphics driver version (rough check)
+if [ -d "/c/Windows/System32/DriverStore/FileRepository" ]; then
+    INTEL_DRIVER_COUNT=$(find "/c/Windows/System32/DriverStore/FileRepository" -name "*igfx*" -o -name "*intel*" | grep -i "igd\|gfx\|intel" | wc -l 2>/dev/null || echo "0")
+    if [ "$INTEL_DRIVER_COUNT" -gt 0 ]; then
+        echo "✓ Found Intel graphics drivers installed ($INTEL_DRIVER_COUNT driver files)"
+        echo "  This should include QSV/Media Driver support"
+    else
+        echo "⚠ No Intel graphics drivers found"
+        echo "  Install latest Intel graphics drivers from:"
+        echo "  https://www.intel.com/content/www/us/en/download/19344/intel-graphics-windows-dxe.html"
+    fi
 else
-    echo "✓ Found Intel Media SDK at: $INTEL_MEDIA_SDK_PATH"
+    echo "⚠ Cannot check driver installation"
 fi
+
+# Check for libmfx library
+if pkg-config --exists libmfx; then
+    echo "✓ libmfx library found (QSV support available)"
+    LIBMFX_VERSION=$(pkg-config --modversion libmfx 2>/dev/null || echo "unknown")
+    echo "  Version: $LIBMFX_VERSION"
+else
+    echo "⚠ libmfx library not found in pkg-config"
+    echo "  This is normal if using system drivers instead of SDK"
+fi
+
+echo ""
+echo "Intel QSV Setup Instructions:"
+echo "1. Ensure you have Intel integrated graphics or discrete Intel GPU"
+echo "2. Install latest Intel graphics drivers:"
+echo "   https://www.intel.com/content/www/us/en/download/19344/intel-graphics-windows-dxe.html"
+echo "3. For older systems, you may need Intel Media Driver:"
+echo "   https://www.intel.com/content/www/us/en/download-center/select-download/s/intel-media-driver-windows"
+echo ""
+echo "QSV will work if your Intel GPU supports it and drivers are installed."
 echo ""
 
 # Check for CUDA installation

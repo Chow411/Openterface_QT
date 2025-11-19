@@ -73,6 +73,7 @@ public:
 
     MultimediaBackendType getBackendType() const override;
     QString getBackendName() const override;
+    QStringList getAvailableHardwareAccelerations() const override;
     MultimediaBackendConfig getDefaultConfig() const override;
 
     void prepareCameraCreation() override;
@@ -128,6 +129,9 @@ public:
     void setRecordingConfig(const RecordingConfig& config);
     RecordingConfig getRecordingConfig() const;
 
+    // Update preferred hardware acceleration from settings
+    void updatePreferredHardwareAcceleration();
+
     // Device availability and hotplug support
     bool checkCameraAvailable(const QString& devicePath = "");
     bool isCurrentDeviceAvailable() const;
@@ -155,7 +159,6 @@ public:
 #endif
 #endif
 
-public slots:
     void setVideoOutput(QGraphicsVideoItem* videoItem);
     void setVideoOutput(VideoPane* videoPane);
 
@@ -190,6 +193,15 @@ private:
     bool initializeHardwareAcceleration();
     void cleanupHardwareAcceleration();
     bool tryHardwareDecoder(const AVCodecParameters* codecpar, const AVCodec** outCodec, bool* outUsingHwDecoder);
+    
+    struct HwDecoderInfo {
+        const char* name;
+        const char* decoderName;
+        AVHWDeviceType deviceType;
+        bool needsDeviceContext;
+        QString settingName;
+    };
+    bool tryInitializeHwDecoder(const HwDecoderInfo& decoder);
     
     // Device capability detection
     struct CameraCapability {
@@ -257,6 +269,9 @@ private:
     bool m_captureRunning;
     int m_videoStreamIndex;
 #endif
+    
+    // Hardware acceleration preference
+    QString m_preferredHwAccel;
     
     // Recording state
     bool m_recordingActive;

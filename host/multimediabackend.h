@@ -86,6 +86,9 @@ public:
     virtual bool isBackendAvailable() const { return true; }
     virtual MultimediaBackendConfig getDefaultConfig() const;
 
+    // Hardware acceleration support
+    virtual QStringList getAvailableHardwareAccelerations() const { return QStringList(); }
+
     // Camera lifecycle management
     virtual void prepareCameraCreation();
     virtual void configureCameraDevice();

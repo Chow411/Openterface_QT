@@ -24,6 +24,8 @@
 #include "fontstyle.h"
 #include "ui/globalsetting.h"
 #include "host/cameramanager.h"
+#include "host/multimediabackend.h"
+#include "host/backend/ffmpegbackendhandler.h"
 #include <QDebug>
 #include <QComboBox>
 #include <QHBoxLayout>
@@ -147,6 +149,45 @@ void VideoPage::setupUI()
     // Connect the media backend change signal
     connect(mediaBackendBox, &QComboBox::currentIndexChanged, this, &VideoPage::onMediaBackendChanged);
 
+    // Hardware Acceleration Setting Section
+    QLabel *hwAccelLabel = new QLabel(tr("Hardware Acceleration: "));
+    hwAccelLabel->setStyleSheet(smallLabelFontSize);
+
+    QComboBox *hwAccelBox = new QComboBox();
+    hwAccelBox->setObjectName("hwAccelBox");
+
+    QLabel *hwAccelHintLabel = new QLabel(tr("Note: Hardware acceleration improves performance but may not be available on all systems."));
+    hwAccelHintLabel->setStyleSheet("color: #666666; font-style: italic;");
+
+    // Populate hardware acceleration options
+    if (m_cameraManager) {
+        MultimediaBackendHandler* backend = m_cameraManager->getBackendHandler();
+        if (backend) {
+            QStringList availableHwAccel = backend->getAvailableHardwareAccelerations();
+            hwAccelBox->clear();
+            for (const QString& hw : availableHwAccel) {
+                QString displayName;
+                if (hw == "auto") {
+                    displayName = tr("Auto (Recommended)");
+                } else if (hw == "cuda") {
+                    displayName = tr("NVIDIA CUDA");
+                } else if (hw == "qsv") {
+                    displayName = tr("Intel Quick Sync Video");
+                } else {
+                    displayName = hw;
+                }
+                hwAccelBox->addItem(displayName, hw);
+            }
+
+            // Set current hardware acceleration from settings
+            QString currentHwAccel = GlobalSetting::instance().getHardwareAcceleration();
+            int hwIndex = hwAccelBox->findData(currentHwAccel);
+            if (hwIndex != -1) {
+                hwAccelBox->setCurrentIndex(hwIndex);
+            }
+        }
+    }
+
     // Add Capture Resolution elements to the layout
     videoLayout->addWidget(hintLabel);
     videoLayout->addWidget(resolutionsLabel);
@@ -159,6 +200,9 @@ void VideoPage::setupUI()
     videoLayout->addWidget(backendLabel);
     videoLayout->addWidget(mediaBackendBox);
     videoLayout->addWidget(backendHintLabel);
+    videoLayout->addWidget(hwAccelLabel);
+    videoLayout->addWidget(hwAccelBox);
+    videoLayout->addWidget(hwAccelHintLabel);
     videoLayout->addStretch();
 
     // Connect the checkbox state change to the slot
@@ -359,6 +403,13 @@ void VideoPage::applyVideoSettings() {
     // Note: Camera format selection removed with FFmpeg backend
     // FFmpeg negotiates formats directly with DirectShow/V4L2
     
+    // Save hardware acceleration setting
+    QComboBox *hwAccelBox = this->findChild<QComboBox*>("hwAccelBox");
+    if (hwAccelBox) {
+        QString hwAccel = hwAccelBox->currentData().toString();
+        GlobalSetting::instance().setHardwareAcceleration(hwAccel);
+    }
+
     if (!m_cameraManager) {
         qWarning() << "CameraManager is not valid!";
         return;
@@ -426,6 +477,16 @@ void VideoPage::initVideoSettings() {
         int backendIndex = mediaBackendBox->findData(currentBackend);
         if (backendIndex != -1) {
             mediaBackendBox->setCurrentIndex(backendIndex);
+        }
+    }
+
+    // Set the hardware acceleration in the combo box
+    QComboBox *hwAccelBox = this->findChild<QComboBox*>("hwAccelBox");
+    if (hwAccelBox) {
+        QString currentHwAccel = GlobalSetting::instance().getHardwareAcceleration();
+        int hwIndex = hwAccelBox->findData(currentHwAccel);
+        if (hwIndex != -1) {
+            hwAccelBox->setCurrentIndex(hwIndex);
         }
     }
 }

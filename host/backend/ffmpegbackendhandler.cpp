@@ -223,6 +223,7 @@ FFmpegBackendHandler::FFmpegBackendHandler(QObject *parent)
       m_recordingFrameNumber(0)
 {
     m_config = getDefaultConfig();
+    m_preferredHwAccel = GlobalSetting::instance().getHardwareAcceleration();
     
     // Initialize device wait timer
     m_deviceWaitTimer = new QTimer(this);
@@ -280,6 +281,31 @@ MultimediaBackendType FFmpegBackendHandler::getBackendType() const
 QString FFmpegBackendHandler::getBackendName() const
 {
     return "FFmpeg Direct Capture";
+}
+
+QStringList FFmpegBackendHandler::getAvailableHardwareAccelerations() const
+{
+    QStringList availableHwAccel;
+    availableHwAccel << "auto";  // Always include auto
+
+#ifdef HAVE_FFMPEG
+    // Check for CUDA/NVDEC
+    const AVCodec* cudaCodec = avcodec_find_decoder_by_name("mjpeg_cuvid");
+    if (cudaCodec) {
+        availableHwAccel << "cuda";
+    }
+
+    // Check for Intel QSV
+    const AVCodec* qsvCodec = avcodec_find_decoder_by_name("mjpeg_qsv");
+    if (qsvCodec) {
+        availableHwAccel << "qsv";
+    }
+
+    // Check for other hardware types if needed
+    // For now, focus on CUDA and QSV as they are the main ones for MJPEG
+#endif
+
+    return availableHwAccel;
 }
 
 #ifdef HAVE_FFMPEG
@@ -474,7 +500,7 @@ void FFmpegBackendHandler::cleanupFFmpeg()
 
 bool FFmpegBackendHandler::initializeHardwareAcceleration()
 {
-    qCDebug(log_ffmpeg_backend) << "Initializing hardware acceleration";
+    qCDebug(log_ffmpeg_backend) << "Initializing hardware acceleration, preferred:" << m_preferredHwAccel;
     
     // For MJPEG decoding on Windows, CUVID decoders work differently than on Linux
     // They can be used directly without creating a hardware device context first
@@ -484,55 +510,31 @@ bool FFmpegBackendHandler::initializeHardwareAcceleration()
     // 1. NVIDIA CUVID (mjpeg_cuvid) - works on Windows without device context
     // 2. Intel QSV (mjpeg_qsv) - may need device context on some platforms
     
-    const struct {
-        const char* name;
-        const char* decoderName;
-        AVHWDeviceType deviceType;
-        bool needsDeviceContext;  // Some decoders need device context, others don't
-    } hwDecoders[] = {
-        {"CUDA/NVDEC", "mjpeg_cuvid", AV_HWDEVICE_TYPE_CUDA, false},  // CUVID works without context on Windows
-        {"Intel QSV", "mjpeg_qsv", AV_HWDEVICE_TYPE_QSV, true},       // QSV typically needs context
-        {nullptr, nullptr, AV_HWDEVICE_TYPE_NONE, false}
+    HwDecoderInfo hwDecoders[] = {
+        {"CUDA/NVDEC", "mjpeg_cuvid", AV_HWDEVICE_TYPE_CUDA, false, "cuda"},
+        {"Intel QSV", "mjpeg_qsv", AV_HWDEVICE_TYPE_QSV, true, "qsv"},
+        {nullptr, nullptr, AV_HWDEVICE_TYPE_NONE, false, ""}
     };
     
+    // If not auto, try the preferred one first
+    if (m_preferredHwAccel != "auto") {
+        for (int i = 0; hwDecoders[i].name != nullptr; i++) {
+            if (hwDecoders[i].settingName == m_preferredHwAccel) {
+                qCInfo(log_ffmpeg_backend) << "Trying preferred hardware decoder:" << hwDecoders[i].name;
+                if (tryInitializeHwDecoder(hwDecoders[i])) {
+                    return true;
+                }
+                break;
+            }
+        }
+        qCWarning(log_ffmpeg_backend) << "Preferred hardware acceleration" << m_preferredHwAccel << "not available, falling back to auto";
+    }
+    
+    // Auto mode or fallback: try all available
     for (int i = 0; hwDecoders[i].name != nullptr; i++) {
-        qCInfo(log_ffmpeg_backend) << "Checking for" << hwDecoders[i].name << "hardware decoder...";
-        
-        // First check if the decoder itself is available
-        const AVCodec* testCodec = avcodec_find_decoder_by_name(hwDecoders[i].decoderName);
-        if (!testCodec) {
-            qCInfo(log_ffmpeg_backend) << "  ✗" << hwDecoders[i].decoderName << "decoder not found in this FFmpeg build";
-            continue;
+        if (tryInitializeHwDecoder(hwDecoders[i])) {
+            return true;
         }
-        
-        qCInfo(log_ffmpeg_backend) << "  ✓ Found" << hwDecoders[i].decoderName << "decoder";
-        
-        // For decoders that need a device context, try to create it
-        if (hwDecoders[i].needsDeviceContext) {
-            m_hwDeviceType = av_hwdevice_find_type_by_name(hwDecoders[i].name);
-            if (m_hwDeviceType == AV_HWDEVICE_TYPE_NONE) {
-                qCInfo(log_ffmpeg_backend) << "  ✗ Hardware device type not available";
-                continue;
-            }
-            
-            int ret = av_hwdevice_ctx_create(&m_hwDeviceContext, hwDecoders[i].deviceType, nullptr, nullptr, 0);
-            if (ret < 0) {
-                char errbuf[AV_ERROR_MAX_STRING_SIZE];
-                av_strerror(ret, errbuf, AV_ERROR_MAX_STRING_SIZE);
-                qCWarning(log_ffmpeg_backend) << "  ✗ Failed to create device context:" << QString::fromUtf8(errbuf);
-                continue;
-            }
-            qCInfo(log_ffmpeg_backend) << "  ✓ Hardware device context created";
-        } else {
-            // For CUVID on Windows, we don't need a device context
-            qCInfo(log_ffmpeg_backend) << "  ℹ This decoder doesn't require a device context";
-            m_hwDeviceType = hwDecoders[i].deviceType;
-            m_hwDeviceContext = nullptr;  // Explicitly set to nullptr for CUVID
-        }
-        
-        qCInfo(log_ffmpeg_backend) << "✓✓✓ Successfully initialized" << hwDecoders[i].name 
-                                   << "hardware acceleration for MJPEG decoding ✓✓✓";
-        return true;
     }
     
     qCWarning(log_ffmpeg_backend) << "No MJPEG-capable hardware acceleration found - using software decoding";
@@ -541,6 +543,49 @@ bool FFmpegBackendHandler::initializeHardwareAcceleration()
     m_hwDeviceContext = nullptr;
     m_hwDeviceType = AV_HWDEVICE_TYPE_NONE;
     return false;
+}
+
+bool FFmpegBackendHandler::tryInitializeHwDecoder(const HwDecoderInfo& decoder)
+{
+    qCInfo(log_ffmpeg_backend) << "Checking for" << decoder.name << "hardware decoder...";
+    
+    // First check if the decoder itself is available
+    const AVCodec* testCodec = avcodec_find_decoder_by_name(decoder.decoderName);
+    if (!testCodec) {
+        qCInfo(log_ffmpeg_backend) << "  ✗" << decoder.decoderName << "decoder not found in this FFmpeg build";
+        return false;
+    }
+    
+    qCInfo(log_ffmpeg_backend) << "  ✓ Found" << decoder.decoderName << "decoder";
+    
+    // For decoders that need a device context, try to create it
+    if (decoder.needsDeviceContext) {
+        m_hwDeviceType = decoder.deviceType;
+        
+        int ret = av_hwdevice_ctx_create(&m_hwDeviceContext, decoder.deviceType, nullptr, nullptr, 0);
+        if (ret < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_strerror(ret, errbuf, AV_ERROR_MAX_STRING_SIZE);
+            qCWarning(log_ffmpeg_backend) << "  ✗ Failed to create device context:" << QString::fromUtf8(errbuf);
+            return false;
+        }
+        qCInfo(log_ffmpeg_backend) << "  ✓ Hardware device context created";
+    } else {
+        // For CUVID on Windows, we don't need a device context
+        qCInfo(log_ffmpeg_backend) << "  ℹ This decoder doesn't require a device context";
+        m_hwDeviceType = decoder.deviceType;
+        m_hwDeviceContext = nullptr;  // Explicitly set to nullptr for CUVID
+    }
+    
+    qCInfo(log_ffmpeg_backend) << "✓✓✓ Successfully initialized" << decoder.name 
+                               << "hardware acceleration for MJPEG decoding ✓✓✓";
+    return true;
+}
+
+void FFmpegBackendHandler::updatePreferredHardwareAcceleration()
+{
+    m_preferredHwAccel = GlobalSetting::instance().getHardwareAcceleration();
+    qCDebug(log_ffmpeg_backend) << "Updated preferred hardware acceleration to:" << m_preferredHwAccel;
 }
 
 bool FFmpegBackendHandler::tryHardwareDecoder(const AVCodecParameters* codecpar, 
@@ -1089,6 +1134,9 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     
     // Get codec parameters
     AVCodecParameters* codecpar = m_formatContext->streams[m_videoStreamIndex]->codecpar;
+    
+    // Update preferred hardware acceleration from settings
+    updatePreferredHardwareAcceleration();
     
     // Try to initialize hardware acceleration if not already done
     if (m_hwDeviceType == AV_HWDEVICE_TYPE_NONE) {

@@ -67,7 +67,6 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with hardware acceleration..." && \
         --enable-hwaccels \
         --enable-vaapi \
         --enable-libmfx \
-        --enable-qsv \
         --enable-cuda \
         --enable-cuvid \
         --enable-nvenc \

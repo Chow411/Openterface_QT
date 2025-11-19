@@ -46,6 +46,13 @@ RUN echo "Building libjpeg-turbo from source..." && \
 
 RUN apt-get update && apt-get install -y libmfx-dev nvidia-cuda-toolkit && apt-get clean
 
+RUN git clone https://github.com/FFmpeg/nv-codec-headers.git && \
+    cd nv-codec-headers && \
+    make && \
+    make install && \
+    cd .. && \
+    rm -rf nv-codec-headers
+
 # Build FFmpeg with both shared and static libs and hardware acceleration support
 RUN echo "Building FFmpeg ${FFMPEG_VERSION} with hardware acceleration..." && \
     curl -L -o ffmpeg.tar.bz2 "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2" && \

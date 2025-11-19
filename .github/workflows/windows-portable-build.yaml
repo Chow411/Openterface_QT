@@ -46,15 +46,6 @@ jobs:
           restore-keys: |
             msys2-base-windows
 
-      - name: Cache vcpkg
-        id: cache-vcpkg
-        uses: actions/cache@v3
-        with:
-          path: C:\vcpkg
-          key: vcpkg-openssl-windows
-          restore-keys: |
-            vcpkg-openssl-windows
-
       - name: Install MSYS2
         run: |
           if exist "C:\msys64\usr\bin\pacman.exe" (
@@ -79,39 +70,6 @@ jobs:
           echo "Setting up PATH for MSYS2 MinGW-w64"
           set PATH=C:\msys64\mingw64\bin;%PATH%
           g++ --version || (echo "g++ installation failed. Please check the installation." && exit 1)
-
-      - name: Install vcpkg and OpenSSL
-        if: steps.cache-vcpkg.outputs.cache-hit != 'true'
-        run: |
-          echo "Installing vcpkg"
-          if not exist "%VCPKG_DIR%" (
-            git clone https://github.com/microsoft/vcpkg.git %VCPKG_DIR%
-            cd %VCPKG_DIR%
-            call bootstrap-vcpkg.bat
-          )
-          echo "Installing OpenSSL static libraries"
-          %VCPKG_DIR%\vcpkg update
-          %VCPKG_DIR%\vcpkg install openssl:x64-mingw-static zlib:x64-mingw-static --triplet x64-mingw-static --host-triplet x64-mingw-static --clean-after-build
-          %VCPKG_DIR%\vcpkg integrate install
-
-      - name: check OpenSSL installation
-        run: |
-          echo "Verifying OpenSSL installation..."
-          dir %OPENSSL_DIR%\lib
-          if not exist "%OPENSSL_DIR%\lib\libssl.a" (
-            echo "Error: libssl.a not found. OpenSSL static libraries not properly installed."
-            exit 1
-          )
-          if not exist "%OPENSSL_DIR%\lib\libcrypto.a" (
-            echo "Error: libcrypto.a not found. OpenSSL static libraries not properly installed."
-            exit 1
-          )
-          echo "OpenSSL static libraries verified successfully!"
-          
-          echo "Checking library architecture..."
-          file "%OPENSSL_DIR%\lib\libssl.a" || echo "file command not available"
-          echo "SSL library size:" && dir "%OPENSSL_DIR%\lib\libssl.a" | findstr "libssl.a"
-          echo "Crypto library size:" && dir "%OPENSSL_DIR%\lib\libcrypto.a" | findstr "libcrypto.a"
 
   build-ffmpeg:
     needs: prepare-env
@@ -153,6 +111,48 @@ jobs:
           key: qt-static-6.6.3-${{ hashFiles('build-script/build-static-qt-from-source.bat') }}-windows-v2
           restore-keys: |
             qt-static-6.6.3-windows-v2
+
+      - name: Cache vcpkg
+        id: cache-vcpkg
+        uses: actions/cache@v3
+        with:
+          path: C:\vcpkg
+          key: vcpkg-openssl-windows
+          restore-keys: |
+            vcpkg-openssl-windows
+
+      - name: Install vcpkg and OpenSSL
+        if: steps.cache-vcpkg.outputs.cache-hit != 'true'
+        run: |
+          echo "Installing vcpkg"
+          if not exist "%VCPKG_DIR%" (
+            git clone https://github.com/microsoft/vcpkg.git %VCPKG_DIR%
+            cd %VCPKG_DIR%
+            call bootstrap-vcpkg.bat
+          )
+          echo "Installing OpenSSL static libraries"
+          %VCPKG_DIR%\vcpkg update
+          %VCPKG_DIR%\vcpkg install openssl:x64-mingw-static zlib:x64-mingw-static --triplet x64-mingw-static --host-triplet x64-mingw-static --clean-after-build
+          %VCPKG_DIR%\vcpkg integrate install
+
+      - name: check OpenSSL installation
+        run: |
+          echo "Verifying OpenSSL installation..."
+          dir %OPENSSL_DIR%\lib
+          if not exist "%OPENSSL_DIR%\lib\libssl.a" (
+            echo "Error: libssl.a not found. OpenSSL static libraries not properly installed."
+            exit 1
+          )
+          if not exist "%OPENSSL_DIR%\lib\libcrypto.a" (
+            echo "Error: libcrypto.a not found. OpenSSL static libraries not properly installed."
+            exit 1
+          )
+          echo "OpenSSL static libraries verified successfully!"
+          
+          echo "Checking library architecture..."
+          file "%OPENSSL_DIR%\lib\libssl.a" || echo "file command not available"
+          echo "SSL library size:" && dir "%OPENSSL_DIR%\lib\libssl.a" | findstr "libssl.a"
+          echo "Crypto library size:" && dir "%OPENSSL_DIR%\lib\libcrypto.a" | findstr "libcrypto.a"
 
       - name: Build Qt Statically
         if: steps.cache-qt.outputs.cache-hit != 'true'

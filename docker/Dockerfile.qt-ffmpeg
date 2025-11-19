@@ -46,7 +46,7 @@ RUN echo "Building libjpeg-turbo from source..." && \
 
 RUN apt-get update && apt-get install -y libmfx-dev nvidia-cuda-toolkit && apt-get clean
 
-RUN git clone https://github.com/FFmpeg/nv-codec-headers.git && \
+RUN git clone --branch n11.1.5.2 https://github.com/FFmpeg/nv-codec-headers.git && \
     cd nv-codec-headers && \
     make && \
     make install && \

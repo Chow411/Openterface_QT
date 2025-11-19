@@ -353,7 +353,9 @@ bool SerialPortManager::switchSerialPortByPortChain(const QString& portChain)
  * This method now works alongside the enhanced hotplug detection system
  */
 void SerialPortManager::checkSerialPort() {
-
+    if(isChipTypeFE0C()){
+        ready = true; // FE0C chip is always ready
+    }else{
         QDateTime currentTime = QDateTime::currentDateTime();
         if (lastSerialPortCheckTime.isValid() && lastSerialPortCheckTime.msecsTo(currentTime) < SERIAL_TIMER_INTERVAL) {
             return;
@@ -388,7 +390,7 @@ void SerialPortManager::checkSerialPort() {
         if (latestUpdateTime.secsTo(QDateTime::currentDateTime()) > 5) {
             ready = false;
         }
-    
+    }
 }
 
 

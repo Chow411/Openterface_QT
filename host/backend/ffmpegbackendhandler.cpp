@@ -512,7 +512,7 @@ bool FFmpegBackendHandler::initializeHardwareAcceleration()
     
     HwDecoderInfo hwDecoders[] = {
         {"CUDA/NVDEC", "mjpeg_cuvid", AV_HWDEVICE_TYPE_CUDA, false, "cuda"},
-        {"Intel QSV", "mjpeg_qsv", AV_HWDEVICE_TYPE_QSV, true, "qsv"},
+        {"Intel QSV", "mjpeg_qsv", AV_HWDEVICE_TYPE_QSV, false, "qsv"},
         {nullptr, nullptr, AV_HWDEVICE_TYPE_NONE, false, ""}
     };
     

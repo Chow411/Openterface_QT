@@ -44,6 +44,8 @@ RUN echo "Building libjpeg-turbo from source..." && \
     cd ${BUILD_DIR} && \
     rm -rf libjpeg-turbo-3.0.4
 
+RUN apt-get update && apt-get install -y libmfx-dev nvidia-cuda-toolkit && apt-get clean
+
 # Build FFmpeg with both shared and static libs and hardware acceleration support
 RUN echo "Building FFmpeg ${FFMPEG_VERSION} with hardware acceleration..." && \
     curl -L -o ffmpeg.tar.bz2 "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2" && \
@@ -52,63 +54,27 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with hardware acceleration..." && \
     cd "ffmpeg-${FFMPEG_VERSION}" && \
     ./configure \
         --prefix="${FFMPEG_PREFIX}" \
-        --arch=x86_64 \
-        --target-os=mingw32 \
-        --disable-shared \
         --enable-static \
-        --enable-gpl \
-        --enable-version3 \
-        --enable-nonfree \
-        --disable-debug \
-        --disable-programs \
+        --enable-shared \
         --disable-doc \
-        --disable-htmlpages \
-        --disable-manpages \
-        --disable-podpages \
-        --disable-txtpages \
+        --disable-programs \
         --disable-outdevs \
-        --enable-avcodec \
-        --enable-avformat \
-        --enable-avutil \
-        --enable-swresample \
-        --enable-swscale \
-        --enable-avdevice \
-        --enable-avfilter \
-        --enable-postproc \
-        --enable-network \
-        --enable-runtime-cpudetect \
-        --enable-pthreads \
-        --disable-w32threads \
-        --enable-zlib \
-        --enable-dxva2 \
-        --enable-d3d11va \
+        --enable-pic \
+        --enable-libpulse \
+        --disable-debug \
+        --enable-gpl \
+        --enable-nonfree \
         --enable-hwaccels \
-        --enable-decoder=mjpeg \
+        --enable-vaapi \
+        --enable-libmfx \
+        --enable-qsv \
         --enable-cuda \
         --enable-cuvid \
-        --enable-nvdec \
-        --disable-nvenc \
-        --enable-ffnvcodec \
-        --enable-decoder=h264_cuvid \
-        --enable-decoder=hevc_cuvid \
-        --enable-decoder=mjpeg_cuvid \
-        --enable-decoder=mpeg1_cuvid \
-        --enable-decoder=mpeg2_cuvid \
-        --enable-decoder=mpeg4_cuvid \
-        --enable-decoder=vc1_cuvid \
-        --enable-decoder=vp8_cuvid \
-        --enable-decoder=vp9_cuvid \
-        --enable-decoder=mjpeg_qsv \
-        --enable-decoder=h264_qsv \
-        --enable-decoder=hevc_qsv \
-        --enable-decoder=vp8_qsv \
-        --enable-decoder=vp9_qsv \
-        --enable-decoder=vc1_qsv \
-        --enable-decoder=mpeg2_qsv \
-        --enable-decoder=av1_qsv \
-        --pkg-config-flags="--static" \
-        --extra-cflags="-I${FFMPEG_PREFIX}/include" \
-        --extra-ldflags="-L${FFMPEG_PREFIX}/lib -static -static-libgcc -static-libstdc++" && \
+        --enable-nvenc \
+        --enable-cuda-nvcc \
+        --enable-postproc \
+        --enable-decoder=mjpeg \
+        --enable-decoder=mjpeg_vaapi && \
     make -j$(nproc) && \
     make install && \
     cd ${BUILD_DIR} && \

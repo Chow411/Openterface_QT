@@ -38,17 +38,14 @@ RUN apt update && apt install -y \
 
 # Step 1: Install NVIDIA codec headers (ffnvcodec)
 RUN set -e; \
-    echo "Building ffnvcodec headers (n11.1.5.2 for FFmpeg 6.1)..." && \
+    echo "Building ffnvcodec headers (n12.0.16.2 for FFmpeg 6.1)..." && \
     git clone https://github.com/FFmpeg/nv-codec-headers.git && \
     cd nv-codec-headers && \
-    git checkout n11.1.5.2 && \
+    git checkout n12.0.16.2 && \
     make PREFIX="${FFMPEG_PREFIX}" && \
     make PREFIX="${FFMPEG_PREFIX}" install && \
-    # Ensure pkgconfig dir exists and .pc file is present
-    mkdir -p "${FFMPEG_PREFIX}/lib/pkgconfig" && \
-    if [ ! -f "${FFMPEG_PREFIX}/lib/pkgconfig/ffnvcodec.pc" ]; then \
-        cp -v ffnvcodec.pc "${FFMPEG_PREFIX}/lib/pkgconfig/"; \
-    fi && \
+    # Fix the pkgconfig file prefix
+    sed -i "s|prefix=/usr/local|prefix=${FFMPEG_PREFIX}|" "${FFMPEG_PREFIX}/lib/pkgconfig/ffnvcodec.pc" && \
     cd ${BUILD_DIR} && \
     rm -rf nv-codec-headers
 

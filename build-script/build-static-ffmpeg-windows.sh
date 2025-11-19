@@ -217,6 +217,8 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-pthreads \
     --disable-w32threads \
     --enable-zlib \
+    --enable-bzlib \
+    --enable-lzma \
     --enable-dxva2 \
     --enable-d3d11va \
     --enable-hwaccels \
@@ -247,7 +249,7 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-decoder=vp9_cuvid \
     --pkg-config-flags="--static" \
     --extra-cflags="-I${FFMPEG_INSTALL_PREFIX}/include" \
-    --extra-ldflags="-L${FFMPEG_INSTALL_PREFIX}/lib -static -static-libgcc -static-libstdc++"
+    --extra-ldflags="-L${FFMPEG_INSTALL_PREFIX}/lib -lmfx -lbz2 -llzma -static -static-libgcc -static-libstdc++"
 
 echo "✓ Configuration complete"
 echo ""

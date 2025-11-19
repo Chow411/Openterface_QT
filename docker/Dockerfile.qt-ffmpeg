@@ -36,7 +36,7 @@ RUN apt update && apt install -y \
     libmfx-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Step 1: Build and install compatible nv-codec-headers
+# Step 1: Build and install nv-codec-headers with explicit .pc file handling
 RUN set -e; \
     echo "Building ffnvcodec headers (n11.1.5.2 for FFmpeg 6.1)..." && \
     git clone https://github.com/FFmpeg/nv-codec-headers.git && \
@@ -44,6 +44,8 @@ RUN set -e; \
     git checkout n11.1.5.2 && \
     make PREFIX="${FFMPEG_PREFIX}" && \
     make PREFIX="${FFMPEG_PREFIX}" install && \
+    mkdir -p "${FFMPEG_PREFIX}/lib/pkgconfig" && \
+    cp -f ffnvcodec.pc "${FFMPEG_PREFIX}/lib/pkgconfig/ffnvcodec.pc" && \
     cd ${BUILD_DIR} && \
     rm -rf nv-codec-headers
 

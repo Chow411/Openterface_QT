@@ -1345,6 +1345,9 @@ bool CameraManager::initializeCameraWithVideoOutput(VideoPane* videoPane, bool s
                         emit cameraActiveChanged(false);
                     });
             
+            // Connect camera active changed to VideoPane
+            connect(this, &CameraManager::cameraActiveChanged, videoPane, &VideoPane::onCameraActiveChanged);
+            
             // Get device path and configuration
             QString devicePath;
             QSize resolution(0, 0); // Auto-detect maximum resolution

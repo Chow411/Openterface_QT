@@ -336,7 +336,7 @@ void FFmpegBackendHandler::prepareCameraCreation()
 {
     qCDebug(log_ffmpeg_backend) << "FFmpeg: Preparing camera creation";
     stopDirectCapture();
-    QThread::msleep(m_config.deviceSwitchDelay);
+    // QThread::msleep(m_config.deviceSwitchDelay);
 }
 
 void FFmpegBackendHandler::configureCameraDevice()
@@ -859,8 +859,8 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     qCDebug(log_ffmpeg_backend) << "Windows platform detected - using DirectShow input";
     
     // Add small delay to ensure device is not held by Qt's device enumeration (Windows issue)
-    QThread::msleep(200);
-    qCDebug(log_ffmpeg_backend) << "Waited 200ms before opening device (Windows workaround)";
+    // QThread::msleep(1000);
+    // qCDebug(log_ffmpeg_backend) << "Waited 200ms before opening device (Windows workaround)";
     
     // Allocate format context
     m_formatContext = avformat_alloc_context();
@@ -990,7 +990,7 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     }
     
     // Reduce delay to minimize latency
-    QThread::msleep(100); // Reduced from 200ms to 100ms
+    // QThread::msleep(100); // Reduced from 200ms to 100ms
     
     // Allocate format context
     m_formatContext = avformat_alloc_context();
@@ -1392,6 +1392,9 @@ void FFmpegBackendHandler::closeInputDevice()
         avformat_close_input(&m_formatContext);
         m_formatContext = nullptr;
     }
+    
+    // Give Windows time to release the camera device
+    // QThread::msleep(1000);
     
     m_videoStreamIndex = -1;
 }
@@ -2241,6 +2244,12 @@ bool FFmpegBackendHandler::checkCameraAvailable(const QString& devicePath)
     if (device == m_currentDevice && m_captureRunning) {
         qCDebug(log_ffmpeg_backend) << "Device is currently in use for capture, skipping FFmpeg compatibility check";
         return true;
+    }
+    
+    // Skip intrusive FFmpeg check if we're waiting for device activation
+    if (m_waitingForDevice) {
+        qCDebug(log_ffmpeg_backend) << "Waiting for device activation, skipping intrusive FFmpeg compatibility check";
+        return true; // Rely on OS-specific checks above
     }
     
 #ifdef HAVE_FFMPEG

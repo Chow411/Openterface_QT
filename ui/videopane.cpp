@@ -1181,3 +1181,39 @@ void VideoPane::enableDirectFFmpegMode(bool enable)
                           << "video visible:" << (m_videoItem ? m_videoItem->isVisible() : false);
 }
 
+void VideoPane::clearVideoFrame()
+{
+    qWarning() << "VideoPane: Clearing current video frame";
+    
+    if (m_pixmapItem) {
+        // Create a black pixmap of the same size as the current one or default size
+        QSize size = m_pixmapItem->pixmap().size();
+        if (size.isEmpty()) {
+            size = QSize(640, 480); // Default size
+        }
+        QPixmap blackPixmap(size);
+        blackPixmap.fill(Qt::black);
+        m_pixmapItem->setPixmap(blackPixmap);
+        
+        // Force update
+        if (m_scene) {
+            m_scene->invalidate(m_pixmapItem->boundingRect());
+            m_scene->update();
+        }
+        update();
+        
+        qCDebug(log_ui_video) << "VideoPane: Cleared pixmap item with black frame";
+    }
+}
+
+void VideoPane::onCameraActiveChanged(bool active)
+{
+    qWarning() << "VideoPane: Camera active changed:" << active;
+    
+    if (!active) {
+        // Camera deactivated, clear the current frame
+        qWarning() << "VideoPane: Clearing video frame due to camera deactivation";
+        clearVideoFrame();
+    }
+}
+

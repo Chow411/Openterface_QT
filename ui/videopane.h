@@ -78,6 +78,7 @@ public:
     void updateVideoFrame(const QPixmap& frame);
     void enableDirectFFmpegMode(bool enable = true);
     bool isDirectFFmpegModeEnabled() const { return m_directFFmpegMode; }
+    void clearVideoFrame(); // Clear the current video frame display
 
     // Mouse position transformation for InputHandler
     QPointF getTransformedMousePosition(const QPoint& viewportPos);
@@ -98,6 +99,7 @@ signals:
 public slots:
     void onCameraDeviceSwitching(const QString& fromDevice, const QString& toDevice);
     void onCameraDeviceSwitchComplete(const QString& device);
+    void onCameraActiveChanged(bool active);
 
 protected:
     void paintEvent(QPaintEvent *event) override;

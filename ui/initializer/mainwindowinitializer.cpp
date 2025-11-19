@@ -344,6 +344,8 @@ void MainWindowInitializer::connectCameraSignals()
             m_videoPane, &VideoPane::onCameraDeviceSwitching);
     connect(m_cameraManager, &CameraManager::cameraDeviceSwitchComplete,
             m_videoPane, &VideoPane::onCameraDeviceSwitchComplete);
+    connect(m_cameraManager, &CameraManager::cameraActiveChanged,
+            m_videoPane, &VideoPane::onCameraActiveChanged);
 }
 
 void MainWindowInitializer::connectVideoHidSignals()

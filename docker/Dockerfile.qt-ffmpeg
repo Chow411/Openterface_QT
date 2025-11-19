@@ -36,6 +36,26 @@ RUN apt update && apt install -y \
     libmfx-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Build and install nv-codec-headers with explicit .pc file handling
+RUN set -e; \
+    echo "Building ffnvcodec headers (n11.1.5.2 for FFmpeg 6.1)..." && \
+    git clone https://github.com/FFmpeg/nv-codec-headers.git && \
+    cd nv-codec-headers && \
+    git checkout n11.1.5.2 && \
+    # Build and install headers
+    make PREFIX="${FFMPEG_PREFIX}" && \
+    make PREFIX="${FFMPEG_PREFIX}" install && \
+    # ⚠️ CRITICAL: Manually install ffnvcodec.pc if missing
+    mkdir -p "${FFMPEG_PREFIX}/lib/pkgconfig" && \
+    if [ ! -f "${FFMPEG_PREFIX}/lib/pkgconfig/ffnvcodec.pc" ]; then \
+        echo "⚠️ ffnvcodec.pc not installed automatically, copying manually..."; \
+        cp -v ffnvcodec.pc "${FFMPEG_PREFIX}/lib/pkgconfig/"; \
+    else \
+        echo "✅ ffnvcodec.pc already present."; \
+    fi && \
+    cd ${BUILD_DIR} && \
+    rm -rf nv-codec-headers
+
 # Step 2: Build libusb
 RUN echo "Building libusb ${LIBUSB_VERSION} from source..." && \
     curl -L -o libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2" && \

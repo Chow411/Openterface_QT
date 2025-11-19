@@ -75,6 +75,8 @@ cmake -G "Ninja" ^
 
     -DCMAKE_CXX_COMPILER=g++ ^
 
+    -DFEATURE_libb2=OFF ^
+
     ..
 
 

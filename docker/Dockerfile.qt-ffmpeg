@@ -59,7 +59,7 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with hardware acceleration..." && \
     tar xjf ffmpeg.tar.bz2 && \
     rm ffmpeg.tar.bz2 && \
     cd "ffmpeg-${FFMPEG_VERSION}" && \
-    ./configure \
+    PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH ./configure \
         --prefix="${FFMPEG_PREFIX}" \
         --enable-static \
         --enable-shared \

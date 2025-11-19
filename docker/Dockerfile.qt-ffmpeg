@@ -29,14 +29,15 @@ RUN apt update && apt install -y \
 
 ENV PKG_CONFIG_PATH="/opt/ffmpeg/lib/pkgconfig"
 
-RUN echo "Building ffnvcodec headers..." && \
+RUN set -e; \
+    echo "Building ffnvcodec headers (compatible with FFmpeg 6.1)..." && \
     git clone https://github.com/FFmpeg/nv-codec-headers.git && \
     cd nv-codec-headers && \
+    git checkout n11.1.5.2 && \
     make PREFIX="${FFMPEG_PREFIX}" && \
     make PREFIX="${FFMPEG_PREFIX}" install && \
     cd ${BUILD_DIR} && \
     rm -rf nv-codec-headers
-
 
 # Build libusb from source
 RUN echo "Building libusb ${LIBUSB_VERSION} from source..." && \

@@ -20,11 +20,11 @@ RUN apt update && apt install -y \
     cmake \
     libpulse-dev \
     libva-dev \
-    libvpl-dev \
-    intel-media-va-driver-non-free \
     libdrm-dev \
     libx11-dev \
     libgl1-mesa-dev \
+    intel-media-va-driver-non-free \
+    libmfx-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN echo "Building ffnvcodec headers..." && \
@@ -91,7 +91,7 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with Intel QSV and NVIDIA HW acceler
         --enable-libdrm \
         --enable-vaapi \
         --enable-vdpau \
-        --enable-libvpl \
+        --enable-libmfx \
         --enable-cuda \
         --enable-cuvid \
         --enable-nvdec \

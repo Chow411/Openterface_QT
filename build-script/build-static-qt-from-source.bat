@@ -15,7 +15,7 @@ set OPENSSL_DIR=%VCPKG_DIR%\installed\x64-mingw-static
 set OPENSSL_LIB_DIR=%OPENSSL_DIR%\lib
 set OPENSSL_INCLUDE_DIR=%OPENSSL_DIR%\include
 
-set PATH=C:\ProgramData\chocolatey\bin;C:\ProgramData\chocolatey\lib\ninja\tools;C:\mingw64\bin;%PATH%
+set PATH=C:\ProgramData\chocolatey\bin;C:\ProgramData\chocolatey\lib\ninja\tools;C:\msys64\mingw64\bin;%PATH%
 
 REM Check for Ninja
 where ninja >nul 2>nul
@@ -70,8 +70,8 @@ cmake -G "Ninja" ^
     -DCMAKE_C_FLAGS="-I%OPENSSL_INCLUDE_DIR%" ^
     -DCMAKE_CXX_FLAGS="-I%OPENSSL_INCLUDE_DIR%" ^
     -DCMAKE_EXE_LINKER_FLAGS="-mconsole -L%OPENSSL_LIB_DIR% -lws2_32 -lcrypt32 -ladvapi32" ^
-    -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%\scripts\buildsystems\vcpkg.cmake" ^
-    -DVCPKG_TARGET_TRIPLET=x64-mingw-static ^
+
+
     ..
 ninja
 ninja install
@@ -91,8 +91,8 @@ for %%m in (%MODULES%) do (
             -DOPENSSL_CRYPTO_LIBRARY="%OPENSSL_LIB_DIR%\libcrypto.a" ^
             -DOPENSSL_SSL_LIBRARY="%OPENSSL_LIB_DIR%\libssl.a" ^
             -DCMAKE_EXE_LINKER_FLAGS="-mconsole -L%OPENSSL_LIB_DIR%" ^
-            -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%\scripts\buildsystems\vcpkg.cmake" ^
-            -DVCPKG_TARGET_TRIPLET=x64-mingw-static ^
+
+
             ..
         ninja
         ninja install

@@ -286,6 +286,7 @@ QString FFmpegBackendHandler::getBackendName() const
 QStringList FFmpegBackendHandler::getAvailableHardwareAccelerations() const
 {
     QStringList availableHwAccel;
+    availableHwAccel << "none";  // CPU option
     availableHwAccel << "auto";  // Always include auto
 
 #ifdef HAVE_FFMPEG
@@ -501,6 +502,14 @@ void FFmpegBackendHandler::cleanupFFmpeg()
 bool FFmpegBackendHandler::initializeHardwareAcceleration()
 {
     qCDebug(log_ffmpeg_backend) << "Initializing hardware acceleration, preferred:" << m_preferredHwAccel;
+    
+    // Explicitly handle CPU-only mode
+    if (m_preferredHwAccel == "none") {
+        qCInfo(log_ffmpeg_backend) << "Hardware acceleration disabled - using CPU decoding";
+        m_hwDeviceContext = nullptr;
+        m_hwDeviceType = AV_HWDEVICE_TYPE_NONE;
+        return true;
+    }
     
     // For MJPEG decoding on Windows, CUVID decoders work differently than on Linux
     // They can be used directly without creating a hardware device context first

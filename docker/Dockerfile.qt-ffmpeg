@@ -27,8 +27,10 @@ RUN apt update && apt install -y \
     libmfx-dev \
     && rm -rf /var/lib/apt/lists/*
 
+ENV PKG_CONFIG_PATH="/opt/ffmpeg/lib/pkgconfig"
+
 RUN echo "Building ffnvcodec headers..." && \
-    git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git && \
+    git clone https://github.com/FFmpeg/nv-codec-headers.git && \
     cd nv-codec-headers && \
     make PREFIX="${FFMPEG_PREFIX}" && \
     make PREFIX="${FFMPEG_PREFIX}" install && \

@@ -886,7 +886,7 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     av_dict_set(&options, "framerate", QString::number(framerate).toUtf8().constData(), 0);
     
     // CRITICAL LOW-LATENCY OPTIMIZATIONS for KVM responsiveness:
-    av_dict_set(&options, "rtbufsize", "10000000", 0);        // 10MB buffer to prevent frame drops
+    // av_dict_set(&options, "rtbufsize", "10000000", 0);        // Removed to prevent buffer overflow on hotplug
     av_dict_set(&options, "fflags", "nobuffer+discardcorrupt", 0); // No buffering, discard corrupt frames
     av_dict_set(&options, "flags", "low_delay", 0);       // Enable low delay mode
     av_dict_set(&options, "max_delay", "2000", 0);           // Allow 3ms delay for stability
@@ -2600,6 +2600,9 @@ void FFmpegBackendHandler::handleDeviceActivation(const QString& devicePath, con
     
     qCDebug(log_ffmpeg_backend) << "Starting capture on activated device:" << m_currentDevice
                                 << "resolution:" << resolution << "framerate:" << framerate;
+    
+    // Add delay to allow device to stabilize after hotplug
+    // QThread::msleep(500);
     
     if (startDirectCapture(m_currentDevice, resolution, framerate)) {
         qCInfo(log_ffmpeg_backend) << "Successfully started capture on activated device";

@@ -167,6 +167,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache Qt
+        uses: actions/cache@v3
+        with:
+          path: C:\Qt6
+          key: qt-static-6.6.3-${{ hashFiles('build-script/build-static-qt-from-source.bat') }}-windows-v2
+
+      - name: Cache FFmpeg
+        uses: actions/cache@v3
+        with:
+          path: C:\ffmpeg-static
+          key: ffmpeg-static-6.1.1-${{ hashFiles('build-script/build-static-ffmpeg-windows.bat', 'build-script/build-static-ffmpeg-windows.sh') }}-windows
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

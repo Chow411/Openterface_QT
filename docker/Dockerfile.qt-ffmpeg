@@ -117,7 +117,6 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with Intel QSV and NVIDIA HW acceler
         --enable-cuvid \
         --enable-nvdec \
         --enable-nvenc \
-        --enable-ffnvcodec \
         --enable-hwaccels \
         --extra-cflags="-I${FFMPEG_PREFIX}/include" \
         --extra-ldflags="-L${FFMPEG_PREFIX}/lib" && \

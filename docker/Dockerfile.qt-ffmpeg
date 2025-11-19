@@ -2,15 +2,18 @@
 ARG BASE_IMAGE=ghcr.io/techxartisanstudio/openterface-qtbuild-setup:ubuntu-22.04-amd64
 ARG UBUNTU_VERSION=22.04
 ARG TARGETARCH=amd64
+
 FROM ${BASE_IMAGE}
 
-ARG http_proxy 
+# Proxy settings
+ARG http_proxy
 ARG https_proxy
 ENV http_proxy=$http_proxy \
     https_proxy=$https_proxy
-    
+
 WORKDIR ${BUILD_DIR}
 
+# Install system dependencies
 RUN apt update && apt install -y \
     build-essential \
     pkg-config \
@@ -27,10 +30,9 @@ RUN apt update && apt install -y \
     libmfx-dev \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PKG_CONFIG_PATH="/opt/ffmpeg/lib/pkgconfig"
-
+# Step 1: Build and install compatible nv-codec-headers
 RUN set -e; \
-    echo "Building ffnvcodec headers (compatible with FFmpeg 6.1)..." && \
+    echo "Building ffnvcodec headers (n11.1.5.2 for FFmpeg 6.1)..." && \
     git clone https://github.com/FFmpeg/nv-codec-headers.git && \
     cd nv-codec-headers && \
     git checkout n11.1.5.2 && \
@@ -39,7 +41,7 @@ RUN set -e; \
     cd ${BUILD_DIR} && \
     rm -rf nv-codec-headers
 
-# Build libusb from source
+# Step 2: Build libusb
 RUN echo "Building libusb ${LIBUSB_VERSION} from source..." && \
     curl -L -o libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2" && \
     tar xf libusb.tar.bz2 && \
@@ -52,7 +54,7 @@ RUN echo "Building libusb ${LIBUSB_VERSION} from source..." && \
     cd ${BUILD_DIR} && \
     rm -rf libusb
 
-# Build libjpeg-turbo from source
+# Step 3: Build libjpeg-turbo
 RUN echo "Building libjpeg-turbo from source..." && \
     curl -L -o libjpeg-turbo.tar.gz "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.0.4.tar.gz" && \
     tar xzf libjpeg-turbo.tar.gz && \
@@ -72,13 +74,14 @@ RUN echo "Building libjpeg-turbo from source..." && \
     cd ${BUILD_DIR} && \
     rm -rf libjpeg-turbo-3.0.4
 
-# Build FFmpeg with both shared and static libs
+# Step 4: Build FFmpeg with NVIDIA and Intel HW acceleration
+# ⚠️ Critical: Set PKG_CONFIG_PATH inline to ensure ffnvcodec is found
 RUN echo "Building FFmpeg ${FFMPEG_VERSION} with Intel QSV and NVIDIA HW acceleration..." && \
     curl -L -o ffmpeg.tar.bz2 "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2" && \
     tar xjf ffmpeg.tar.bz2 && \
     rm ffmpeg.tar.bz2 && \
     cd "ffmpeg-${FFMPEG_VERSION}" && \
-    ./configure \
+    PKG_CONFIG_PATH="${FFMPEG_PREFIX}/lib/pkgconfig" ./configure \
         --prefix="${FFMPEG_PREFIX}" \
         --enable-static \
         --enable-shared \
@@ -108,7 +111,7 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with Intel QSV and NVIDIA HW acceler
     cd ${BUILD_DIR} && \
     rm -rf "ffmpeg-${FFMPEG_VERSION}"
 
-# Verify FFmpeg installation
+# Verify installation
 RUN echo "Verifying FFmpeg installation..." && \
     ls -la ${FFMPEG_PREFIX}/lib/libav*.a && \
     ls -la ${FFMPEG_PREFIX}/include/libav*/

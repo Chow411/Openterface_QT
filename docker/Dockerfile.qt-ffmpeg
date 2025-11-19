@@ -5,13 +5,13 @@ ARG TARGETARCH=amd64
 
 FROM ${BASE_IMAGE}
 
-# Define build paths and versions (adjust as needed)
+# Define build paths and versions
 ARG BUILD_DIR=/workspace/qt-build
 ARG FFMPEG_PREFIX=/opt/ffmpeg
 ARG FFMPEG_VERSION=6.1.1
 ARG LIBUSB_VERSION=1.0.27
 
-# Proxy settings
+# Proxy settings (optional)
 ARG http_proxy
 ARG https_proxy
 ENV http_proxy=$http_proxy \
@@ -36,22 +36,18 @@ RUN apt update && apt install -y \
     libmfx-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Build and install nv-codec-headers with explicit .pc file handling
+# Step 1: Install NVIDIA codec headers (ffnvcodec)
 RUN set -e; \
     echo "Building ffnvcodec headers (n11.1.5.2 for FFmpeg 6.1)..." && \
     git clone https://github.com/FFmpeg/nv-codec-headers.git && \
     cd nv-codec-headers && \
     git checkout n11.1.5.2 && \
-    # Build and install headers
     make PREFIX="${FFMPEG_PREFIX}" && \
     make PREFIX="${FFMPEG_PREFIX}" install && \
-    # ⚠️ CRITICAL: Manually install ffnvcodec.pc if missing
+    # Ensure pkgconfig dir exists and .pc file is present
     mkdir -p "${FFMPEG_PREFIX}/lib/pkgconfig" && \
     if [ ! -f "${FFMPEG_PREFIX}/lib/pkgconfig/ffnvcodec.pc" ]; then \
-        echo "⚠️ ffnvcodec.pc not installed automatically, copying manually..."; \
         cp -v ffnvcodec.pc "${FFMPEG_PREFIX}/lib/pkgconfig/"; \
-    else \
-        echo "✅ ffnvcodec.pc already present."; \
     fi && \
     cd ${BUILD_DIR} && \
     rm -rf nv-codec-headers
@@ -89,8 +85,8 @@ RUN echo "Building libjpeg-turbo from source..." && \
     cd ${BUILD_DIR} && \
     rm -rf libjpeg-turbo-3.0.4
 
-# Step 4: Build FFmpeg with NVIDIA and Intel HW acceleration
-# ⚠️ Critical: Set PKG_CONFIG_PATH inline to ensure ffnvcodec is found
+# Step 4: Build FFmpeg with full HW acceleration support
+# ⚠️ Critical: Enable --enable-ffnvcodec for FFmpeg 6.x when using NVENC/NVDEC
 RUN echo "Building FFmpeg ${FFMPEG_VERSION} with Intel QSV and NVIDIA HW acceleration..." && \
     curl -L -o ffmpeg.tar.bz2 "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2" && \
     tar xjf ffmpeg.tar.bz2 && \
@@ -118,6 +114,7 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with Intel QSV and NVIDIA HW acceler
         --enable-nvdec \
         --enable-nvenc \
         --enable-hwaccels \
+        --enable-ffnvcodec \          # ← REQUIRED in FFmpeg 6.x
         --extra-cflags="-I${FFMPEG_PREFIX}/include" \
         --extra-ldflags="-L${FFMPEG_PREFIX}/lib" && \
     make -j$(nproc) && \
@@ -125,9 +122,10 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with Intel QSV and NVIDIA HW acceler
     cd ${BUILD_DIR} && \
     rm -rf "ffmpeg-${FFMPEG_VERSION}"
 
-# Verify installation
+# Verification step
 RUN echo "Verifying FFmpeg installation..." && \
-    ls -la ${FFMPEG_PREFIX}/lib/libav*.a && \
-    ls -la ${FFMPEG_PREFIX}/include/libav*/
+    ls -la "${FFMPEG_PREFIX}/lib/libavcodec.a" && \
+    ls -la "${FFMPEG_PREFIX}/include/libavcodec/" && \
+    "${FFMPEG_PREFIX}/bin/ffmpeg" -hide_banner -hwaccels | grep -E "(cuda|nvenc|qsv|vaapi)"
 
 WORKDIR /workspace

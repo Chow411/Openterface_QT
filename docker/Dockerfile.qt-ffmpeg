@@ -89,7 +89,6 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with hardware acceleration..." && \
         --enable-nvdec \
         --disable-nvenc \
         --enable-ffnvcodec \
-        --enable-libmfx \
         --enable-decoder=h264_cuvid \
         --enable-decoder=hevc_cuvid \
         --enable-decoder=mjpeg_cuvid \
@@ -107,7 +106,6 @@ RUN echo "Building FFmpeg ${FFMPEG_VERSION} with hardware acceleration..." && \
         --enable-decoder=vc1_qsv \
         --enable-decoder=mpeg2_qsv \
         --enable-decoder=av1_qsv \
-        --enable-decoder=vp9_cuvid \
         --pkg-config-flags="--static" \
         --extra-cflags="-I${FFMPEG_PREFIX}/include" \
         --extra-ldflags="-L${FFMPEG_PREFIX}/lib -static -static-libgcc -static-libstdc++" && \

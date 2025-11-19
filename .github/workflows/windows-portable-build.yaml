@@ -21,7 +21,7 @@ env:
   OPENSSL_DIR: C:\vcpkg\installed\x64-mingw-static
 
 jobs:
-  build:
+  prepare-env:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v2
@@ -46,28 +46,14 @@ jobs:
           restore-keys: |
             msys2-base-windows
 
-      - name: Cache FFmpeg
-        id: cache-ffmpeg
+      - name: Cache vcpkg
+        id: cache-vcpkg
         uses: actions/cache@v3
         with:
-          path: C:\ffmpeg-static
-          key: ffmpeg-static-6.1.1-${{ hashFiles('build-script/build-static-ffmpeg-windows.bat', 'build-script/build-static-ffmpeg-windows.sh') }}-windows
+          path: C:\vcpkg
+          key: vcpkg-openssl-windows
           restore-keys: |
-            ffmpeg-static-6.1.1-windows
-
-      - name: Cache Qt
-        id: cache-qt
-        uses: actions/cache@v3
-        with:
-          path: C:\Qt6
-          key: qt-static-6.6.3-${{ hashFiles('build-script/build-static-qt-from-source.bat') }}-windows-v2
-          restore-keys: |
-            qt-static-6.6.3-windows-v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+            vcpkg-openssl-windows
 
       - name: Install MSYS2
         run: |
@@ -127,6 +113,23 @@ jobs:
           echo "SSL library size:" && dir "%OPENSSL_DIR%\lib\libssl.a" | findstr "libssl.a"
           echo "Crypto library size:" && dir "%OPENSSL_DIR%\lib\libcrypto.a" | findstr "libcrypto.a"
 
+  build-ffmpeg:
+    needs: prepare-env
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Cache FFmpeg
+        id: cache-ffmpeg
+        uses: actions/cache@v3
+        with:
+          path: C:\ffmpeg-static
+          key: ffmpeg-static-6.1.1-${{ hashFiles('build-script/build-static-ffmpeg-windows.bat', 'build-script/build-static-ffmpeg-windows.sh') }}-windows
+          restore-keys: |
+            ffmpeg-static-6.1.1-windows
+
       - name: Build Static FFmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
@@ -134,10 +137,40 @@ jobs:
           cd build-script
           call build-static-ffmpeg-windows.bat
 
+  build-qt:
+    needs: prepare-env
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Cache Qt
+        id: cache-qt
+        uses: actions/cache@v3
+        with:
+          path: C:\Qt6
+          key: qt-static-6.6.3-${{ hashFiles('build-script/build-static-qt-from-source.bat') }}-windows-v2
+          restore-keys: |
+            qt-static-6.6.3-windows-v2
+
       - name: Build Qt Statically
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
           call build-script/build-static-qt-from-source.bat
+
+  build-project:
+    needs: [build-ffmpeg, build-qt]
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
       - name: Create build directory
         run: |

@@ -156,7 +156,7 @@ void VideoPage::setupUI()
     QComboBox *hwAccelBox = new QComboBox();
     hwAccelBox->setObjectName("hwAccelBox");
 
-    QLabel *hwAccelHintLabel = new QLabel(tr("Note: Hardware acceleration improves performance but may not be available on all systems."));
+    QLabel *hwAccelHintLabel = new QLabel(tr("Note: Hardware acceleration improves performance but may not be available on all systems. Changing this setting requires application restart to take effect."));
     hwAccelHintLabel->setStyleSheet("color: #666666; font-style: italic;");
 
     // Populate hardware acceleration options
@@ -173,6 +173,8 @@ void VideoPage::setupUI()
                     displayName = tr("NVIDIA CUDA");
                 } else if (hw == "qsv") {
                     displayName = tr("Intel Quick Sync Video");
+                } else if (hw == "none") {
+                    displayName = tr("CPU");
                 } else {
                     displayName = hw;
                 }

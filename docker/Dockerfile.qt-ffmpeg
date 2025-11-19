@@ -11,6 +11,31 @@ ENV http_proxy=$http_proxy \
     
 WORKDIR ${BUILD_DIR}
 
+RUN apt update && apt install -y \
+    build-essential \
+    pkg-config \
+    yasm \
+    nasm \
+    git \
+    cmake \
+    libpulse-dev \
+    libva-dev \
+    libvpl-dev \
+    intel-media-va-driver-non-free \
+    libdrm-dev \
+    libx11-dev \
+    libgl1-mesa-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN echo "Building ffnvcodec headers..." && \
+    git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git && \
+    cd nv-codec-headers && \
+    make PREFIX="${FFMPEG_PREFIX}" && \
+    make PREFIX="${FFMPEG_PREFIX}" install && \
+    cd ${BUILD_DIR} && \
+    rm -rf nv-codec-headers
+
+
 # Build libusb from source
 RUN echo "Building libusb ${LIBUSB_VERSION} from source..." && \
     curl -L -o libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2" && \
@@ -44,41 +69,37 @@ RUN echo "Building libjpeg-turbo from source..." && \
     cd ${BUILD_DIR} && \
     rm -rf libjpeg-turbo-3.0.4
 
-RUN apt-get update && apt-get install -y libmfx-dev nvidia-cuda-toolkit && apt-get clean
-
-RUN git clone --branch n11.1.5.2 https://github.com/FFmpeg/nv-codec-headers.git && \
-    cd nv-codec-headers && \
-    make && \
-    make install && \
-    cd .. && \
-    rm -rf nv-codec-headers
-
-# Build FFmpeg with both shared and static libs and hardware acceleration support
-RUN echo "Building FFmpeg ${FFMPEG_VERSION} with hardware acceleration..." && \
+# Build FFmpeg with both shared and static libs
+RUN echo "Building FFmpeg ${FFMPEG_VERSION} with Intel QSV and NVIDIA HW acceleration..." && \
     curl -L -o ffmpeg.tar.bz2 "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2" && \
     tar xjf ffmpeg.tar.bz2 && \
     rm ffmpeg.tar.bz2 && \
     cd "ffmpeg-${FFMPEG_VERSION}" && \
-    PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH ./configure \
+    ./configure \
         --prefix="${FFMPEG_PREFIX}" \
         --enable-static \
         --enable-shared \
+        --enable-pic \
+        --enable-gpl \
+        --enable-version3 \
+        --enable-nonfree \
         --disable-doc \
         --disable-programs \
         --disable-outdevs \
-        --enable-pic \
-        --enable-libpulse \
         --disable-debug \
-        --enable-gpl \
-        --enable-nonfree \
-        --enable-hwaccels \
+        --enable-libpulse \
+        --enable-libdrm \
         --enable-vaapi \
-        --enable-libmfx \
+        --enable-vdpau \
+        --enable-libvpl \
         --enable-cuda \
         --enable-cuvid \
-        --enable-postproc \
-        --enable-decoder=mjpeg \
-        --enable-decoder=mjpeg_vaapi && \
+        --enable-nvdec \
+        --enable-nvenc \
+        --enable-ffnvcodec \
+        --enable-hwaccels \
+        --extra-cflags="-I${FFMPEG_PREFIX}/include" \
+        --extra-ldflags="-L${FFMPEG_PREFIX}/lib" && \
     make -j$(nproc) && \
     make install && \
     cd ${BUILD_DIR} && \

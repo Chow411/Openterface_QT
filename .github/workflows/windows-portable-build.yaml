@@ -219,7 +219,7 @@ jobs:
           echo "Setting up build environment..."
           set PATH=C:\msys64\mingw64\bin;C:\Qt6\bin;%PATH%
           set INCLUDE=C:\Qt6\include;%OPENSSL_DIR%\include;%INCLUDE%
-          set LIB=%OPENSSL_DIR%\lib;%LIB%
+          set LIB=C:\msys64\mingw64\lib;%OPENSSL_DIR%\lib;%LIB%
           
           echo "Verifying static libraries..."
           if not exist "%OPENSSL_DIR%\lib\libssl.a" (
@@ -242,6 +242,7 @@ jobs:
           cmake -G "MinGW Makefiles" ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_PREFIX_PATH="C:\Qt6;C:\vcpkg\installed\x64-mingw-static" ^
+            -DCMAKE_LIBRARY_PATH="C:\msys64\mingw64\lib" ^
             -DFFMPEG_PREFIX=C:\ffmpeg-static ^
             -DZLIB_LIBRARY=C:\vcpkg\installed\x64-mingw-static\lib\libzlib.a ^
             -DOPENTERFACE_BUILD_STATIC=ON ^

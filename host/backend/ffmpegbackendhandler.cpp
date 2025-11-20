@@ -869,8 +869,8 @@ bool FFmpegBackendHandler::openInputDevice(const QString& devicePath, const QSiz
     av_dict_set(&options, "framerate", QString::number(framerate).toUtf8().constData(), 0);
     
     // CRITICAL LOW-LATENCY OPTIMIZATIONS for KVM responsiveness:
-    // av_dict_set(&options, "rtbufsize", "10000000", 0);        // Removed to prevent buffer overflow on hotplug
-    av_dict_set(&options, "fflags", "nobuffer+discardcorrupt", 0); // No buffering, discard corrupt frames
+    av_dict_set(&options, "rtbufsize", "10000000", 0);        // 10MB buffer to prevent overflow
+    av_dict_set(&options, "fflags", "discardcorrupt", 0); // Discard corrupt frames only
     av_dict_set(&options, "flags", "low_delay", 0);       // Enable low delay mode
     av_dict_set(&options, "max_delay", "2000", 0);           // Allow 3ms delay for stability
     av_dict_set(&options, "probesize", "32", 0);          // Minimal probe size for fastest start (minimum allowed)

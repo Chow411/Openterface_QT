@@ -33,9 +33,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: C:\msys64\mingw64
-          key: msys2-mingw64-cmake-windows-v2
+          key: msys2-mingw64-cmake-windows-v3
           restore-keys: |
-            msys2-mingw64-cmake-windows-v2
+            msys2-mingw64-cmake-windows-v3
 
       - name: Cache MSYS2
         id: cache-msys2
@@ -65,7 +65,7 @@ jobs:
 
           echo "Installing MinGW-w64 and CMake via MSYS2..."
           set PATH=C:\msys64\usr\bin;%PATH%
-          pacman -S --needed --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-libiconv mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-intel-media-sdk
+          pacman -S --needed --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-libiconv mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-winpthreads mingw-w64-x86_64-intel-media-sdk
 
           echo "Setting up PATH for MSYS2 MinGW-w64"
           set PATH=C:\msys64\mingw64\bin;%PATH%

@@ -595,7 +595,7 @@ function(link_ffmpeg_libraries)
                     # Core system libs
                     -lpthread -lm -ldl -lz -llzma -lbz2
                     # DRM/VA/VDPAU/X11 stack (vdpa_device_create_x11 lives in libvdpau and needs X11)
-                    -ldrm -lva -lva-drm -lva-x11 -lvdpau -lX11
+                    -ldrm -lva -lva-drm -lva-x11 -lvdpau -lX11 -lXext
                     # XCB is required by avdevice xcbgrab; ensure core xcb gets linked
                     -lxcb
                     # XCB extensions used by xcbgrab (shared memory, xfixes for cursor, shape for OSD)

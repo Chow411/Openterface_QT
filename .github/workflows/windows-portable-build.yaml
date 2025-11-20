@@ -225,6 +225,10 @@ jobs:
             echo "Error: libcrypto.a not found at %OPENSSL_DIR%\lib\libcrypto.a"
             exit 1
           )
+          if not exist "%OPENSSL_DIR%\lib\libz.a" (
+            echo "Error: libz.a not found at %OPENSSL_DIR%\lib\libz.a"
+            exit 1
+          )
           
           echo "Checking Qt configuration..."
           C:\Qt6\bin\qmake -query
@@ -232,8 +236,9 @@ jobs:
           echo "Configuring with CMake..."
           cmake -G "MinGW Makefiles" ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_PREFIX_PATH=C:\Qt6 ^
+            -DCMAKE_PREFIX_PATH="C:\Qt6;C:\vcpkg\installed\x64-mingw-static" ^
             -DFFMPEG_PREFIX=C:\ffmpeg-static ^
+            -DZLIB_LIBRARY=C:\vcpkg\installed\x64-mingw-static\lib\libz.a ^
             -DOPENTERFACE_BUILD_STATIC=ON ^
             ${{ env.SOURCE_DIR }}
           

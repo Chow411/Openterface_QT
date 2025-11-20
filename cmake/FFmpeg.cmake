@@ -4,6 +4,11 @@
 # Initialize FFmpeg configuration variables
 set(FFMPEG_PKG_CONFIG FALSE)
 
+# Set ZLIB_LIBRARY for static zlib
+if(NOT ZLIB_LIBRARY)
+    set(ZLIB_LIBRARY "C:/msys64/mingw64/lib/libz.a" CACHE FILEPATH "Path to static zlib library")
+endif()
+
 # Set FFMPEG_PREFIX from environment or default
 if(NOT DEFINED FFMPEG_PREFIX)
     if(DEFINED ENV{FFMPEG_PREFIX})
@@ -408,7 +413,7 @@ function(link_ffmpeg_libraries)
                     # Check for static zlib
                     -lvfw32        # Video for Windows capture
                     -lshlwapi      # Shell API (for SHCreateStreamOnFileA)
-                    "C:/msys64/mingw64/lib/libz.a"      # zlib for compression
+                    ${ZLIB_LIBRARY}      # zlib for compression
                     "C:/msys64/mingw64/lib/libbz2.a"    # bzip2 for compression
                     "C:/msys64/mingw64/lib/liblzma.a"   # lzma/xz for compression
                     "C:/msys64/mingw64/lib/libmfx.a"    # Intel Media SDK for QSV

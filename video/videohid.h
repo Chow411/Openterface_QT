@@ -57,8 +57,9 @@ public:
     VideoHid(VideoHid const&) = delete;             // Copy construct
     void operator=(VideoHid const&) = delete; // Copy assign
 
-    void start();
-    void stop();
+public:
+    Q_INVOKABLE void start();
+    Q_INVOKABLE void stop();
 
     // Get resolution
     QPair<int, int> getResolution();

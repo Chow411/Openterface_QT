@@ -44,70 +44,14 @@ CameraManager::CameraManager(QObject *parent)
     m_currentCameraDeviceId.clear();
     m_currentCameraPortChain.clear();
     m_currentRecordingPath.clear();
+
+    initializeBackendHandler();
+    // Setup Windows-specific hotplug monitoring
+    setupWindowsHotplugMonitoring();
     
-    // Check for required permissions
-    #ifdef Q_OS_WIN
-    // On Windows 10+, check for webcam and microphone permissions
-    // These are typically handled through app capabilities in the manifest
-    qCDebug(log_ui_camera) << "On Windows, ensure app has webcam and microphone permissions in OS settings";
-    #elif defined(Q_OS_MACOS)
-    qCDebug(log_ui_camera) << "On macOS, ensure app has camera and microphone permissions";
-    #endif
-    
-    // Verify if QMediaDevices is available
-    if (QMediaDevices::videoInputs().isEmpty()) {
-        qCWarning(log_ui_camera) << "No video input devices detected - recording may not work";
-    } else {
-        qCDebug(log_ui_camera) << "Available video devices:" << QMediaDevices::videoInputs().count();
-    }
-    
-    // Verify audio devices for recording with sound
-    if (QMediaDevices::audioInputs().isEmpty()) {
-        qCWarning(log_ui_camera) << "No audio input devices detected - recordings may not have sound";
-    } else {
-        qCDebug(log_ui_camera) << "Available audio devices:" << QMediaDevices::audioInputs().count();
-    }
-    m_currentRecordingPath.clear();
-    
-    // Check for required permissions
-    #ifdef Q_OS_WIN
-    // On Windows 10+, check for webcam and microphone permissions
-    // These are typically handled through app capabilities in the manifest
-    qCDebug(log_ui_camera) << "On Windows, ensure app has webcam and microphone permissions in OS settings";
-    #elif defined(Q_OS_MACOS)
-    qCDebug(log_ui_camera) << "On macOS, ensure app has camera and microphone permissions";
-    #endif
-    
-    // Verify if QMediaDevices is available
-    if (QMediaDevices::videoInputs().isEmpty()) {
-        qCWarning(log_ui_camera) << "No video input devices detected - recording may not work";
-    } else {
-        qCDebug(log_ui_camera) << "Available video devices:" << QMediaDevices::videoInputs().count();
-    }
-    
-    // Verify audio devices for recording with sound
-    if (QMediaDevices::audioInputs().isEmpty()) {
-        qCWarning(log_ui_camera) << "No audio input devices detected - recordings may not have sound";
-    } else {
-        qCDebug(log_ui_camera) << "Available audio devices:" << QMediaDevices::audioInputs().count();
-    }
-    
-    // Initialize backend handler only if not on Windows
-    if (!isWindowsPlatform()) {
-        initializeBackendHandler();
-    } else {
-        qCDebug(log_ui_camera) << "Windows platform detected - using Qt backend with recording support";
-        // Initialize Qt backend for Windows with recording support
-        initializeBackendHandler();
-        qCDebug(log_ui_camera) << "Windows platform detected - using Qt backend with recording support";
-        // Initialize Qt backend for Windows with recording support
-        initializeBackendHandler();
-        // Setup Windows-specific hotplug monitoring
-        setupWindowsHotplugMonitoring();
-    }
     
     // Connect to hotplug monitor for all platforms
-    connectToHotplugMonitor();
+    connectToHotplugMonitor();  // Disabled to avoid clash with MainWindow camera initialization
     
     // Initialize available camera devices
     m_availableCameraDevices = getAvailableCameraDevices();
@@ -1823,7 +1767,6 @@ void CameraManager::connectToHotplugMonitor()
                 if (isWindowsPlatform()) {
                     onVideoInputsChanged();
                 }
-                qCDebug(log_ui_camera) << "========================================";
             });
             
     // Connect to new device plugged in signal
@@ -1939,13 +1882,7 @@ void CameraManager::disconnectFromHotplugMonitor()
 }
 
 void CameraManager::handleFFmpegDeviceDisconnection(const QString& devicePath)
-{
-    // On Windows, FFmpeg backend is not used, so skip this handling
-    if (isWindowsPlatform()) {
-        qCDebug(log_ui_camera) << "Windows platform: Skipping FFmpeg device disconnection handling";
-        return;
-    }
-    
+{   
     qCDebug(log_ui_camera) << "Handling FFmpeg device disconnection for:" << devicePath;
     
     // Check if the disconnected device is our current device

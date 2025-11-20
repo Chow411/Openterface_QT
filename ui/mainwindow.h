@@ -168,6 +168,8 @@ private slots:
     void displayCameraError();
 
     void updateCameraActive(bool active);
+    void onDeviceSwitchCompleted();
+    void onDeviceSelected(const QString &portChain, bool success, const QString &message);
     void setExposureCompensation(int index);
 
     void updateRecordTime();
@@ -307,6 +309,7 @@ private:
     DeviceCoordinator *m_deviceCoordinator;
     MenuCoordinator *m_menuCoordinator;
     WindowLayoutCoordinator *m_windowLayoutCoordinator;
+    MainWindowInitializer *m_initializer;
 
     void updateScrollbars();
     QPoint lastMousePos;

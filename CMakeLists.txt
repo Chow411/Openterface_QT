@@ -123,7 +123,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::Gui Qt
 
 # For static Qt builds on Windows with MinGW, link MinGW runtime libraries
 if(OPENTERFACE_BUILD_STATIC AND WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE mingw32 mingwex)
+    target_link_libraries(${PROJECT_NAME} PRIVATE mingw32 mingwex winpthread)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static")
 endif()
 
 # For static Qt builds, we need to link platform plugins and their dependencies (Linux only)

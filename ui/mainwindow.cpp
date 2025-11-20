@@ -143,8 +143,8 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent)
     m_windowLayoutCoordinator = new WindowLayoutCoordinator(this, videoPane, menuBar(), statusBar(), this);
     
     // Delegate all initialization to initializer
-    MainWindowInitializer initializer(this);
-    initializer.initialize();
+    m_initializer = new MainWindowInitializer(this);
+    m_initializer->initialize();
     
     qCDebug(log_ui_mainwindow) << "MainWindow initialization complete, window ID:" << this->winId();
 }
@@ -507,6 +507,24 @@ void MainWindow::updateCameraActive(bool active) {
         stackedLayout->setCurrentIndex(0);
     }
     // REMOVED: m_cameraManager->queryResolutions() - no longer needed with FFmpeg backend
+}
+
+void MainWindow::onDeviceSwitchCompleted() {
+    updateCameraActive(m_cameraManager->hasActiveCameraDevice());
+}
+
+void MainWindow::onDeviceSelected(const QString &portChain, bool success, const QString &message) {
+    if (!m_cameraManager->hasActiveCameraDevice()) {
+        // Try to auto-select the "Openterface" camera if available
+        const QList<QCameraDevice> availableCameras = QMediaDevices::videoInputs();
+        for (const QCameraDevice &camera : availableCameras) {
+            if (camera.description() == "Openterface") {
+                qCInfo(log_ui_mainwindow) << "Auto-selecting Openterface camera for device:" << portChain;
+                m_cameraManager->switchToCameraDevice(camera, portChain);
+                break;
+            }
+        }
+    }
 }
 
 void MainWindow::updateRecordTime()
@@ -949,7 +967,7 @@ void MainWindow::onPortConnected(const QString& port, const int& baudrate) {
         // Auto-select device if there's only one connected and not already auto-selected
         DeviceManager& deviceManager = DeviceManager::getInstance();
         QList<DeviceInfo> devices = deviceManager.getCurrentDevices();
-        if (devices.size() == 1 && !m_deviceAutoSelected) {
+        if (GlobalSetting::instance().getOpenterfacePortChain().isEmpty() && devices.size() == 1 && !m_deviceAutoSelected) {
             const DeviceInfo& device = devices.first();
             qCDebug(log_ui_mainwindow) << "Only one device connected, auto-selecting and starting all components:" << device.getUniqueKey();
             m_deviceAutoSelected = true; // Prevent multiple auto-selections
@@ -1327,9 +1345,17 @@ MainWindow::~MainWindow()
     }
     
     // 6. Clean up static instances (but skip AudioManager since it's already stopped)
+    if (m_initializer && m_initializer->getHidThread()) {
+        m_initializer->getHidThread()->quit();
+        m_initializer->getHidThread()->wait(3000); // Wait up to 3 seconds for thread to finish
+    }
     VideoHid::getInstance().stop();
     // AudioManager::getInstance().stop(); // Already stopped above to prevent double cleanup
     SerialPortManager::getInstance().stop();
+    
+    // Delete initializer
+    delete m_initializer;
+    m_initializer = nullptr;
     
     // 7. Delete UI last
     if (ui) {

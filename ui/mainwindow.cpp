@@ -143,8 +143,8 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent)
     m_windowLayoutCoordinator = new WindowLayoutCoordinator(this, videoPane, menuBar(), statusBar(), this);
     
     // Delegate all initialization to initializer
-    MainWindowInitializer initializer(this);
-    initializer.initialize();
+    m_initializer = new MainWindowInitializer(this);
+    m_initializer->initialize();
     
     qCDebug(log_ui_mainwindow) << "MainWindow initialization complete, window ID:" << this->winId();
 }
@@ -1345,9 +1345,17 @@ MainWindow::~MainWindow()
     }
     
     // 6. Clean up static instances (but skip AudioManager since it's already stopped)
+    if (m_initializer && m_initializer->getHidThread()) {
+        m_initializer->getHidThread()->quit();
+        m_initializer->getHidThread()->wait(3000); // Wait up to 3 seconds for thread to finish
+    }
     VideoHid::getInstance().stop();
     // AudioManager::getInstance().stop(); // Already stopped above to prevent double cleanup
     SerialPortManager::getInstance().stop();
+    
+    // Delete initializer
+    delete m_initializer;
+    m_initializer = nullptr;
     
     // 7. Delete UI last
     if (ui) {

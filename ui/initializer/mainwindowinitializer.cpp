@@ -35,6 +35,7 @@
 #include "../help/helppane.h"
 #include "../videopane.h"
 #include "../../video/videohid.h"
+#include <QThread>
 #include "ui/TaskManager.h"
 #include "../coordinator/windowlayoutcoordinator.h"
 #include "../toolbar/toolbarmanager.h"
@@ -72,6 +73,7 @@ MainWindowInitializer::MainWindowInitializer(MainWindow *mainWindow, QObject *pa
     , m_menuCoordinator(nullptr)  // Will be created during initialization
     , m_languageManager(mainWindow->m_languageManager)
     , m_mouseEdgeTimer(nullptr)  // Will be created during initialization
+    , m_hidThread(nullptr)  // Will be created during initialization
 {
     qCDebug(log_ui_mainwindowinitializer) << "MainWindowInitializer created";
 }
@@ -487,6 +489,10 @@ void MainWindowInitializer::finalize()
     GlobalVar::instance().setMouseAutoHide(GlobalSetting::instance().getMouseAutoHideEnable());
     m_mainWindow->initializeKeyboardLayouts();
     
-    // Start VideoHid to enable immediate resolution polling when device connects
-    VideoHid::getInstance().start();
+    // Start VideoHid in a separate thread to avoid blocking the UI
+    m_hidThread = new QThread(this);
+    VideoHid& hid = VideoHid::getInstance();
+    hid.moveToThread(m_hidThread);
+    connect(m_hidThread, &QThread::started, &hid, &VideoHid::start);
+    m_hidThread->start();
 }

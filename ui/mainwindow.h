@@ -309,6 +309,7 @@ private:
     DeviceCoordinator *m_deviceCoordinator;
     MenuCoordinator *m_menuCoordinator;
     WindowLayoutCoordinator *m_windowLayoutCoordinator;
+    MainWindowInitializer *m_initializer;
 
     void updateScrollbars();
     QPoint lastMousePos;

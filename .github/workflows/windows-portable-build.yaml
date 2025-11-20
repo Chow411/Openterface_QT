@@ -147,8 +147,8 @@ jobs:
             echo "Error: libcrypto.a not found. OpenSSL static libraries not properly installed."
             exit 1
           )
-          if not exist "%OPENSSL_DIR%\lib\libz.a" (
-            echo "Error: libz.a not found. zlib static libraries not properly installed."
+          if not exist "%OPENSSL_DIR%\lib\libzlib.a" (
+            echo "Error: libzlib.a not found. zlib static libraries not properly installed."
             exit 1
           )
           echo "OpenSSL and zlib static libraries verified successfully!"
@@ -157,7 +157,7 @@ jobs:
           file "%OPENSSL_DIR%\lib\libssl.a" || echo "file command not available"
           echo "SSL library size:" && dir "%OPENSSL_DIR%\lib\libssl.a" | findstr "libssl.a"
           echo "Crypto library size:" && dir "%OPENSSL_DIR%\lib\libcrypto.a" | findstr "libcrypto.a"
-          echo "Zlib library size:" && dir "%OPENSSL_DIR%\lib\libz.a" | findstr "libz.a"
+          echo "Zlib library size:" && dir "%OPENSSL_DIR%\lib\libzlib.a" | findstr "libzlib.a"
 
       - name: Build Qt Statically
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -230,8 +230,8 @@ jobs:
             echo "Error: libcrypto.a not found at %OPENSSL_DIR%\lib\libcrypto.a"
             exit 1
           )
-          if not exist "%OPENSSL_DIR%\lib\libz.a" (
-            echo "Error: libz.a not found at %OPENSSL_DIR%\lib\libz.a"
+          if not exist "%OPENSSL_DIR%\lib\libzlib.a" (
+            echo "Error: libzlib.a not found at %OPENSSL_DIR%\lib\libzlib.a"
             exit 1
           )
           
@@ -243,7 +243,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_PREFIX_PATH="C:\Qt6;C:\vcpkg\installed\x64-mingw-static" ^
             -DFFMPEG_PREFIX=C:\ffmpeg-static ^
-            -DZLIB_LIBRARY=C:\vcpkg\installed\x64-mingw-static\lib\libz.a ^
+            -DZLIB_LIBRARY=C:\vcpkg\installed\x64-mingw-static\lib\libzlib.a ^
             -DOPENTERFACE_BUILD_STATIC=ON ^
             ${{ env.SOURCE_DIR }}
           

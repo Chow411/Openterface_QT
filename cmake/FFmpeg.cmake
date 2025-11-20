@@ -510,14 +510,7 @@ function(link_ffmpeg_libraries)
             endif()
             
             if(EXISTS "${TURBOJPEG_STATIC_PATH}")
-                message(STATUS "Using static libturbojpeg: ${TURBO                # For shared library build:
-                cmake -B build -DOPENTERFACE_BUILD_STATIC=OFF
-                cmake --build build
-                
-                # You should now see:
-                # -- Shared build detected - searching for shared FFmpeg libraries (.so)
-                # -- Final FFmpeg library extension: .so
-                # -- Linking FFmpeg libraries to openterfaceQT: /opt/ffmpeg/lib/libavdevice.so;...JPEG_STATIC_PATH}")
+                message(STATUS "Using static libturbojpeg: ${TURBOJPEG_STATIC_PATH}")
                 set(TURBOJPEG_LINK "${TURBOJPEG_STATIC_PATH}")
             else()
                 message(WARNING "Static libturbojpeg.a not found at ${TURBOJPEG_STATIC_PATH}, falling back to -lturbojpeg")

@@ -408,16 +408,22 @@ function(link_ffmpeg_libraries)
                     # Check for static zlib
                     -lvfw32        # Video for Windows capture
                     -lshlwapi      # Shell API (for SHCreateStreamOnFileA)
+                    "C:/msys64/mingw64/lib/libz.a"      # zlib for compression
+                    "C:/msys64/mingw64/lib/libbz2.a"    # bzip2 for compression
+                    "C:/msys64/mingw64/lib/liblzma.a"   # lzma/xz for compression
+                    "C:/msys64/mingw64/lib/libmfx.a"    # Intel Media SDK for QSV
+                    -lmingwex       # MinGW extensions for setjmp etc.
+                    "C:/msys64/mingw64/lib/libwinpthread.a"  # Windows pthreads for 64-bit time functions
                     # -liconv        # Character encoding conversion
                 )
                 
                 # Use MSYS2's winpthread for 64-bit time functions
-                if(EXISTS "C:/msys64/mingw64/lib/libwinpthread.a")
-                    list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libwinpthread.a")
-                    message(STATUS "Using MSYS2 winpthread library")
-                else()
-                    list(APPEND _FFMPEG_STATIC_DEPS -lpthread)
-                endif()
+                # if(EXISTS "C:/msys64/mingw64/lib/libwinpthread.a")
+                #     list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libwinpthread.a")
+                #     message(STATUS "Using MSYS2 winpthread library")
+                # else()
+                #     list(APPEND _FFMPEG_STATIC_DEPS -lpthread)
+                # endif()
                 
                 # Check for libpostproc in FFmpeg directory
                 if(EXISTS "${FFMPEG_PREFIX}/lib/libpostproc.a")
@@ -426,15 +432,15 @@ function(link_ffmpeg_libraries)
                 endif()
                 
                 # Add MSYS2 libraries (used when FFmpeg was built with MSYS2)
-                if(EXISTS "C:/msys64/mingw64/lib/libbz2.a")
-                    list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libbz2.a")
-                    message(STATUS "Found bz2 library in MSYS2")
-                endif()
+                # if(EXISTS "C:/msys64/mingw64/lib/libbz2.a")
+                #     list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libbz2.a")
+                #     message(STATUS "Found bz2 library in MSYS2")
+                # endif()
                 
-                if(EXISTS "C:/msys64/mingw64/lib/liblzma.a")
-                    list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/liblzma.a")
-                    message(STATUS "Found lzma library in MSYS2")
-                endif()
+                # if(EXISTS "C:/msys64/mingw64/lib/liblzma.a")
+                #     list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/liblzma.a")
+                #     message(STATUS "Found lzma library in MSYS2")
+                # endif()
                 
                 # Check for libiconv (required for FFmpeg character encoding)
                 if(EXISTS "C:/msys64/mingw64/lib/libiconv.a")
@@ -445,12 +451,12 @@ function(link_ffmpeg_libraries)
                 endif()
                 
                 # Check for static zlib (required for FFmpeg compression)
-                if(EXISTS "C:/msys64/mingw64/lib/libz.a")
-                    list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libz.a")
-                    message(STATUS "Found static zlib library: C:/msys64/mingw64/lib/libz.a")
-                else()
-                    message(WARNING "libz.a not found - compression may not work properly")
-                endif()
+                # if(EXISTS "C:/msys64/mingw64/lib/libz.a")
+                #     list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libz.a")
+                #     message(STATUS "Found static zlib library: C:/msys64/mingw64/lib/libz.a")
+                # else()
+                #     message(WARNING "libz.a not found - compression may not work properly")
+                # endif()
                 
                 # Add stack protection library LAST (required by MSYS2-compiled libraries)
                 # Use full path to static library to avoid linking to DLL

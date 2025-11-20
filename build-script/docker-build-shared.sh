@@ -78,27 +78,48 @@ else
     echo "⚠ linuxdeploy-plugin-qt not found, will be downloaded during build"
 fi
 
-# Run the main build + deb + AppImage
-bash /workspace/src/build-script/docker-build.sh
 
-bash /workspace/src/build-script/docker-build-appimage.sh
+# Print a detailed failure report on any command error
+err_report() {
+    local exit_code=$?
+    local cmd="${BASH_COMMAND:-<unknown>}"
+    echo >&2
+    echo "========== ERROR ==========" >&2
+    echo "Script: $0" >&2
+    echo "Exit code: ${exit_code}" >&2
+    echo "Failed command: ${cmd}" >&2
+    echo "Location (top of stack): ${BASH_LINENO[0]:-<unknown>}" >&2
+    echo "Call stack:" >&2
+    local i=0
+    while caller $i; do ((i++)); done >&2
+    echo "===========================" >&2
+    exit "${exit_code}"
+}
+trap 'err_report' ERR
 
-# =========================
-# Build Debian package (.deb)
-# =========================
-echo "Preparing Debian package..."
+# Enable debug tracing if DEBUG environment variable is set (useful for diagnostics)
+if [ "${DEBUG:-0}" != "0" ]; then
+    export PS4='+ ${BASH_SOURCE}:${LINENO}:${FUNCNAME[0]}: '
+    set -x
+fi
 
-PKG_ROOT=/workspace/pkgroot
-PKG_OUT=/workspace/build
-SRC=/workspace/src
-BUILD=/workspace/build
+# Configuration
+BUILD_DIR="/workspace/build"
+SRC_DIR="/workspace/src"
 
-rm -rf "${PKG_ROOT}"
-mkdir -p "${PKG_ROOT}/DEBIAN"
-mkdir -p "${PKG_ROOT}/usr/local/bin"
-mkdir -p "${PKG_ROOT}/usr/share/applications"
-mkdir -p "${PKG_ROOT}/usr/share/metainfo"
-mkdir -p "${PKG_ROOT}/usr/share/openterfaceQT/translations"
+# Verify Qt version
+echo "Using Qt version: $(qmake -query QT_VERSION)"
+echo "Qt installation prefix: $(qmake -query QT_INSTALL_PREFIX)"
+
+cd /workspace/build
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DOPENTERFACE_BUILD_STATIC=${OPENTERFACE_BUILD_STATIC} \
+      -DUSE_GSTREAMER_STATIC_PLUGINS=${USE_GSTREAMER_STATIC_PLUGINS} \
+      -DCMAKE_PREFIX_PATH="/opt/Qt6" \
+      -DQt6_DIR="/opt/Qt6/lib/cmake/Qt6" \
+      /workspace/src
+make -j4
+echo "Build with Qt 6.6.3 complete."
 
 # Determine version from resources/version.h (APP_VERSION macro) if not already set
 if [ -z "${VERSION}" ]; then

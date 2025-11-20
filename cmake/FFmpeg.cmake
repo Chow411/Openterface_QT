@@ -515,12 +515,26 @@ function(link_ffmpeg_libraries)
                     -lvfw32        # Video for Windows capture
                     -lshlwapi      # Shell API (for SHCreateStreamOnFileA)
                     ${ZLIB_LIBRARY}      # zlib for compression
-                    "C:/msys64/mingw64/lib/libbz2.a"    # bzip2 for compression
-                    "C:/msys64/mingw64/lib/liblzma.a"   # lzma/xz for compression
                     -lmingwex       # MinGW extensions for setjmp etc.
                     "C:/msys64/mingw64/lib/libwinpthread.a"  # Windows pthreads for 64-bit time functions
                     # -liconv        # Character encoding conversion
                 )
+                
+                # Add bzip2 if available
+                if(EXISTS "C:/msys64/mingw64/lib/libbz2.a")
+                    list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libbz2.a")
+                    message(STATUS "Found bzip2 library: C:/msys64/mingw64/lib/libbz2.a")
+                else()
+                    message(STATUS "bzip2 library not found - compression may be limited")
+                endif()
+                
+                # Add lzma if available
+                if(EXISTS "C:/msys64/mingw64/lib/liblzma.a")
+                    list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/liblzma.a")
+                    message(STATUS "Found lzma library: C:/msys64/mingw64/lib/liblzma.a")
+                else()
+                    message(STATUS "lzma library not found - compression may be limited")
+                endif()
                 
                 # Add Intel Media SDK if available
                 if(EXISTS "C:/msys64/mingw64/lib/libmfx.a")

@@ -79,6 +79,19 @@ else()
         "/usr"
     )
 endif()
+if(WIN32)
+    set(FFMPEG_SEARCH_PATHS 
+        ${FFMPEG_PREFIX}
+        "C:/ffmpeg-static"
+        "C:/ffmpeg"
+    )
+else()
+    set(FFMPEG_SEARCH_PATHS 
+        ${FFMPEG_PREFIX}
+        "/usr/local"
+        "/usr"
+    )
+endif()
 
 # Attempt to locate FFmpeg libraries (prefer static)
 # Prefer FFmpeg shipped inside the configured prefix if it actually exists there.
@@ -104,6 +117,20 @@ if(NOT FFMPEG_FOUND)
     foreach(SEARCH_PATH ${FFMPEG_SEARCH_PATHS})
         # For static builds, prefer .a files; check common lib directories
         set(LIB_EXTENSIONS ".a")
+        
+        # Platform-specific library paths
+        if(WIN32)
+            set(LIB_PATHS 
+                "${SEARCH_PATH}/lib"
+                "${SEARCH_PATH}/bin"
+            )
+        else()
+            set(LIB_PATHS 
+                "${SEARCH_PATH}/lib/x86_64-linux-gnu"
+                "${SEARCH_PATH}/lib/aarch64-linux-gnu"
+                "${SEARCH_PATH}/lib"
+            )
+        endif()
         
         # Platform-specific library paths
         if(WIN32)
@@ -289,6 +316,59 @@ else()
         endif()
     endif()
 endif()
+# Add essential libraries (platform-specific)
+if(NOT WIN32)
+    # Linux libraries
+    list(APPEND HWACCEL_LIBRARIES
+        X11
+        atomic
+        pthread
+        m
+    )
+else()
+    # Windows libraries for FFmpeg
+    list(APPEND HWACCEL_LIBRARIES
+        ws2_32
+        secur32
+        bcrypt
+        mfplat
+        mfuuid
+        ole32
+        strmiids
+    )
+    
+    # Add Intel QSV library if available (prefer static)
+    find_library(MFX_STATIC_LIBRARY
+        NAMES libmfx.a
+        PATHS
+            "C:/ffmpeg-static/lib"
+            "${FFMPEG_PREFIX}/lib"
+            "$ENV{FFMPEG_PREFIX}/lib"
+            "C:/msys64/mingw64/lib"
+        NO_DEFAULT_PATH
+    )
+    if(MFX_STATIC_LIBRARY)
+        list(APPEND HWACCEL_LIBRARIES ${MFX_STATIC_LIBRARY})
+        message(STATUS "Found static Intel QSV library: ${MFX_STATIC_LIBRARY}")
+    else()
+        # Fallback to dynamic library
+        find_library(MFX_LIBRARY
+            NAMES mfx libmfx
+            PATHS
+                "C:/ffmpeg-static/lib"
+                "${FFMPEG_PREFIX}/lib"
+                "$ENV{FFMPEG_PREFIX}/lib"
+                "C:/msys64/mingw64/lib"
+            NO_DEFAULT_PATH
+        )
+        if(MFX_LIBRARY)
+            list(APPEND HWACCEL_LIBRARIES ${MFX_LIBRARY})
+            message(STATUS "Found dynamic Intel QSV library: ${MFX_LIBRARY}")
+        else()
+            message(STATUS "Intel QSV library (libmfx) not found - QSV support may be limited")
+        endif()
+    endif()
+endif()
 
 # Check if FFmpeg is available and enable it
 # Determine the correct FFmpeg header to check (handle multiple include layouts)
@@ -377,11 +457,26 @@ function(link_ffmpeg_libraries)
                 set(TURBOJPEG_STATIC_PATH "/opt/ffmpeg/lib/libturbojpeg.a")
             endif()
             
+            # Platform-specific JPEG library paths
+            if(WIN32)
+                set(JPEG_STATIC_PATH "${FFMPEG_PREFIX}/lib/libjpeg.a")
+                set(TURBOJPEG_STATIC_PATH "${FFMPEG_PREFIX}/lib/libturbojpeg.a")
+            else()
+                set(JPEG_STATIC_PATH "/opt/ffmpeg/lib/libjpeg.a")
+                set(TURBOJPEG_STATIC_PATH "/opt/ffmpeg/lib/libturbojpeg.a")
+            endif()
+            
             if(EXISTS "${JPEG_STATIC_PATH}")
                 message(STATUS "Using static libjpeg: ${JPEG_STATIC_PATH}")
                 set(JPEG_LINK "${JPEG_STATIC_PATH}")
             else()
                 message(WARNING "Static libjpeg.a not found at ${JPEG_STATIC_PATH}, falling back to -ljpeg")
+                if(WIN32)
+                    # On Windows, skip -ljpeg if not found (likely included in FFmpeg build)
+                    set(JPEG_LINK "")
+                else()
+                    set(JPEG_LINK "-ljpeg")
+                endif()
                 if(WIN32)
                     # On Windows, skip -ljpeg if not found (likely included in FFmpeg build)
                     set(JPEG_LINK "")
@@ -395,6 +490,12 @@ function(link_ffmpeg_libraries)
                 set(TURBOJPEG_LINK "${TURBOJPEG_STATIC_PATH}")
             else()
                 message(WARNING "Static libturbojpeg.a not found at ${TURBOJPEG_STATIC_PATH}, falling back to -lturbojpeg")
+                if(WIN32)
+                    # On Windows, skip -lturbojpeg if not found (likely included in FFmpeg build)
+                    set(TURBOJPEG_LINK "")
+                else()
+                    set(TURBOJPEG_LINK "-lturbojpeg")
+                endif()
                 if(WIN32)
                     # On Windows, skip -lturbojpeg if not found (likely included in FFmpeg build)
                     set(TURBOJPEG_LINK "")

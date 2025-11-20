@@ -47,6 +47,9 @@ pacman -S --needed --noconfirm \
     mingw-w64-x86_64-cmake \
     mingw-w64-x86_64-ffnvcodec-headers \
     mingw-w64-x86_64-libmfx \
+    mingw-w64-x86_64-zlib \
+    mingw-w64-x86_64-bzip2 \
+    mingw-w64-x86_64-xz \
     make \
     diffutils \
     tar \
@@ -145,7 +148,7 @@ if [ ! -f "${FFMPEG_INSTALL_PREFIX}/lib/libturbojpeg.a" ]; then
     mkdir -p build
     cd build
     echo "Configuring libjpeg-turbo..."
-    cmake .. -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX="${FFMPEG_INSTALL_PREFIX}" -DCMAKE_BUILD_TYPE=Release -DENABLE_STATIC=ON -DENABLE_SHARED=OFF -DWITH_JPEG8=ON -DWITH_TURBOJPEG=ON
+    cmake .. -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX="${FFMPEG_INSTALL_PREFIX}" -DCMAKE_BUILD_TYPE=Release -DENABLE_STATIC=ON -DENABLE_SHARED=OFF -DWITH_JPEG8=ON -DWITH_TURBOJPEG=ON -DWITH_ZLIB=ON
     echo "Building libjpeg-turbo with ${NUM_CORES} cores..."
     make -j${NUM_CORES}
     echo "Installing libjpeg-turbo..."
@@ -219,6 +222,7 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-zlib \
     --enable-bzlib \
     --enable-lzma \
+    --enable-libmfx \
     --enable-dxva2 \
     --enable-d3d11va \
     --enable-hwaccels \
@@ -228,7 +232,6 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-nvdec \
     --disable-nvenc \
     --enable-ffnvcodec \
-    --enable-libmfx \
     --enable-decoder=h264_cuvid \
     --enable-decoder=hevc_cuvid \
     --enable-decoder=mjpeg_cuvid \
@@ -238,18 +241,10 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-decoder=vc1_cuvid \
     --enable-decoder=vp8_cuvid \
     --enable-decoder=vp9_cuvid \
-    --enable-decoder=mjpeg_qsv \
-    --enable-decoder=h264_qsv \
-    --enable-decoder=hevc_qsv \
-    --enable-decoder=vp8_qsv \
-    --enable-decoder=vp9_qsv \
-    --enable-decoder=vc1_qsv \
-    --enable-decoder=mpeg2_qsv \
-    --enable-decoder=av1_qsv \
     --enable-decoder=vp9_cuvid \
     --pkg-config-flags="--static" \
     --extra-cflags="-I${FFMPEG_INSTALL_PREFIX}/include" \
-    --extra-ldflags="-L${FFMPEG_INSTALL_PREFIX}/lib -lmfx -lbz2 -llzma -static -static-libgcc -static-libstdc++"
+    --extra-ldflags="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lmfx -lmingwex -lwinpthread -static -static-libgcc -static-libstdc++"
 
 echo "✓ Configuration complete"
 echo ""

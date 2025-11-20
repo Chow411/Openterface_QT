@@ -617,6 +617,21 @@ function(link_ffmpeg_libraries)
                     # PulseAudio is required by avdevice pulse input/output
                     -lpulse -lpulse-simple
                 )
+                
+                # Check for libpostproc in FFmpeg directory
+                if(EXISTS "${FFMPEG_PREFIX}/lib/libpostproc.a")
+                    list(APPEND _FFMPEG_STATIC_DEPS "${FFMPEG_PREFIX}/lib/libpostproc.a")
+                    message(STATUS "Found postproc library: ${FFMPEG_PREFIX}/lib/libpostproc.a")
+                endif()
+                
+                # Add libmfx if available
+                find_library(MFX_LIBRARY mfx)
+                if(MFX_LIBRARY)
+                    list(APPEND _FFMPEG_STATIC_DEPS ${MFX_LIBRARY})
+                    message(STATUS "Found MFX library: ${MFX_LIBRARY}")
+                else()
+                    message(STATUS "MFX library not found - QSV support may be limited")
+                endif()
             endif()
 
             # If we probed additional HW libs (full paths), append them too to be safe

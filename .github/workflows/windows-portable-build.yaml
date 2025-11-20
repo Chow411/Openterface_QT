@@ -241,7 +241,7 @@ jobs:
           echo "Configuring with CMake..."
           cmake -G "MinGW Makefiles" ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_PREFIX_PATH="C:\Qt6;C:\vcpkg\installed\x64-mingw-static" ^
+            -DCMAKE_PREFIX_PATH="C:\Qt6;C:\vcpkg\installed\x64-mingw-static;C:\msys64\mingw64" ^
             -DCMAKE_LIBRARY_PATH="C:\msys64\mingw64\lib" ^
             -DFFMPEG_PREFIX=C:\ffmpeg-static ^
             -DZLIB_LIBRARY=C:\vcpkg\installed\x64-mingw-static\lib\libzlib.a ^

@@ -192,6 +192,7 @@ void SerialPortManager::initializeSerialPortFromPortChain() {
 
     // Find a device with a valid serial port path
     DeviceInfo selectedDevice;
+    QString usedPortChain = portChain;
     for (const DeviceInfo& device : devices) {
         if (!device.serialPortPath.isEmpty()) {
             selectedDevice = device;
@@ -199,6 +200,25 @@ void SerialPortManager::initializeSerialPortFromPortChain() {
             break;
         }
     }
+
+    // If no device with serial found on main port chain, try companion port chain
+    if (!selectedDevice.isValid() || selectedDevice.serialPortPath.isEmpty()) {
+        QString companionPortChain = deviceManager.getCompanionPortChain(portChain);
+        if (!companionPortChain.isEmpty()) {
+            QList<DeviceInfo> companionDevices = deviceManager.getDevicesByPortChain(companionPortChain);
+            qCDebug(log_core_serial) << "Checking companion port chain:" << companionPortChain << "with" << companionDevices.size() << "devices";
+            for (const DeviceInfo& companionDevice : companionDevices) {
+                if (!companionDevice.serialPortPath.isEmpty()) {
+                    selectedDevice = companionDevice;
+                    usedPortChain = companionPortChain;
+                    qCDebug(log_core_serial) << "Found device with serial port on companion chain:" << companionDevice.serialPortPath;
+                    break;
+                }
+            }
+        }
+    }
+
+
 
     if (!selectedDevice.isValid() || selectedDevice.serialPortPath.isEmpty()) {
         qCWarning(log_core_serial) << "No valid device with serial port found for port chain:" << portChain;
@@ -209,7 +229,7 @@ void SerialPortManager::initializeSerialPortFromPortChain() {
     onSerialPortConnected(selectedDevice.serialPortPath);
     // Optionally, set the selected device in DeviceManager
     deviceManager.setCurrentSelectedDevice(selectedDevice);
-    m_currentSerialPortChain = portChain;
+    m_currentSerialPortChain = usedPortChain;
 }
 
 QString SerialPortManager::getCurrentSerialPortPath() const

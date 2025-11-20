@@ -168,6 +168,8 @@ private slots:
     void displayCameraError();
 
     void updateCameraActive(bool active);
+    void onDeviceSwitchCompleted();
+    void onDeviceSelected(const QString &portChain, bool success, const QString &message);
     void setExposureCompensation(int index);
 
     void updateRecordTime();

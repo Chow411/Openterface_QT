@@ -328,6 +328,8 @@ void MainWindowInitializer::connectCameraSignals()
     connect(m_cameraManager, &CameraManager::cameraActiveChanged, m_mainWindow, &MainWindow::updateCameraActive);
     connect(m_cameraManager, &CameraManager::cameraError, m_mainWindow, &MainWindow::displayCameraError);
     connect(m_cameraManager, &CameraManager::imageCaptured, m_mainWindow, &MainWindow::processCapturedImage);
+    connect(m_deviceCoordinator, &DeviceCoordinator::deviceSwitchCompleted, m_mainWindow, &MainWindow::onDeviceSwitchCompleted);
+    connect(m_deviceCoordinator, &DeviceCoordinator::deviceSelected, m_mainWindow, &MainWindow::onDeviceSelected);
     connect(m_cameraManager, &CameraManager::resolutionsUpdated, m_mainWindow, &MainWindow::onResolutionsUpdated);
     
     // This lambda only does logging, so it's safe, but fix for consistency

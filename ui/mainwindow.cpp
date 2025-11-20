@@ -509,6 +509,24 @@ void MainWindow::updateCameraActive(bool active) {
     // REMOVED: m_cameraManager->queryResolutions() - no longer needed with FFmpeg backend
 }
 
+void MainWindow::onDeviceSwitchCompleted() {
+    updateCameraActive(m_cameraManager->hasActiveCameraDevice());
+}
+
+void MainWindow::onDeviceSelected(const QString &portChain, bool success, const QString &message) {
+    if (!m_cameraManager->hasActiveCameraDevice()) {
+        // Try to auto-select the "Openterface" camera if available
+        const QList<QCameraDevice> availableCameras = QMediaDevices::videoInputs();
+        for (const QCameraDevice &camera : availableCameras) {
+            if (camera.description() == "Openterface") {
+                qCInfo(log_ui_mainwindow) << "Auto-selecting Openterface camera for device:" << portChain;
+                m_cameraManager->switchToCameraDevice(camera, portChain);
+                break;
+            }
+        }
+    }
+}
+
 void MainWindow::updateRecordTime()
 {
     QString str = tr("Recorded %1 sec").arg(m_mediaRecorder->duration() / 1000);
@@ -949,7 +967,7 @@ void MainWindow::onPortConnected(const QString& port, const int& baudrate) {
         // Auto-select device if there's only one connected and not already auto-selected
         DeviceManager& deviceManager = DeviceManager::getInstance();
         QList<DeviceInfo> devices = deviceManager.getCurrentDevices();
-        if (devices.size() == 1 && !m_deviceAutoSelected) {
+        if (GlobalSetting::instance().getOpenterfacePortChain().isEmpty() && devices.size() == 1 && !m_deviceAutoSelected) {
             const DeviceInfo& device = devices.first();
             qCDebug(log_ui_mainwindow) << "Only one device connected, auto-selecting and starting all components:" << device.getUniqueKey();
             m_deviceAutoSelected = true; // Prevent multiple auto-selections

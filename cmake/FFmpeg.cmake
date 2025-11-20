@@ -517,11 +517,18 @@ function(link_ffmpeg_libraries)
                     ${ZLIB_LIBRARY}      # zlib for compression
                     "C:/msys64/mingw64/lib/libbz2.a"    # bzip2 for compression
                     "C:/msys64/mingw64/lib/liblzma.a"   # lzma/xz for compression
-                    "C:/msys64/mingw64/lib/libmfx.a"    # Intel Media SDK for QSV
                     -lmingwex       # MinGW extensions for setjmp etc.
                     "C:/msys64/mingw64/lib/libwinpthread.a"  # Windows pthreads for 64-bit time functions
                     # -liconv        # Character encoding conversion
                 )
+                
+                # Add Intel Media SDK if available
+                if(EXISTS "C:/msys64/mingw64/lib/libmfx.a")
+                    list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libmfx.a")
+                    message(STATUS "Found Intel Media SDK library: C:/msys64/mingw64/lib/libmfx.a")
+                else()
+                    message(STATUS "Intel Media SDK library not found - QSV support may be limited")
+                endif()
                 
                 # Use MSYS2's winpthread for 64-bit time functions
                 # if(EXISTS "C:/msys64/mingw64/lib/libwinpthread.a")

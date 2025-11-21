@@ -118,9 +118,12 @@ jobs:
         with:
           path: C:\vcpkg
           key: vcpkg-openssl-zlib-windows
+          key: vcpkg-openssl-zlib-windows
           restore-keys: |
             vcpkg-openssl-zlib-windows
+            vcpkg-openssl-zlib-windows
 
+      - name: Install vcpkg and Static Libraries
       - name: Install vcpkg and Static Libraries
         if: steps.cache-vcpkg.outputs.cache-hit != 'true'
         run: |
@@ -131,12 +134,15 @@ jobs:
             call bootstrap-vcpkg.bat
           )
           echo "Installing OpenSSL and zlib static libraries"
+          echo "Installing OpenSSL and zlib static libraries"
           %VCPKG_DIR%\vcpkg update
           %VCPKG_DIR%\vcpkg install openssl:x64-mingw-static zlib:x64-mingw-static --triplet x64-mingw-static --host-triplet x64-mingw-static --clean-after-build
           %VCPKG_DIR%\vcpkg integrate install
 
       - name: check Static Libraries installation
+      - name: check Static Libraries installation
         run: |
+          echo "Verifying OpenSSL and zlib installation..."
           echo "Verifying OpenSSL and zlib installation..."
           dir %OPENSSL_DIR%\lib
           if not exist "%OPENSSL_DIR%\lib\libssl.a" (
@@ -194,6 +200,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: C:\vcpkg
+          key: vcpkg-openssl-zlib-windows
           key: vcpkg-openssl-zlib-windows
 
       - name: Set up Python

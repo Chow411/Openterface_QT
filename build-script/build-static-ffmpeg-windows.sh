@@ -243,6 +243,7 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-decoder=vp9_cuvid \
     --enable-decoder=vp9_cuvid \
     --pkg-config-flags="--static" \
+    --extra-libs="-lmfx" \
     --extra-cflags="-I${FFMPEG_INSTALL_PREFIX}/include" \
     --extra-ldflags="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lmfx -lmingwex -lwinpthread -static -static-libgcc -static-libstdc++"
 

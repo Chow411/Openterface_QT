@@ -172,6 +172,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache MinGW and CMake
+        uses: actions/cache@v3
+        with:
+          path: C:\msys64\mingw64
+          key: msys2-mingw64-cmake-windows-v3
+
       - name: Cache Qt
         uses: actions/cache@v3
         with:

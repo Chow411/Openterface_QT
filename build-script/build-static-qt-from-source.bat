@@ -18,7 +18,7 @@ set OPENSSL_INCLUDE_DIR=%OPENSSL_DIR%\include
 set PATH=C:\ProgramData\chocolatey\bin;C:\ProgramData\chocolatey\lib\ninja\tools;C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%
 
 REM Install dependencies with vcpkg
-"%VCPKG_DIR%\vcpkg.exe" install openssl:x64-mingw-static zlib:x64-mingw-static
+"%VCPKG_DIR%\vcpkg.exe" install openssl:x64-mingw-static zlib:x64-mingw-static freetype:x64-mingw-static libpng:x64-mingw-static libjpeg-turbo:x64-mingw-static
 
 REM Check for Ninja
 where ninja >nul 2>nul
@@ -41,6 +41,24 @@ if not exist "%OPENSSL_LIB_DIR%\libssl.a" (
 REM Check for zlib static library
 if not exist "%OPENSSL_LIB_DIR%\libzlib.a" (
     echo zlib static library libzlib.a not found in %OPENSSL_LIB_DIR%. Please install zlib static libraries.
+    exit /b 1
+)
+
+REM Check for freetype static library
+if not exist "%OPENSSL_LIB_DIR%\libfreetype.a" (
+    echo freetype static library libfreetype.a not found in %OPENSSL_LIB_DIR%. Please install freetype static libraries.
+    exit /b 1
+)
+
+REM Check for libpng static library
+if not exist "%OPENSSL_LIB_DIR%\libpng.a" (
+    echo libpng static library libpng.a not found in %OPENSSL_LIB_DIR%. Please install libpng static libraries.
+    exit /b 1
+)
+
+REM Check for libjpeg static library
+if not exist "%OPENSSL_LIB_DIR%\libjpeg.a" (
+    echo libjpeg static library libjpeg.a not found in %OPENSSL_LIB_DIR%. Please install libjpeg static libraries.
     exit /b 1
 )
 
@@ -74,6 +92,9 @@ cmake -G "Ninja" ^
     -DFEATURE_openssl_linked=ON ^
     -DFEATURE_static_runtime=ON ^
     -DFEATURE_zlib=system ^
+    -DFEATURE_system_freetype=ON ^
+    -DFEATURE_system_png=ON ^
+    -DFEATURE_system_jpeg=ON ^
     -DOPENSSL_ROOT_DIR="%OPENSSL_DIR%" ^
     -DOPENSSL_INCLUDE_DIR="%OPENSSL_INCLUDE_DIR%" ^
     -DOPENSSL_CRYPTO_LIBRARY="%OPENSSL_LIB_DIR%\libcrypto.a" ^
@@ -102,6 +123,9 @@ for %%m in (%MODULES%) do (
             -DBUILD_SHARED_LIBS=OFF ^
             -DFEATURE_static_runtime=ON ^
             -DFEATURE_zlib=system ^
+            -DFEATURE_system_freetype=ON ^
+            -DFEATURE_system_png=ON ^
+            -DFEATURE_system_jpeg=ON ^
             -DOPENSSL_ROOT_DIR="%OPENSSL_DIR%" ^
             -DOPENSSL_INCLUDE_DIR="%OPENSSL_INCLUDE_DIR%" ^
             -DOPENSSL_CRYPTO_LIBRARY="%OPENSSL_LIB_DIR%\libcrypto.a" ^

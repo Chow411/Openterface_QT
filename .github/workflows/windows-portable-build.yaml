@@ -143,7 +143,7 @@ jobs:
           )
           echo "Installing OpenSSL and zlib static libraries"
           %VCPKG_DIR%\vcpkg update
-          %VCPKG_DIR%\vcpkg install openssl:x64-mingw-static zlib:x64-mingw-static --triplet x64-mingw-static --host-triplet x64-mingw-static --clean-after-build
+          %VCPKG_DIR%\vcpkg install openssl:x64-mingw-static zlib:x64-mingw-static freetype:x64-mingw-static libpng:x64-mingw-static libjpeg-turbo:x64-mingw-static --triplet x64-mingw-static --host-triplet x64-mingw-static --clean-after-build
           %VCPKG_DIR%\vcpkg integrate install
 
       - name: check Static Libraries installation
@@ -162,13 +162,19 @@ jobs:
             echo "Error: libzlib.a not found. zlib static libraries not properly installed."
             exit 1
           )
-          echo "OpenSSL and zlib static libraries verified successfully!"
-          
-          echo "Checking library architecture..."
-          file "%OPENSSL_DIR%\lib\libssl.a" || echo "file command not available"
-          echo "SSL library size:" && dir "%OPENSSL_DIR%\lib\libssl.a" | findstr "libssl.a"
-          echo "Crypto library size:" && dir "%OPENSSL_DIR%\lib\libcrypto.a" | findstr "libcrypto.a"
-          echo "Zlib library size:" && dir "%OPENSSL_DIR%\lib\libzlib.a" | findstr "libzlib.a"
+          if not exist "%OPENSSL_DIR%\lib\libfreetype.a" (
+            echo "Error: libfreetype.a not found. freetype static libraries not properly installed."
+            exit 1
+          )
+          if not exist "%OPENSSL_DIR%\lib\libpng.a" (
+            echo "Error: libpng.a not found. libpng static libraries not properly installed."
+            exit 1
+          )
+          if not exist "%OPENSSL_DIR%\lib\libjpeg.a" (
+            echo "Error: libjpeg.a not found. libjpeg static libraries not properly installed."
+            exit 1
+          )
+          echo "All static libraries verified successfully!"
 
       - name: Build Qt Statically
         if: steps.cache-qt.outputs.cache-hit != 'true'

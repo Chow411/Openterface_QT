@@ -119,18 +119,18 @@ jobs:
         uses: actions/cache@v3
         with:
           path: C:\Qt6
-          key: qt-static-6.6.3-${{ hashFiles('build-script/build-static-qt-from-source.bat') }}-windows-v2
+          key: qt-static-6.6.3-${{ hashFiles('build-script/build-static-qt-from-source.bat') }}-windows-v3
           restore-keys: |
-            qt-static-6.6.3-windows-v2
+            qt-static-6.6.3-windows-v3
 
       - name: Cache vcpkg
         id: cache-vcpkg
         uses: actions/cache@v3
         with:
           path: C:\vcpkg
-          key: vcpkg-openssl-zlib-windows
+          key: vcpkg-openssl-zlib-windows-v2
           restore-keys: |
-            vcpkg-openssl-zlib-windows
+            vcpkg-openssl-zlib-windows-v2
 
       - name: Install vcpkg and Static Libraries
         if: steps.cache-vcpkg.outputs.cache-hit != 'true'
@@ -143,8 +143,13 @@ jobs:
           )
           echo "Installing OpenSSL and zlib static libraries"
           %VCPKG_DIR%\vcpkg update
-          %VCPKG_DIR%\vcpkg install openssl:x64-mingw-static zlib:x64-mingw-static freetype:x64-mingw-static libpng:x64-mingw-static libjpeg-turbo:x64-mingw-static --triplet x64-mingw-static --host-triplet x64-mingw-static --clean-after-build
+          %VCPKG_DIR%\vcpkg install openssl:x64-mingw-static zlib:x64-mingw-static --triplet x64-mingw-static --host-triplet x64-mingw-static --clean-after-build
           %VCPKG_DIR%\vcpkg integrate install
+
+      - name: Install MSYS2 Libraries
+        run: |
+          echo "Installing additional libraries with MSYS2"
+          C:\msys64\usr\bin\bash.exe -lc "pacman -S --needed --noconfirm mingw-w64-x86_64-freetype mingw-w64-x86_64-libpng mingw-w64-x86_64-libjpeg-turbo"
 
       - name: check Static Libraries installation
         run: |
@@ -162,15 +167,17 @@ jobs:
             echo "Error: libzlib.a not found. zlib static libraries not properly installed."
             exit 1
           )
-          if not exist "%OPENSSL_DIR%\lib\libfreetype.a" (
+          echo "Verifying MSYS2 libraries..."
+          dir C:\msys64\mingw64\lib
+          if not exist "C:\msys64\mingw64\lib\libfreetype.a" (
             echo "Error: libfreetype.a not found. freetype static libraries not properly installed."
             exit 1
           )
-          if not exist "%OPENSSL_DIR%\lib\libpng.a" (
+          if not exist "C:\msys64\mingw64\lib\libpng.a" (
             echo "Error: libpng.a not found. libpng static libraries not properly installed."
             exit 1
           )
-          if not exist "%OPENSSL_DIR%\lib\libjpeg.a" (
+          if not exist "C:\msys64\mingw64\lib\libjpeg.a" (
             echo "Error: libjpeg.a not found. libjpeg static libraries not properly installed."
             exit 1
           )
@@ -211,7 +218,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: C:\vcpkg
-          key: vcpkg-openssl-zlib-windows
+          key: vcpkg-openssl-zlib-windows-v2
 
       - name: Set up Python
         uses: actions/setup-python@v5

@@ -82,6 +82,7 @@ mkdir build
 cd build
 cmake -G "Ninja" ^
     -DCMAKE_INSTALL_PREFIX="%INSTALL_PREFIX%" ^
+    -DCMAKE_PREFIX_PATH="%INSTALL_PREFIX%;C:\msys64\mingw64" ^
     -DBUILD_SHARED_LIBS=OFF ^
     -DFEATURE_dbus=ON ^
     -DFEATURE_sql=OFF ^
@@ -119,7 +120,7 @@ for %%m in (%MODULES%) do (
         cd build
         cmake -G "Ninja" ^
             -DCMAKE_INSTALL_PREFIX="%INSTALL_PREFIX%" ^
-            -DCMAKE_PREFIX_PATH="%INSTALL_PREFIX%" ^
+            -DCMAKE_PREFIX_PATH="%INSTALL_PREFIX%;C:\msys64\mingw64" ^
             -DBUILD_SHARED_LIBS=OFF ^
             -DFEATURE_static_runtime=ON ^
             -DFEATURE_zlib=system ^

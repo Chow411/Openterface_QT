@@ -278,7 +278,7 @@ jobs:
               max_attempts=3
               while [ $attempt -le $max_attempts ]
               do
-                cmd.exe /C "pushd \"%SOURCE_DIR%\" && \"%VCPKG_DIR%\\vcpkg.exe\" install --triplet=x64-mingw-static --host-triplet=x64-mingw-static --clean-after-build --recurse --debug && popd" && break
+                cmd.exe /C "pushd \"%SOURCE_DIR%\" && \"%VCPKG_DIR%\\vcpkg.exe" install --triplet=x64-mingw-static --host-triplet=x64-mingw-static --clean-after-build --recurse --debug && popd" && break
                 echo "vcpkg (cmd) install attempt $attempt failed; retrying after sleep..."
                 attempt=$((attempt+1))
                 sleep $((attempt * 5))
@@ -294,7 +294,7 @@ jobs:
             max_attempts=3
             while [ $attempt -le $max_attempts ]
             do
-              cmd.exe /C "pushd \"%SOURCE_DIR%\" && \"%VCPKG_DIR%\\vcpkg.exe\" install --triplet=x64-mingw-static --host-triplet=x64-mingw-static --clean-after-build --recurse --debug && popd" && break
+              cmd.exe /C "pushd \"%SOURCE_DIR%\" && \"%VCPKG_DIR%\\vcpkg.exe" install --triplet=x64-mingw-static --host-triplet=x64-mingw-static --clean-after-build --recurse --debug && popd" && break
               echo "vcpkg (cmd) install attempt $attempt failed; retrying..."
               attempt=$((attempt+1))
               sleep $((attempt * 5))
@@ -309,7 +309,7 @@ jobs:
           if [ -x "$MSYS_VCPKG_DIR/vcpkg.exe" ]; then
             (cd "$MSYS_SOURCE_DIR" && "$MSYS_VCPKG_DIR/vcpkg.exe" list) || ("$MSYS_VCPKG_DIR/vcpkg.exe" list)
           else
-            cmd.exe /C "pushd \"%SOURCE_DIR%\" && \"%VCPKG_DIR%\\vcpkg.exe\" list && popd"
+            cmd.exe /C "pushd \"%SOURCE_DIR%\" && \"%VCPKG_DIR%\\vcpkg.exe" list && popd"
           fi
 
       - name: Ensure OpenSSL is available in central vcpkg
@@ -476,6 +476,7 @@ jobs:
             -DCMAKE_C_COMPILER="C:/mingw64/bin/gcc.exe" ^
             -DCMAKE_CXX_COMPILER="C:/mingw64/bin/g++.exe" ^
             -DCMAKE_RC_COMPILER="C:/mingw64/bin/windres.exe" ^
+            -DCMAKE_EXE_LINKER_FLAGS="-lmingw32 -lmingwex -lmsvcrt -Wl,--allow-multiple-definition" ^
             "%SOURCE_DIR%"
           
           if errorlevel 1 (

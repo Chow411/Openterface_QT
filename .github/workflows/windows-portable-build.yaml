@@ -2,7 +2,7 @@ name: Build / Openterface Windows portable
 
 on:
   push:
-    branches: ["main", "dev"]
+    branches: ["main", "dev_1203_portable_build"]
     paths:
       - '.github/workflows/windows-portable-build.yaml'
       - 'vcpkg.json'

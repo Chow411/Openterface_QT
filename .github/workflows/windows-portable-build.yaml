@@ -461,69 +461,67 @@ jobs:
           C:\Qt6\bin\lupdate.exe "%SOURCE_DIR%\openterfaceQT.pro"
           C:\Qt6\bin\lrelease.exe "%SOURCE_DIR%\openterfaceQT.pro"
 
-      - name: Build Portable Executable with CMake (run from MSYS2; external MinGW compilers)
+      - name: Build Portable Executable with CMake
         working-directory: ${{ runner.temp }}\build
-        run: >-
-          REM Run the final cmake build inside MSYS2 to use MSYS2 runtime for packaging while ensuring we use the external MinGW toolchain for compilers
-          for /f "delims=" %%i in ('dir /b /ad "C:\msys64\usr" 2^>nul') do set MSYS2_DIR=%%i && set MSYS2_PATH=C:\msys64\usr\bin
-          if not exist "%MSYS2_PATH%\bash.exe" (
-            set PATH=C:\Qt6\bin;%EXTERNAL_MINGW%\bin;%PATH% &&
-            cmake -G "Ninja"
-              -DCMAKE_BUILD_TYPE=Release
-              -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
-              -DVCPKG_TARGET_TRIPLET="x64-mingw-static"
-              -DCMAKE_PREFIX_PATH="C:/Qt6"
-              -DOPENTERFACE_BUILD_STATIC=ON
-              -DCMAKE_C_COMPILER="%EXTERNAL_MINGW%/bin/gcc.exe"
-              -DCMAKE_CXX_COMPILER="%EXTERNAL_MINGW%/bin/g++.exe"
-              -DCMAKE_RC_COMPILER="%EXTERNAL_MINGW%/bin/windres.exe"
-              "%SOURCE_DIR%" &&
-            cmake --build . --config Release -- -j2 &&
-            for /f "delims=" %F in ('dir /s /b openterfaceQT.exe 2^>nul') do set "EXE=%F" &&
-            if not defined EXE (
-              echo Build failed: openterfaceQT.exe not found && dir /s /b . && exit /b 1
-            ) &&
-            echo Checking for DLL dependencies... &&
-            %EXTERNAL_MINGW%\bin\objdump.exe -p "%EXE%" | findstr /i "\.dll" >nul && (
-              echo ERROR: DLL dependencies detected! &&
-              %EXTERNAL_MINGW%\bin\objdump.exe -p "%EXE%" | findstr /i "\.dll" &&
-              exit /b 1
-            ) || (
-              echo OK: No DLL dependencies — fully static.
-            ) &&
-            %EXTERNAL_MINGW%\bin\strip.exe -s "%EXE%" &&
-            mkdir package &&
-            copy "%EXE%" package\openterfaceQT-portable.exe
-          ) else (
-            # Quote the cygpath converted SOURCE_DIR to avoid splitting on spaces
-            "%MSYS2_PATH%\bash.exe" -lc "export PATH=/c/Qt6/bin:/c/mingw64/bin:$PATH && cmake -G \"Ninja\" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=\"/c/vcpkg/scripts/buildsystems/vcpkg.cmake\" -DVCPKG_TARGET_TRIPLET=\"x64-mingw-static\" -DCMAKE_PREFIX_PATH=\"/c/Qt6\" -DOPENTERFACE_BUILD_STATIC=ON -DCMAKE_C_COMPILER=/c/mingw64/bin/gcc.exe -DCMAKE_CXX_COMPILER=/c/mingw64/bin/g++.exe -DCMAKE_RC_COMPILER=/c/mingw64/bin/windres.exe \"$(cygpath -u '%SOURCE_DIR%')\" && cmake --build . --config Release -- -j2 || exit 1"
-            "%MSYS2_PATH%\bash.exe" -lc "for f in \$(find . -name \"openterfaceQT.exe\" -print -quit); do EXE=\$f; break; done; if [ -z \"\$EXE\" ]; then echo Build failed: openterfaceQT.exe not found && exit 1; fi; /c/mingw64/bin/objdump -p \"\$EXE\" | grep -i \\\"\\.dll\\\" && (echo ERROR: DLL dependencies detected && /c/mingw64/bin/objdump -p \"\$EXE\" | grep -i \\\"\\.dll\\\" && exit 1) || echo OK: No DLL dependencies; /c/mingw64/bin/strip -s \"\$EXE\"; mkdir -p package; cp \"\$EXE\" package/openterfaceQT-portable.exe"
-          )
-            -DCMAKE_BUILD_TYPE=Release
-            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
-            -DVCPKG_TARGET_TRIPLET="x64-mingw-static"
-            -DCMAKE_PREFIX_PATH="C:/Qt6"
-            -DOPENTERFACE_BUILD_STATIC=ON
-            -DCMAKE_C_COMPILER="%EXTERNAL_MINGW%/bin/gcc.exe"
-            -DCMAKE_CXX_COMPILER="%EXTERNAL_MINGW%/bin/g++.exe"
-            -DCMAKE_RC_COMPILER="%EXTERNAL_MINGW%/bin/windres.exe"
-            "%SOURCE_DIR%" &&
-          cmake --build . --config Release -- -j2 &&
-          for /f "delims=" %F in ('dir /s /b openterfaceQT.exe 2^>nul') do set "EXE=%F" &&
-          if not defined EXE (
-            echo Build failed: openterfaceQT.exe not found && dir /s /b . && exit /b 1
-          ) &&
-          echo Checking for DLL dependencies... &&
-          %EXTERNAL_MINGW%\bin\objdump.exe -p "%EXE%" | findstr /i "\.dll" >nul && (
-            echo ERROR: DLL dependencies detected! &&
-            %EXTERNAL_MINGW%\bin\objdump.exe -p "%EXE%" | findstr /i "\.dll" &&
+        shell: cmd
+        run: |
+          set PATH=C:\Qt6\bin;C:\mingw64\bin;%PATH%
+          
+          cmake -G "Ninja" ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_TOOLCHAIN_FILE="D:/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
+            -DVCPKG_TARGET_TRIPLET="x64-mingw-static" ^
+            -DCMAKE_PREFIX_PATH="C:/Qt6" ^
+            -DOPENTERFACE_BUILD_STATIC=ON ^
+            -DCMAKE_C_COMPILER="C:/mingw64/bin/gcc.exe" ^
+            -DCMAKE_CXX_COMPILER="C:/mingw64/bin/g++.exe" ^
+            -DCMAKE_RC_COMPILER="C:/mingw64/bin/windres.exe" ^
+            "%SOURCE_DIR%"
+          
+          if errorlevel 1 (
+            echo CMake configuration failed
             exit /b 1
-          ) || (
-            echo OK: No DLL dependencies — fully static.
-          ) &&
-          %EXTERNAL_MINGW%\bin\strip.exe -s "%EXE%" &&
-          mkdir package &&
+          )
+          
+          cmake --build . --config Release -- -j2
+          
+          if errorlevel 1 (
+            echo CMake build failed
+            exit /b 1
+          )
+          
+          for /f "delims=" %%F in ('dir /s /b openterfaceQT.exe 2^>nul') do set "EXE=%%F"
+          
+          if not defined EXE (
+            echo Build failed: openterfaceQT.exe not found
+            dir /s /b .
+            exit /b 1
+          )
+          
+          echo Found executable: %EXE%
+          
+          echo Checking for DLL dependencies...
+          C:\mingw64\bin\objdump.exe -p "%EXE%" | findstr /i "\.dll" >nul
+          if not errorlevel 1 (
+            echo ERROR: DLL dependencies detected!
+            C:\mingw64\bin\objdump.exe -p "%EXE%" | findstr /i "\.dll"
+            exit /b 1
+          )
+          
+          echo OK: No DLL dependencies - fully static.
+          
+          C:\mingw64\bin\strip.exe -s "%EXE%"
+          
+          if not exist package mkdir package
           copy "%EXE%" package\openterfaceQT-portable.exe
+          
+          if errorlevel 1 (
+            echo Failed to copy executable to package directory
+            exit /b 1
+          )
+          
+          echo Build completed successfully
+          dir package
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

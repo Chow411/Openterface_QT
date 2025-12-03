@@ -5,9 +5,18 @@ setlocal enabledelayedexpansion
 
 REM Accept optional first argument as SOURCE_DIR (so CI can pass an explicit path)
 REM Usage: build-static-qt-from-source.bat [<SOURCE_DIR>]
-if "%~1" neq "" (
+if "%~1"=="" (
+    set "SOURCE_DIR=%cd%"
+) else (
     set "SOURCE_DIR=%~1"
 )
+
+REM Set paths
+set "QT_SOURCE=C:\Qt6-source"
+set "QT_INSTALL=C:\Qt6"
+set "MINGW_PATH=C:\mingw64"
+set "VCPKG_ROOT=D:\vcpkg"
+set "OPENSSL_ROOT=%VCPKG_ROOT%\installed\x64-mingw-static"
 
 REM Configuration
 set QT_VERSION=6.6.3

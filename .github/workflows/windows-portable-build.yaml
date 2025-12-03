@@ -231,6 +231,8 @@ jobs:
           call "%VCPKG_DIR%\vcpkg.exe" integrate install
           echo vcpkg installed ports (end) && "%VCPKG_DIR%\vcpkg.exe" list || echo "couldn't list vcpkg packages"
 
+      # vcpkg manifest will install pkgconf (manifest mode), which will create the msys2 root.
+
       - name: Install vcpkg manifest (zlib, openssl, pkgconf) using MSYS2
         # Run using bash so we can safely use cygpath and a POSIX-style invocation.
         shell: bash
@@ -246,25 +248,34 @@ jobs:
           echo "MSYS_VCPKG_DIR: $MSYS_VCPKG_DIR"
           echo "MSYS_SOURCE_DIR: $MSYS_SOURCE_DIR"
 
-          # Install packages using vcpkg from the manifest
-          if [ -x "$MSYS_VCPKG_DIR/vcpkg.exe" ]; then
-            echo "Running vcpkg install from manifest directory using bash..."
-            cd "$MSYS_SOURCE_DIR"
-            "$MSYS_VCPKG_DIR/vcpkg.exe" install --triplet=x64-mingw-static --clean-after-build
+          # Use Windows paths for vcpkg.exe calls
+          WIN_VCPKG_EXE="${VCPKG_DIR}\\vcpkg.exe"
+          WIN_SOURCE_DIR="${SOURCE_DIR}"
+
+          echo "Running vcpkg install from manifest directory"
+          
+          # Retry loop for vcpkg install
+          attempts=0
+          max_attempts=3
+          until [ $attempts -ge $max_attempts ]
+          do
+            attempts=$((attempts+1))
+            echo "Attempt $attempts of $max_attempts..."
             
-            if [ $? -ne 0 ]; then
-              echo "ERROR: vcpkg install failed"
-              exit 1
-            fi
-          else
-            echo "ERROR: vcpkg.exe not found at $MSYS_VCPKG_DIR/vcpkg.exe"
+            # Use cmd.exe properly from bash
+            cmd.exe //C "cd /d \"$WIN_SOURCE_DIR\" && \"$WIN_VCPKG_EXE\" install --triplet=x64-mingw-static --host-triplet=x64-mingw-static --clean-after-build --recurse --debug" && break
+            
+            echo "vcpkg install attempt $attempts failed; sleeping then retrying..."
+            sleep $((attempts * 5))
+          done
+          
+          if [ $attempts -ge $max_attempts ]; then
+            echo "vcpkg install failed after $max_attempts attempts"
             exit 1
           fi
 
           echo "vcpkg list (after install):"
-          if [ -x "$MSYS_VCPKG_DIR/vcpkg.exe" ]; then
-            cd "$MSYS_SOURCE_DIR" && "$MSYS_VCPKG_DIR/vcpkg.exe" list
-          fi
+          cmd.exe //C "cd /d \"$WIN_SOURCE_DIR\" && \"$WIN_VCPKG_EXE\" list"
 
       - name: Ensure OpenSSL is available in central vcpkg
         shell: cmd

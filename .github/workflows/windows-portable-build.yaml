@@ -315,25 +315,38 @@ jobs:
       - name: Ensure OpenSSL is available in central vcpkg
         shell: cmd
         run: |
-          echo Checking central vcpkg for OpenSSL static libs...
+          echo Checking central vcpkg for OpenSSL static libs and headers...
           if exist "%VCPKG_DIR%\installed\x64-mingw-static\lib\libcrypto.a" (
-            echo OpenSSL already present in central vcpkg
-            echo "Listing OpenSSL files:"
-            dir "%VCPKG_DIR%\installed\x64-mingw-static\lib\libcrypto.a"
-            dir "%VCPKG_DIR%\installed\x64-mingw-static\lib\libssl.a"
-            dir "%VCPKG_DIR%\installed\x64-mingw-static\include"
-          ) else (
-            echo OpenSSL not found in central vcpkg; checking repo-local manifest install...
-            if exist "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\lib\libcrypto.a" (
-              echo Found repo-local OpenSSL artifacts; copying into central vcpkg
-              mkdir "%VCPKG_DIR%\installed\x64-mingw-static\lib" 2>nul || echo "lib dir exists"
-              mkdir "%VCPKG_DIR%\installed\x64-mingw-static\include" 2>nul || echo "include dir exists"
-              xcopy "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\lib\*" "%VCPKG_DIR%\installed\x64-mingw-static\lib" /Y /I
-              xcopy "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\include\*" "%VCPKG_DIR%\installed\x64-mingw-static\include" /Y /I
+            if exist "%VCPKG_DIR%\installed\x64-mingw-static\include\openssl\ssl.h" (
+              echo OpenSSL libraries and headers already present in central vcpkg
+              dir "%VCPKG_DIR%\installed\x64-mingw-static\lib\libcrypto.a"
+              dir "%VCPKG_DIR%\installed\x64-mingw-static\lib\libssl.a"
+              dir "%VCPKG_DIR%\installed\x64-mingw-static\include\openssl"
             ) else (
-              echo Repo-local copy not found; attempting to install OpenSSL into central vcpkg
-              pushd "%VCPKG_DIR%" && "%VCPKG_DIR%\vcpkg.exe" install openssl --triplet=x64-mingw-static --clean-after-build --recurse || (
-                echo Failed to install OpenSSL via vcpkg; printing central vcpkg folder contents for debugging && dir "%VCPKG_DIR%\installed\x64-mingw-static" /s
+              echo OpenSSL libs found but headers missing, checking repo-local...
+              goto :check_repo_local
+            )
+          ) else (
+            :check_repo_local
+            echo Checking repo-local manifest install...
+            if exist "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\lib\libcrypto.a" (
+              if exist "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\include\openssl\ssl.h" (
+                echo Found repo-local OpenSSL artifacts; copying into central vcpkg
+                mkdir "%VCPKG_DIR%\installed\x64-mingw-static\lib" 2>nul || echo "lib dir exists"
+                mkdir "%VCPKG_DIR%\installed\x64-mingw-static\include" 2>nul || echo "include dir exists"
+                xcopy "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\lib\*" "%VCPKG_DIR%\installed\x64-mingw-static\lib\" /Y /I /S
+                xcopy "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\include\*" "%VCPKG_DIR%\installed\x64-mingw-static\include\" /Y /I /S
+              ) else (
+                echo Repo-local libs found but headers missing, forcing reinstall
+                goto :force_install
+              )
+            ) else (
+              :force_install
+              echo Forcing OpenSSL reinstall into central vcpkg
+              pushd "%VCPKG_DIR%" && "%VCPKG_DIR%\vcpkg.exe" remove openssl --triplet=x64-mingw-static || echo "No existing install to remove"
+              "%VCPKG_DIR%\vcpkg.exe" install openssl --triplet=x64-mingw-static --clean-after-build --recurse || (
+                echo Failed to install OpenSSL via vcpkg; printing contents for debugging
+                dir "%VCPKG_DIR%\installed\x64-mingw-static" /s
                 exit /b 1
               ) && popd
             )

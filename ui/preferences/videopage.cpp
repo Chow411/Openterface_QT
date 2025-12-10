@@ -191,6 +191,33 @@ void VideoPage::setupUI()
         }
     }
 
+    // Scaling Quality Setting Section
+    QLabel *scalingQualityLabel = new QLabel(tr("Image Quality: "));
+    scalingQualityLabel->setStyleSheet(smallLabelFontSize);
+
+    QComboBox *scalingQualityBox = new QComboBox();
+    scalingQualityBox->setObjectName("scalingQualityBox");
+    scalingQualityBox->addItem(tr("Fastest (Lower quality)"), "fast");
+    scalingQualityBox->addItem(tr("Balanced (Good quality)"), "balanced");
+    scalingQualityBox->addItem(tr("High Quality (Recommended)"), "quality");
+    scalingQualityBox->addItem(tr("Best Quality (Slower)"), "best");
+
+    // Set current scaling quality from settings
+    QString currentQuality = GlobalSetting::instance().getScalingQuality();
+    int qualityIndex = scalingQualityBox->findData(currentQuality);
+    if (qualityIndex != -1) {
+        scalingQualityBox->setCurrentIndex(qualityIndex);
+    } else {
+        // Default to "quality" (High Quality)
+        qualityIndex = scalingQualityBox->findData("quality");
+        if (qualityIndex != -1) {
+            scalingQualityBox->setCurrentIndex(qualityIndex);
+        }
+    }
+
+    QLabel *scalingQualityHintLabel = new QLabel(tr("Note: Higher quality settings provide sharper images but may use slightly more CPU."));
+    scalingQualityHintLabel->setStyleSheet("color: #666666; font-style: italic;");
+
     // Add Capture Resolution elements to the layout
     videoLayout->addWidget(hintLabel);
     videoLayout->addWidget(resolutionsLabel);
@@ -199,6 +226,9 @@ void VideoPage::setupUI()
     videoLayout->addLayout(hBoxLayout);
     videoLayout->addWidget(formatLabel);
     videoLayout->addWidget(pixelFormatBox);
+    videoLayout->addWidget(scalingQualityLabel);
+    videoLayout->addWidget(scalingQualityBox);
+    videoLayout->addWidget(scalingQualityHintLabel);
     videoLayout->addWidget(separatorLine2);
     videoLayout->addWidget(backendLabel);
     videoLayout->addWidget(mediaBackendBox);
@@ -412,6 +442,13 @@ void VideoPage::applyVideoSettings() {
         QString hwAccel = hwAccelBox->currentData().toString();
         GlobalSetting::instance().setHardwareAcceleration(hwAccel);
     }
+    
+    // Save scaling quality setting
+    QComboBox *scalingQualityBox = this->findChild<QComboBox*>("scalingQualityBox");
+    if (scalingQualityBox) {
+        QString quality = scalingQualityBox->currentData().toString();
+        GlobalSetting::instance().setScalingQuality(quality);
+    }
 
     if (!m_cameraManager) {
         qWarning() << "CameraManager is not valid!";
@@ -499,9 +536,19 @@ void VideoPage::initVideoSettings() {
     QComboBox *hwAccelBox = this->findChild<QComboBox*>("hwAccelBox");
     if (hwAccelBox) {
         QString currentHwAccel = GlobalSetting::instance().getHardwareAcceleration();
-        int hwIndex = hwAccelBox->findData(currentHwAccel);
-        if (hwIndex != -1) {
-            hwAccelBox->setCurrentIndex(hwIndex);
+        int hwAccelIndex = hwAccelBox->findData(currentHwAccel);
+        if (hwAccelIndex != -1) {
+            hwAccelBox->setCurrentIndex(hwAccelIndex);
+        }
+    }
+    
+    // Set the scaling quality in the combo box
+    QComboBox *scalingQualityBox = this->findChild<QComboBox*>("scalingQualityBox");
+    if (scalingQualityBox) {
+        QString currentQuality = GlobalSetting::instance().getScalingQuality();
+        int qualityIndex = scalingQualityBox->findData(currentQuality);
+        if (qualityIndex != -1) {
+            scalingQualityBox->setCurrentIndex(qualityIndex);
         }
     }
 }

@@ -426,6 +426,12 @@ void MainWindow::onResolutionChange(const int& width, const int& height, const f
     // No popup message for resolution changes
 }
 
+void MainWindow::onGpio0StatusChanged(bool isToTarget)
+{
+    qCDebug(log_ui_mainwindow) << "GPIO0 status changed to:" << (isToTarget ? "target" : "host");
+    toggleSwitch->setChecked(isToTarget);
+}
+
 void MainWindow::onTargetUsbConnected(const bool isConnected)
 {
     m_statusBarManager->setTargetUsbConnected(isConnected);

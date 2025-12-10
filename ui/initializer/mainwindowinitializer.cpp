@@ -370,6 +370,8 @@ void MainWindowInitializer::connectVideoHidSignals()
             m_statusBarManager, &StatusBarManager::onLastMouseLocation);
     connect(&VideoHid::getInstance(), &VideoHid::inputResolutionChanged, m_mainWindow, &MainWindow::onInputResolutionChanged);
     connect(&VideoHid::getInstance(), &VideoHid::resolutionChangeUpdate, m_mainWindow, &MainWindow::onResolutionChange);
+    connect(&VideoHid::getInstance(), &VideoHid::gpio0StatusChanged, m_mainWindow, &MainWindow::onGpio0StatusChanged);
+    connect(&VideoHid::getInstance(), &VideoHid::gpio0StatusChanged, m_cornerWidgetManager, &CornerWidgetManager::updateGpio0Status);
 }
 
 void MainWindowInitializer::setupRecordingController()

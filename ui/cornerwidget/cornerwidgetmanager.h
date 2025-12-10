@@ -22,6 +22,7 @@ public:
     void updatePosition(int windowWidth, int menuBarHeight, bool isFullScreen);
     void initializeKeyboardLayouts(const QStringList &layouts, const QString &defaultLayout);
     void restoreMuteState(bool muted);
+    void updateGpio0Status(bool isToTarget);
     QPushButton *screensaverButton;
     QPushButton *recordingButton;
     QPushButton *muteButton;

@@ -243,3 +243,10 @@ void CornerWidgetManager::updatePosition(int windowWidth, int menuBarHeight, boo
                  << ", layout sizeHint:" << horizontalLayout->sizeHint();
     }
 }
+
+void CornerWidgetManager::updateGpio0Status(bool isToTarget)
+{
+    if (toggleSwitch) {
+        toggleSwitch->setChecked(isToTarget);
+    }
+}

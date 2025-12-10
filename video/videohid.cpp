@@ -811,7 +811,9 @@ void VideoHid::pollDeviceStatus() {
             // Handle SPDIF toggle based on hard switch state change
             if (isHardSwitchOnTarget != currentSwitchOnTarget) {
                 handleSpdifToggle(currentSwitchOnTarget);
+                emit gpio0StatusChanged(currentSwitchOnTarget);
             }
+            emit gpio0StatusChanged(currentSwitchOnTarget);
         }
     }
     catch (...) {

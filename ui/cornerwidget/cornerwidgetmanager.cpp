@@ -246,7 +246,7 @@ void CornerWidgetManager::updatePosition(int windowWidth, int menuBarHeight, boo
 
 void CornerWidgetManager::updateGpio0Status(bool isToTarget)
 {
-    if (toggleSwitch) {
+    if (toggleSwitch->isChecked() != isToTarget) {
         toggleSwitch->setChecked(isToTarget);
     }
 }

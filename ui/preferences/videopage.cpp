@@ -39,6 +39,9 @@
 #include <QMediaDevices>
 #include <QWidget>
 #include <QThread>
+#include <QApplication>
+#include <QEventLoop>
+#include <QTimer>
 
 
 VideoPage::VideoPage(CameraManager *cameraManager, QWidget *parent) : QWidget(parent)
@@ -455,6 +458,11 @@ void VideoPage::applyVideoSettings() {
         return;
     }
 
+    // Save current device settings before stopping
+    // This prevents device path from being cleared during stop
+    QString savedPortChain = GlobalSetting::instance().getOpenterfacePortChain();
+    qDebug() << "Saving current device port chain before restart:" << savedPortChain;
+
     // Stop the camera if it is in an active status
     try {
         m_cameraManager->stopCamera();
@@ -464,6 +472,26 @@ void VideoPage::applyVideoSettings() {
         return;
     }
 
+    // CRITICAL FIX: Wait for capture thread to fully terminate
+    // This prevents crash when FFmpeg resources are accessed during cleanup
+    qDebug() << "Waiting for capture thread to terminate...";
+    
+    // Process events to ensure stop signal is handled
+    QApplication::processEvents();
+    
+    // Reduced wait time since capture manager now handles proper thread termination
+    // Wait 200ms for thread to gracefully exit
+    QEventLoop loop;
+    QTimer::singleShot(200, &loop, &QEventLoop::quit);
+    loop.exec();
+    
+    qDebug() << "Capture thread should be terminated, proceeding with restart";
+
+    // Restore device settings before starting camera again
+    if (!savedPortChain.isEmpty()) {
+        GlobalSetting::instance().setOpenterfacePortChain(savedPortChain);
+        qDebug() << "Restored device port chain:" << savedPortChain;
+    }
 
     // Store settings for FFmpeg backend
     handleResolutionSettings();
@@ -477,6 +505,7 @@ void VideoPage::applyVideoSettings() {
     // Start the camera with the new settings
     try{
         m_cameraManager->startCamera();
+        qDebug() << "Camera started successfully with new settings";
     } catch (const std::exception& e){
         qCritical() << "Error starting camera: " << e.what();
     }

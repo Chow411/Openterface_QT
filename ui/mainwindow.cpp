@@ -399,6 +399,11 @@ void MainWindow::onActionSwitchToTargetTriggered()
 
 void MainWindow::onToggleSwitchStateChanged(int state)
 {
+    // Ignore if this change is from a programmatic status update
+    if (m_cornerWidgetManager && m_cornerWidgetManager->isUpdatingFromStatus()) {
+        return;
+    }
+
     qCDebug(log_ui_mainwindow) << "Toggle switch state changed to:" << state;
     if (state == Qt::Checked) {
         onActionSwitchToTargetTriggered();

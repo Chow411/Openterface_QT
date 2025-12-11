@@ -26,7 +26,8 @@ CornerWidgetManager::CornerWidgetManager(QWidget *parent)
       menuBar(nullptr),
       layoutThreshold(800),
       isRecording(false),
-      isMuted(false)
+      isMuted(false),
+      m_updatingFromStatus(false)  // Initialize flag
 {
     createWidgets();
     setupConnections();
@@ -244,9 +245,11 @@ void CornerWidgetManager::updatePosition(int windowWidth, int menuBarHeight, boo
     }
 }
 
-void CornerWidgetManager::updateGpio0Status(bool isToTarget)
+void CornerWidgetManager::updateUSBStatus(bool isToTarget)
 {
     if (toggleSwitch->isChecked() != isToTarget) {
+        m_updatingFromStatus = true;  // Set flag before update
         toggleSwitch->setChecked(isToTarget);
+        m_updatingFromStatus = false;  // Clear flag after update
     }
 }

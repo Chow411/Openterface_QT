@@ -488,6 +488,12 @@ QString WinDeviceEnumerator::findAudioDevicePathByDeviceId(const QString& device
 {
     qCDebug(log_win_enumerator) << "Finding audio path for device ID:" << deviceId;
     
+    // Handle MMDEVAPI devices (software audio endpoints)
+    if (deviceId.startsWith("SWD\\MMDEVAPI", Qt::CaseInsensitive)) {
+        qCDebug(log_win_enumerator) << "MMDEVAPI device detected, returning device ID as path:" << deviceId;
+        return deviceId;
+    }
+    
     HDEVINFO hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_MEDIA, nullptr, nullptr, DIGCF_PRESENT);
     if (hDevInfo == INVALID_HANDLE_VALUE) {
         return QString();
@@ -540,6 +546,188 @@ QString WinDeviceEnumerator::findComPortByDeviceId(const QString& deviceId)
                 }
                 RegCloseKey(hKey);
             }
+        }
+    }
+    
+    SetupDiDestroyDeviceInfoList(hDevInfo);
+    return QString();
+}
+
+QVector<QVariantMap> WinDeviceEnumerator::enumerateDevicesByInterface(const GUID& interfaceGuid)
+{
+    qCDebug(log_win_enumerator) << "Enumerating devices by interface GUID";
+    
+    QVector<QVariantMap> devices;
+    
+    HDEVINFO hDevInfo = SetupDiGetClassDevs(&interfaceGuid, nullptr, nullptr, 
+                                            DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+    if (hDevInfo == INVALID_HANDLE_VALUE) {
+        return devices;
+    }
+    
+    SP_DEVINFO_DATA devInfoData;
+    devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+    
+    for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &devInfoData); i++) {
+        QVariantMap deviceInfo = getDeviceInfo(devInfoData.DevInst);
+        devices.append(deviceInfo);
+    }
+    
+    SetupDiDestroyDeviceInfoList(hDevInfo);
+    qCDebug(log_win_enumerator) << "Found" << devices.size() << "devices";
+    return devices;
+}
+
+QVector<QVariantMap> WinDeviceEnumerator::enumerateAllDevices()
+{
+    qCDebug(log_win_enumerator) << "Enumerating all devices from all classes";
+    
+    QVector<QVariantMap> allDevices;
+    
+    // Enumerate devices from all relevant device classes
+    const GUID deviceClasses[] = {
+        GUID_DEVCLASS_USB,
+        GUID_DEVCLASS_PORTS,
+        GUID_DEVCLASS_HIDCLASS,
+        GUID_DEVCLASS_CAMERA,
+        GUID_DEVCLASS_MEDIA
+    };
+    
+    for (const GUID& classGuid : deviceClasses) {
+        HDEVINFO hDevInfo = SetupDiGetClassDevs(&classGuid, nullptr, nullptr, DIGCF_PRESENT);
+        if (hDevInfo == INVALID_HANDLE_VALUE) {
+            continue;
+        }
+        
+        SP_DEVINFO_DATA devInfoData;
+        devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+        
+        for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &devInfoData); i++) {
+            QVariantMap deviceInfo = getDeviceInfo(devInfoData.DevInst);
+            
+            // Get parent device information
+            DWORD parentDevInst;
+            if (CM_Get_Parent(&parentDevInst, devInfoData.DevInst, 0) == CR_SUCCESS) {
+                QString parentDeviceId = getDeviceId(parentDevInst);
+                deviceInfo["parentDeviceId"] = parentDeviceId;
+                deviceInfo["parentDevInst"] = static_cast<uint>(parentDevInst);
+            }
+            
+            allDevices.append(deviceInfo);
+        }
+        
+        SetupDiDestroyDeviceInfoList(hDevInfo);
+    }
+    
+    qCDebug(log_win_enumerator) << "Enumerated" << allDevices.size() << "devices from all classes";
+    return allDevices;
+}
+
+QVector<QVariantMap> WinDeviceEnumerator::getChildDevicesPython(DWORD devInst)
+{
+    qCDebug(log_win_enumerator) << "Getting child devices (Python-compatible) for device instance:" << devInst;
+    
+    QVector<QVariantMap> children;
+    
+    // Get first child
+    DWORD childDevInst;
+    if (CM_Get_Child(&childDevInst, devInst, 0) == CR_SUCCESS) {
+        while (true) {
+            QVariantMap childInfo = getDeviceInfo(childDevInst);
+            children.append(childInfo);
+            
+            // Get next sibling
+            DWORD nextSibling;
+            if (CM_Get_Sibling(&nextSibling, childDevInst, 0) != CR_SUCCESS) {
+                break;
+            }
+            childDevInst = nextSibling;
+        }
+    }
+    
+    qCDebug(log_win_enumerator) << "Found" << children.size() << "child devices";
+    return children;
+}
+
+QString WinDeviceEnumerator::findHidDeviceForPortChain(const QString& portChain)
+{
+    qCDebug(log_win_enumerator) << "Searching for HID device with port chain:" << portChain;
+    
+    // Enumerate HID devices and look for ones that match our port chain
+    GUID hidGuid;
+    HidD_GetHidGuid(&hidGuid);
+    
+    HDEVINFO hDevInfo = SetupDiGetClassDevs(&hidGuid, nullptr, nullptr, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+    if (hDevInfo == INVALID_HANDLE_VALUE) {
+        return QString();
+    }
+    
+    SP_DEVICE_INTERFACE_DATA interfaceData;
+    interfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+    
+    for (DWORD i = 0; SetupDiEnumDeviceInterfaces(hDevInfo, nullptr, &hidGuid, i, &interfaceData); i++) {
+        // Get device instance for this interface
+        SP_DEVINFO_DATA devInfoData;
+        devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+        
+        DWORD requiredSize = 0;
+        SetupDiGetDeviceInterfaceDetail(hDevInfo, &interfaceData, nullptr, 0, &requiredSize, &devInfoData);
+        
+        if (requiredSize > 0) {
+            QVector<BYTE> buffer(requiredSize);
+            PSP_DEVICE_INTERFACE_DETAIL_DATA detailData = 
+                reinterpret_cast<PSP_DEVICE_INTERFACE_DETAIL_DATA>(buffer.data());
+            detailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+            
+            if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &interfaceData, detailData, 
+                                               requiredSize, nullptr, &devInfoData)) {
+                QString devicePortChain = buildPortChain(devInfoData.DevInst);
+                if (devicePortChain.startsWith(portChain)) {
+                    QString devicePath = wideToQString(detailData->DevicePath);
+                    SetupDiDestroyDeviceInfoList(hDevInfo);
+                    qCDebug(log_win_enumerator) << "Found HID device:" << devicePath;
+                    return devicePath;
+                }
+            }
+        }
+    }
+    
+    SetupDiDestroyDeviceInfoList(hDevInfo);
+    return QString();
+}
+
+QString WinDeviceEnumerator::getPortChainForSerialPort(const QString& portName)
+{
+    qCDebug(log_win_enumerator) << "Getting port chain for serial port:" << portName;
+    
+    // Find the device instance for this COM port and build its port chain
+    HDEVINFO hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_PORTS, nullptr, nullptr, DIGCF_PRESENT);
+    if (hDevInfo == INVALID_HANDLE_VALUE) {
+        return QString();
+    }
+    
+    SP_DEVINFO_DATA devInfoData;
+    devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+    
+    for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &devInfoData); i++) {
+        // Get the COM port name from the registry
+        HKEY hKey = SetupDiOpenDevRegKey(hDevInfo, &devInfoData, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_READ);
+        if (hKey != INVALID_HANDLE_VALUE) {
+            WCHAR regPortName[256];
+            DWORD regPortNameSize = sizeof(regPortName);
+            
+            if (RegQueryValueEx(hKey, L"PortName", nullptr, nullptr, 
+                               reinterpret_cast<LPBYTE>(regPortName), &regPortNameSize) == ERROR_SUCCESS) {
+                QString comPort = wideToQString(regPortName);
+                if (comPort == portName) {
+                    QString portChain = buildPortChain(devInfoData.DevInst);
+                    RegCloseKey(hKey);
+                    SetupDiDestroyDeviceInfoList(hDevInfo);
+                    qCDebug(log_win_enumerator) << "Found port chain:" << portChain;
+                    return portChain;
+                }
+            }
+            RegCloseKey(hKey);
         }
     }
     

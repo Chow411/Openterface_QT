@@ -46,6 +46,11 @@ public:
     QString findCameraDevicePathByDeviceId(const QString& deviceId) override;
     QString findAudioDevicePathByDeviceId(const QString& deviceId) override;
     QString findComPortByDeviceId(const QString& deviceId) override;
+    QVector<QVariantMap> enumerateDevicesByInterface(const GUID& interfaceGuid) override;
+    QVector<QVariantMap> enumerateAllDevices() override;
+    QVector<QVariantMap> getChildDevicesPython(DWORD devInst) override;
+    QString findHidDeviceForPortChain(const QString& portChain) override;
+    QString getPortChainForSerialPort(const QString& portName) override;
 
 private:
     /**

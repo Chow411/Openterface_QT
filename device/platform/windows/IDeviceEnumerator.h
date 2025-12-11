@@ -163,6 +163,40 @@ public:
      * @return COM port name (e.g., "COM3", empty if not found)
      */
     virtual QString findComPortByDeviceId(const QString& deviceId) = 0;
+    
+    /**
+     * @brief Enumerate devices by interface GUID
+     * @param interfaceGuid Device interface GUID
+     * @return Vector of device information maps
+     */
+    virtual QVector<QVariantMap> enumerateDevicesByInterface(const GUID& interfaceGuid) = 0;
+    
+    /**
+     * @brief Enumerate all devices from all relevant classes
+     * @return Vector of all device information maps
+     */
+    virtual QVector<QVariantMap> enumerateAllDevices() = 0;
+    
+    /**
+     * @brief Get child devices Python-compatible (using CM_Get_Child and CM_Get_Sibling)
+     * @param devInst Parent device instance handle
+     * @return Vector of child device information maps
+     */
+    virtual QVector<QVariantMap> getChildDevicesPython(DWORD devInst) = 0;
+    
+    /**
+     * @brief Find HID device path for a specific port chain
+     * @param portChain Port chain string
+     * @return HID device path (empty if not found)
+     */
+    virtual QString findHidDeviceForPortChain(const QString& portChain) = 0;
+    
+    /**
+     * @brief Get port chain for a serial port name
+     * @param portName Serial port name (e.g., "COM3")
+     * @return Port chain string (empty if not found)
+     */
+    virtual QString getPortChainForSerialPort(const QString& portName) = 0;
 };
 
 #endif // IDEVICEENUMERATOR_H

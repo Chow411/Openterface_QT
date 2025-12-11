@@ -116,60 +116,43 @@ QVector<WindowsDeviceManager::USBDeviceData> WindowsDeviceManager::findUSBDevice
     QString targetHwid = QString("VID_%1&PID_%2").arg(vid.toUpper()).arg(pid.toUpper());
     qCDebug(log_device_windows) << "Target Hardware ID pattern:" << targetHwid;
     
-    // Use the USB device interface GUID to enumerate USB devices
-    HDEVINFO hDevInfo = SetupDiGetClassDevs(
-        &GUID_DEVINTERFACE_USB_DEVICE, 
-        nullptr, 
-        nullptr,
-        DIGCF_PRESENT | DIGCF_DEVICEINTERFACE
-    );
+    // Use enumerator to get USB devices by interface
+    QVector<QVariantMap> usbDevices = m_enumerator->enumerateDevicesByInterface(GUID_DEVINTERFACE_USB_DEVICE);
     
-    if (hDevInfo == INVALID_HANDLE_VALUE) {
-        qCWarning(log_device_windows) << "Failed to get USB device interface list";
-        return devices;
-    }
-    
-    SP_DEVINFO_DATA devInfoData;
-    devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
-    
-    for (DWORD index = 0; SetupDiEnumDeviceInfo(hDevInfo, index, &devInfoData); index++) {
-        QString hardwareId = getHardwareId(hDevInfo, &devInfoData);
+    for (const QVariantMap& deviceMap : usbDevices) {
+        QString hardwareId = deviceMap.value("hardwareId").toString();
         
         // Check if this device matches our target VID/PID
         if (hardwareId.toUpper().contains(targetHwid)) {
             qCDebug(log_device_windows) << "Found matching USB device:" << hardwareId;
             
-            USBDeviceData usbData;
-            usbData.deviceInstanceId = getDeviceId(devInfoData.DevInst);
-            usbData.deviceInfo = getDeviceInfo(devInfoData.DevInst);
+            DWORD devInst = deviceMap.value("devInst").toUInt();
             
-            // Get additional device properties
-            usbData.deviceInfo["friendlyName"] = getDeviceProperty(hDevInfo, &devInfoData, SPDRP_FRIENDLYNAME);
-            usbData.deviceInfo["hardwareId"] = hardwareId;
+            USBDeviceData usbData;
+            usbData.deviceInstanceId = deviceMap.value("deviceId").toString();
+            usbData.deviceInfo = deviceMap;
             
             qCDebug(log_device_windows) << "Device Instance ID:" << usbData.deviceInstanceId;
-            qCDebug(log_device_windows) << "Friendly Name:" << usbData.deviceInfo["friendlyName"].toString();
+            qCDebug(log_device_windows) << "Friendly Name:" << deviceMap.value("friendlyName").toString();
             
             // Build port chain (Python-compatible format)
-            usbData.portChain = buildPythonCompatiblePortChain(devInfoData.DevInst);
+            usbData.portChain = buildPythonCompatiblePortChain(devInst);
             qCDebug(log_device_windows) << "Port Chain:" << usbData.portChain;
             
             // Get parent device for sibling enumeration
-            DWORD parentDevInst;
-            if (CM_Get_Parent(&parentDevInst, devInfoData.DevInst, 0) == CR_SUCCESS) {
+            DWORD parentDevInst = m_enumerator->getParentDevice(devInst);
+            if (parentDevInst != 0) {
                 usbData.siblings = getSiblingDevicesByParent(parentDevInst);
                 qCDebug(log_device_windows) << "Found" << usbData.siblings.size() << "sibling devices";
             }
             
             // Get child devices
-            usbData.children = getChildDevicesPython(devInfoData.DevInst);
+            usbData.children = getChildDevicesPython(devInst);
             qCDebug(log_device_windows) << "Found" << usbData.children.size() << "child devices";
             
             devices.append(usbData);
         }
     }
-    
-    SetupDiDestroyDeviceInfoList(hDevInfo);
     
     qCDebug(log_device_windows) << "Found" << devices.size() << "USB devices with VID/PID" << vid << "/" << pid;
     return devices;
@@ -232,64 +215,41 @@ QString WindowsDeviceManager::buildPythonCompatiblePortChain(DWORD devInst)
 
 QVector<QVariantMap> WindowsDeviceManager::getSiblingDevicesByParent(DWORD parentDevInst)
 {
-    QVector<QVariantMap> siblings;
-    
-    // Enumerate all devices to find siblings with the same parent
-    HDEVINFO hDevInfo = SetupDiGetClassDevs(nullptr, nullptr, nullptr, DIGCF_PRESENT | DIGCF_ALLCLASSES);
-    if (hDevInfo == INVALID_HANDLE_VALUE) {
-        return siblings;
-    }
-    
-    SP_DEVINFO_DATA devInfoData;
-    devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
-    
-    for (DWORD index = 0; SetupDiEnumDeviceInfo(hDevInfo, index, &devInfoData); index++) {
-        DWORD currentParent;
-        if (CM_Get_Parent(&currentParent, devInfoData.DevInst, 0) == CR_SUCCESS) {
-            if (currentParent == parentDevInst) {
-                QVariantMap sibling;
-                sibling["hardware_id"] = getHardwareId(hDevInfo, &devInfoData);
-                sibling["device_id"] = getDeviceId(devInfoData.DevInst);
-                sibling["hardwareId"] = sibling["hardware_id"]; // Duplicate key for compatibility
-                sibling["deviceId"] = sibling["device_id"];     // Duplicate key for compatibility
-                siblings.append(sibling);
-            }
-        }
-    }
-    
-    SetupDiDestroyDeviceInfoList(hDevInfo);
-    return siblings;
+    return m_enumerator->getSiblingDevicesByParent(parentDevInst);
 }
 
 QVector<QVariantMap> WindowsDeviceManager::getChildDevicesPython(DWORD devInst)
 {
-    QVector<QVariantMap> children;
+    return m_enumerator->getChildDevicesPython(devInst);
+}
+
+QVector<QVariantMap> WindowsDeviceManager::enumerateAllDevices()
+{
+    return m_enumerator->enumerateAllDevices();
+}
+
+QVector<DWORD> WindowsDeviceManager::findParentUSBDevices(const QString& vid, const QString& pid)
+{
+    QVector<DWORD> parentDevices;
     
-    // Get first child
-    DWORD childDevInst;
-    if (CM_Get_Child(&childDevInst, devInst, 0) == CR_SUCCESS) {
-        while (true) {
-            QVariantMap child;
-            child["hardware_id"] = getHardwareIdFromDevInst(childDevInst);
-            child["device_id"] = getDeviceId(childDevInst);
-            child["hardwareId"] = child["hardware_id"]; // Duplicate for compatibility  
-            child["deviceId"] = child["device_id"];     // Duplicate for compatibility
-            children.append(child);
-            
-            // Get grandchildren recursively
-            QVector<QVariantMap> grandChildren = getChildDevicesPython(childDevInst);
-            children.append(grandChildren);
-            
-            // Get next sibling
-            DWORD nextSibling;
-            if (CM_Get_Sibling(&nextSibling, childDevInst, 0) != CR_SUCCESS) {
-                break;
-            }
-            childDevInst = nextSibling;
+    QVector<QVariantMap> usbDevices = m_enumerator->enumerateDevicesByClass(GUID_DEVCLASS_USB);
+    
+    QString targetVidString = QString("VID_%1").arg(vid);
+    QString targetPidString = QString("PID_%1").arg(pid);
+    
+    for (const QVariantMap& deviceMap : usbDevices) {
+        QString hardwareId = deviceMap.value("hardwareId").toString();
+        
+        // Check if this device matches our VID/PID
+        if (hardwareId.contains(targetVidString, Qt::CaseInsensitive) &&
+            hardwareId.contains(targetPidString, Qt::CaseInsensitive)) {
+            DWORD devInst = deviceMap.value("devInst").toUInt();
+            parentDevices.append(devInst);
+            qCDebug(log_device_windows) << "Found matching device:" << deviceMap.value("deviceId").toString();
         }
     }
     
-    return children;
+    return parentDevices;
 }
 
 QString WindowsDeviceManager::getHardwareIdFromDevInst(DWORD devInst)
@@ -297,54 +257,6 @@ QString WindowsDeviceManager::getHardwareIdFromDevInst(DWORD devInst)
     // Use enumerator to get device info which includes hardware ID
     QVariantMap deviceInfo = m_enumerator->getDeviceInfo(devInst);
     return deviceInfo.value("hardwareId").toString();
-}
-
-QVector<QVariantMap> WindowsDeviceManager::enumerateAllDevices()
-{
-    QVector<QVariantMap> allDevices;
-    
-    // Enumerate devices from all relevant device classes
-    const GUID deviceClasses[] = {
-        GUID_DEVCLASS_USB,
-        GUID_DEVCLASS_PORTS,
-        GUID_DEVCLASS_HIDCLASS,
-        GUID_DEVCLASS_CAMERA,
-        GUID_DEVCLASS_MEDIA
-        // Note: GUID_DEVCLASS_SYSTEM might not be available on all systems
-    };
-    
-    for (const GUID& classGuid : deviceClasses) {
-        HDEVINFO hDevInfo = SetupDiGetClassDevs(&classGuid, nullptr, nullptr, DIGCF_PRESENT);
-        if (hDevInfo == INVALID_HANDLE_VALUE) {
-            continue;
-        }
-        
-        SP_DEVINFO_DATA devInfoData;
-        devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
-        
-        for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &devInfoData); i++) {
-            QVariantMap deviceInfo = getDeviceInfo(devInfoData.DevInst);
-            
-            // Add additional setup API properties
-            deviceInfo["friendlyName"] = getDeviceProperty(hDevInfo, &devInfoData, SPDRP_FRIENDLYNAME);
-            deviceInfo["locationInfo"] = getDeviceProperty(hDevInfo, &devInfoData, SPDRP_LOCATION_INFORMATION);
-            deviceInfo["manufacturer"] = getDeviceProperty(hDevInfo, &devInfoData, SPDRP_MFG);
-            deviceInfo["service"] = getDeviceProperty(hDevInfo, &devInfoData, SPDRP_SERVICE);
-            
-            // Get parent device instance
-            DWORD parentDevInst;
-            if (CM_Get_Parent(&parentDevInst, devInfoData.DevInst, 0) == CR_SUCCESS) {
-                deviceInfo["parentDeviceId"] = getDeviceId(parentDevInst);
-            }
-            
-            allDevices.append(deviceInfo);
-        }
-        
-        SetupDiDestroyDeviceInfoList(hDevInfo);
-    }
-    
-    qCDebug(log_device_windows) << "Enumerated" << allDevices.size() << "devices from all classes";
-    return allDevices;
 }
 
 QVector<QVariantMap> WindowsDeviceManager::findDevicesWithVidPid(const QVector<QVariantMap>& allDevices, const QString& vid, const QString& pid)
@@ -456,48 +368,6 @@ QVector<QVariantMap> WindowsDeviceManager::findChildDevicesInTree(const QVector<
     }
     
     return childDevices;
-}
-
-QVector<DWORD> WindowsDeviceManager::findParentUSBDevices(const QString& vid, const QString& pid)
-{
-    QVector<DWORD> parentDevices;
-    
-    HDEVINFO hDevInfo = SetupDiGetClassDevs(
-        &GUID_DEVCLASS_USB,
-        nullptr,
-        nullptr,
-        DIGCF_PRESENT);
-        
-    if (hDevInfo == INVALID_HANDLE_VALUE) {
-        qCWarning(log_device_windows) << "Failed to get USB device list";
-        return parentDevices;
-    }
-    
-    SP_DEVINFO_DATA devInfoData;
-    devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
-    
-    QString targetVidString = QString("VID_%1").arg(vid);
-    QString targetPidString = QString("PID_%1").arg(pid);
-    
-    for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &devInfoData); i++) {
-        QString hardwareId = getHardwareId(hDevInfo, &devInfoData);
-        
-        // Debug: show all USB devices being checked
-        if (hardwareId.contains("USB\\VID_", Qt::CaseInsensitive)) {
-            qCDebug(log_device_windows) << "Checking USB device:" << hardwareId;
-        }
-        
-        // Check if this device matches our VID/PID
-        if (hardwareId.contains(targetVidString, Qt::CaseInsensitive) &&
-            hardwareId.contains(targetPidString, Qt::CaseInsensitive)) {
-            
-            parentDevices.append(devInfoData.DevInst);
-            qCDebug(log_device_windows) << "Found matching parent USB device:" << hardwareId;
-        }
-    }
-    
-    SetupDiDestroyDeviceInfoList(hDevInfo);
-    return parentDevices;
 }
 
 QString WindowsDeviceManager::extractPortChainFromDeviceId(const QString& deviceId)
@@ -960,24 +830,11 @@ void WindowsDeviceManager::debugListAllUSBDevices()
 {
     qCDebug(log_device_windows) << "=== Debugging: All USB devices ===";
     
-    HDEVINFO hDevInfo = SetupDiGetClassDevs(
-        &GUID_DEVCLASS_USB,
-        NULL,
-        NULL,
-        DIGCF_PRESENT
-    );
+    QVector<QVariantMap> usbDevices = m_enumerator->enumerateDevicesByClass(GUID_DEVCLASS_USB);
     
-    if (hDevInfo == INVALID_HANDLE_VALUE) {
-        qCWarning(log_device_windows) << "Failed to get USB device list";
-        return;
-    }
-    
-    SP_DEVINFO_DATA devInfoData;
-    devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
-    
-    for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &devInfoData); i++) {
-        QString hardwareId = getHardwareId(hDevInfo, &devInfoData);
-        QString description = getDeviceProperty(hDevInfo, &devInfoData, SPDRP_DEVICEDESC);
+    for (const QVariantMap& device : usbDevices) {
+        QString hardwareId = device.value("hardwareId").toString();
+        QString description = device.value("description").toString();
         
         // Only show USB devices
         if (hardwareId.contains("USB\\VID_", Qt::CaseInsensitive)) {
@@ -986,7 +843,6 @@ void WindowsDeviceManager::debugListAllUSBDevices()
         }
     }
     
-    SetupDiDestroyDeviceInfoList(hDevInfo);
     qCDebug(log_device_windows) << "=== End USB device list ===";
 }
 
@@ -1161,29 +1017,7 @@ QString WindowsDeviceManager::findComPortByPortChain(const QString& portChain)
 
 QString WindowsDeviceManager::getPortChainForSerialPort(const QString& portName)
 {
-    // Find the device instance for this COM port and build its port chain
-    HDEVINFO hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_PORTS, nullptr, nullptr, DIGCF_PRESENT);
-    if (hDevInfo == INVALID_HANDLE_VALUE) {
-        return QString();
-    }
-    
-    SP_DEVINFO_DATA devInfoData;
-    devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
-    
-    for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &devInfoData); i++) {
-        QString friendlyName = getDeviceProperty(hDevInfo, &devInfoData, SPDRP_FRIENDLYNAME);
-        
-        // Check if this is our target port by friendly name
-        if (friendlyName.contains(QString("(%1)").arg(portName), Qt::CaseInsensitive)) {
-            // Build the port chain for this device
-            QString portChain = buildPythonCompatiblePortChain(devInfoData.DevInst);
-            SetupDiDestroyDeviceInfoList(hDevInfo);
-            return portChain;
-        }
-    }
-    
-    SetupDiDestroyDeviceInfoList(hDevInfo);
-    return QString();
+    return m_enumerator->getPortChainForSerialPort(portName);
 }
 
 QVector<QVariantMap> WindowsDeviceManager::enumerateDevicesByClassWithParentInfo(const GUID& classGuid)
@@ -2244,48 +2078,7 @@ QString WindowsDeviceManager::findSerialPortForPortChain(const QString& portChai
 
 QString WindowsDeviceManager::findHidDeviceForPortChain(const QString& portChain)
 {
-    qCDebug(log_device_windows) << "Searching for HID device associated with port chain:" << portChain;
-    
-    // Enumerate HID devices and look for ones that match our port chain
-    GUID hidGuid;
-    HidD_GetHidGuid(&hidGuid);
-    
-    HDEVINFO hDevInfo = SetupDiGetClassDevs(&hidGuid, nullptr, nullptr, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-    if (hDevInfo == INVALID_HANDLE_VALUE) {
-        return QString();
-    }
-    
-    SP_DEVICE_INTERFACE_DATA interfaceData;
-    interfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-    
-    for (DWORD i = 0; SetupDiEnumDeviceInterfaces(hDevInfo, nullptr, &hidGuid, i, &interfaceData); i++) {
-        SP_DEVINFO_DATA devInfoData;
-        devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
-        
-        DWORD requiredSize = 0;
-        SetupDiGetDeviceInterfaceDetail(hDevInfo, &interfaceData, nullptr, 0, &requiredSize, &devInfoData);
-        
-        if (requiredSize > 0) {
-            std::vector<BYTE> buffer(requiredSize);
-            PSP_DEVICE_INTERFACE_DETAIL_DATA detailData = reinterpret_cast<PSP_DEVICE_INTERFACE_DETAIL_DATA>(buffer.data());
-            detailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-            
-            if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &interfaceData, detailData, requiredSize, nullptr, &devInfoData)) {
-                QString deviceId = getDeviceId(devInfoData.DevInst);
-                QString devicePortChain = buildPythonCompatiblePortChain(devInfoData.DevInst);
-                
-                // Check if this HID device is associated with our target port chain
-                if (arePortChainsRelated(portChain, devicePortChain) && deviceId.toUpper().contains("MI_04")) {
-                    qCDebug(log_device_windows) << "  �?Found related HID device:" << deviceId;
-                    SetupDiDestroyDeviceInfoList(hDevInfo);
-                    return deviceId;
-                }
-            }
-        }
-    }
-    
-    SetupDiDestroyDeviceInfoList(hDevInfo);
-    return QString();
+    return m_enumerator->findHidDeviceForPortChain(portChain);
 }
 
 QString WindowsDeviceManager::findSerialPortByCompanionDevice(const USBDeviceData& companionDevice)

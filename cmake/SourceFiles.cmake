@@ -23,9 +23,21 @@ set(DEVICE_SOURCES
     device/HotplugMonitor.cpp device/HotplugMonitor.h
     device/platform/AbstractPlatformDeviceManager.cpp device/platform/AbstractPlatformDeviceManager.h
     device/platform/DeviceFactory.cpp device/platform/DeviceFactory.h
-    device/platform/windows/WinDeviceEnumerator.h device/platform/windows/WinDeviceEnumerator.cpp
-    device/platform/windows/IDeviceEnumerator.h
 )
+
+if(WIN32)
+    list(APPEND DEVICE_SOURCES
+        device/platform/WindowsDeviceManager.cpp device/platform/WindowsDeviceManager.h
+        device/platform/windows/WinDeviceEnumerator.cpp device/platform/windows/WinDeviceEnumerator.h
+        device/platform/windows/IDeviceEnumerator.h
+        device/platform/windows/discoverers/IDeviceDiscoverer.h
+        device/platform/windows/discoverers/BaseDeviceDiscoverer.cpp device/platform/windows/discoverers/BaseDeviceDiscoverer.h
+        device/platform/windows/discoverers/Generation1Discoverer.cpp device/platform/windows/discoverers/Generation1Discoverer.h
+        device/platform/windows/discoverers/Generation2Discoverer.cpp device/platform/windows/discoverers/Generation2Discoverer.h
+        device/platform/windows/discoverers/Generation3Discoverer.cpp device/platform/windows/discoverers/Generation3Discoverer.h
+        device/platform/windows/discoverers/DeviceDiscoveryManager.cpp device/platform/windows/discoverers/DeviceDiscoveryManager.h
+    )
+endif()
 
 # Host management
 set(HOST_SOURCES

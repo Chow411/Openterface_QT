@@ -4,6 +4,7 @@
 
 #include "AbstractPlatformDeviceManager.h"
 #include "windows/IDeviceEnumerator.h"
+#include "windows/discoverers/DeviceDiscoveryManager.h"
 #include <QLoggingCategory>
 #include <QMap>
 #include <memory>
@@ -22,7 +23,7 @@ public:
     explicit WindowsDeviceManager(std::unique_ptr<IDeviceEnumerator> enumerator, QObject *parent = nullptr);
     ~WindowsDeviceManager();
     
-    QList<DeviceInfo> discoverDevices() override;
+    QVector<DeviceInfo> discoverDevices() override;
     QString getPlatformName() const override { return "Windows"; }
     void clearCache() override;
     
@@ -40,6 +41,9 @@ private:
     
     // Device enumerator (abstraction layer for Windows API)
     std::unique_ptr<IDeviceEnumerator> m_enumerator;
+    
+    // Device discovery manager (coordinates generation-specific discoverers)
+    std::unique_ptr<DeviceDiscoveryManager> m_discoveryManager;
     
     // Enhanced USB device discovery - enumerate all devices first
     QVector<USBDeviceData> findUSBDevicesWithVidPid(const QString& vid, const QString& pid);
@@ -153,8 +157,11 @@ private:
     // Cleanup
     void cleanup();
     
+    // Discovery system initialization
+    void initializeDiscoveryManager();
+    
     // Member variables for caching
-    QList<DeviceInfo> m_cachedDevices;
+    QVector<DeviceInfo> m_cachedDevices;
     QDateTime m_lastCacheUpdate;
     static const int CACHE_TIMEOUT_MS = 5000; // 1 second cache
 };

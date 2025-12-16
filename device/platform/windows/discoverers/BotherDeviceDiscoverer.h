@@ -25,7 +25,7 @@ public:
     
     // IDeviceDiscoverer interface
     QVector<DeviceInfo> discoverDevices() override;
-    QString getGenerationName() const override { return "Bother Devices (Gen1 & Gen2)"; }
+    QString getGenerationName() const override { return "Bother Devices"; }
     QVector<QPair<QString, QString>> getSupportedVidPidPairs() const override;
     bool supportsVidPid(const QString& vid, const QString& pid) const override;
 

@@ -33,7 +33,7 @@ echo.
 
 REM Check if FFmpeg is installed
 if not exist "%FFMPEG_PREFIX%\lib\libavformat.a" (
-    echo [91mError: FFmpeg static libraries not found at %FFMPEG_PREFIX%[0m
+    echo Error: FFmpeg static libraries not found at %FFMPEG_PREFIX%
     echo.
     echo Please build FFmpeg first by running:
     echo   .\build-script\build-static-ffmpeg-windows.bat
@@ -41,7 +41,7 @@ if not exist "%FFMPEG_PREFIX%\lib\libavformat.a" (
     exit /b 1
 )
 
-echo [92m✓ FFmpeg libraries found[0m
+echo ✓ FFmpeg libraries found
 echo.
 
 REM Create build directory
@@ -57,12 +57,12 @@ cmake -B "%OUTPUT_DIR%" -S . -G "MinGW Makefiles" ^
     -DFFMPEG_PREFIX=%FFMPEG_PREFIX%
 
 if %errorlevel% neq 0 (
-    echo [91mCMake configuration failed![0m
+    echo CMake configuration failed!
     exit /b 1
 )
 
 echo.
-echo [92mCMake configuration successful![0m
+echo CMake configuration successful!
 echo.
 
 REM Build the project
@@ -70,14 +70,14 @@ echo Building project...
 cmake --build "%OUTPUT_DIR%" --config Debug -j2
 
 if %errorlevel% neq 0 (
-    echo [91mBuild failed![0m
+    echo Build failed
     exit /b 1
 )
 
 echo.
-echo [92m============================================================================[0m
-echo [92mBuild completed successfully![0m
-echo [92m============================================================================[0m
+echo ============================================================================
+echo Build completed successfully!
+echo ============================================================================
 echo.
 echo Executable location: %OUTPUT_DIR%\openterfaceQT.exe
 echo.

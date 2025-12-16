@@ -1,8 +1,7 @@
 ﻿#ifdef _WIN32
 #include "WindowsDeviceManager.h"
 #include "windows/WinDeviceEnumerator.h"
-#include "windows/discoverers/Generation1Discoverer.h"
-#include "windows/discoverers/Generation2Discoverer.h"
+#include "windows/discoverers/BotherDeviceDiscoverer.h"
 #include "windows/discoverers/Generation3Discoverer.h"
 #include <QDebug>
 #include <QSettings>
@@ -2899,12 +2898,10 @@ void WindowsDeviceManager::initializeDiscoveryManager()
     m_discoveryManager = std::make_unique<DeviceDiscoveryManager>(sharedEnumerator, this);
     
     // Register all generation discoverers
-    auto gen1Discoverer = std::make_shared<Generation1Discoverer>(sharedEnumerator, this);
-    auto gen2Discoverer = std::make_shared<Generation2Discoverer>(sharedEnumerator, this);
+    auto botherDiscoverer = std::make_shared<BotherDeviceDiscoverer>(sharedEnumerator, this);
     auto gen3Discoverer = std::make_shared<Generation3Discoverer>(sharedEnumerator, this);
     
-    m_discoveryManager->registerDiscoverer(gen1Discoverer);
-    m_discoveryManager->registerDiscoverer(gen2Discoverer);
+    m_discoveryManager->registerDiscoverer(botherDiscoverer);
     m_discoveryManager->registerDiscoverer(gen3Discoverer);
     
     qCDebug(log_device_windows) << "Discovery system initialized with" << m_discoveryManager->getDiscoverers().size() << "discoverers";

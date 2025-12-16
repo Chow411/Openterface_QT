@@ -32,8 +32,7 @@ if(WIN32)
         device/platform/windows/IDeviceEnumerator.h
         device/platform/windows/discoverers/IDeviceDiscoverer.h
         device/platform/windows/discoverers/BaseDeviceDiscoverer.cpp device/platform/windows/discoverers/BaseDeviceDiscoverer.h
-        device/platform/windows/discoverers/Generation1Discoverer.cpp device/platform/windows/discoverers/Generation1Discoverer.h
-        device/platform/windows/discoverers/Generation2Discoverer.cpp device/platform/windows/discoverers/Generation2Discoverer.h
+        device/platform/windows/discoverers/BotherDeviceDiscoverer.cpp device/platform/windows/discoverers/BotherDeviceDiscoverer.h
         device/platform/windows/discoverers/Generation3Discoverer.cpp device/platform/windows/discoverers/Generation3Discoverer.h
         device/platform/windows/discoverers/DeviceDiscoveryManager.cpp device/platform/windows/discoverers/DeviceDiscoveryManager.h
     )

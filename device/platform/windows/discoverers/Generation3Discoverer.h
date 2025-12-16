@@ -2,7 +2,7 @@
 #define GENERATION3DISCOVERER_H
 
 #include "BaseDeviceDiscoverer.h"
-#include "../../DeviceConstants.h"
+#include "device/platform/DeviceConstants.h"
 
 /**
  * @brief Generation 3 device discoverer (USB 3.0 integrated devices)

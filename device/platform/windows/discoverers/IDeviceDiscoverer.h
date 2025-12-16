@@ -9,7 +9,7 @@
 #include <QLoggingCategory>
 #include <memory>
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(Q_MOC_RUN)
 #include <windows.h>
 #include <setupapi.h>
 #include <cfgmgr32.h>

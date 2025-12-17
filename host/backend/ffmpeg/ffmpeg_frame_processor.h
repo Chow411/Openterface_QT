@@ -104,6 +104,7 @@ private:
     bool IsHardwareDecoder(const AVCodecContext* codec_context) const;
     void UpdateScalingContext(int width, int height, AVPixelFormat format);
     void CleanupScalingContext();
+    void ApplySharpeningFilter(uint8_t *buffer, int width, int height);
     
     // Frame conversion resources
     SwsContext* sws_context_;

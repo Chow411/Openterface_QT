@@ -68,10 +68,20 @@ VideoPane::VideoPane(QWidget *parent) : QGraphicsView(parent),
     setDragMode(QGraphicsView::NoDrag);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    
+    // ============ HIGH QUALITY RENDERING FOR BETTER VIDEO QUALITY ============
     setRenderHint(QPainter::Antialiasing, true);
     setRenderHint(QPainter::SmoothPixmapTransform, true);
-    setOptimizationFlag(QGraphicsView::DontAdjustForAntialiasing, true);
-    setViewportUpdateMode(QGraphicsView::SmartViewportUpdate);
+    setRenderHint(QPainter::TextAntialiasing, true);  // Critical for text clarity
+    
+    // DO NOT use DontAdjustForAntialiasing - it degrades quality for performance
+    // setOptimizationFlag(QGraphicsView::DontAdjustForAntialiasing, true);  // REMOVED
+    
+    // Use full viewport updates for best quality (slight performance cost)
+    setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    
+    // Enable cache for better rendering quality
+    setCacheMode(QGraphicsView::CacheBackground);
 
     this->setMouseTracking(true);
     this->installEventFilter(m_inputHandler);
@@ -1134,6 +1144,15 @@ void VideoPane::updateVideoFrame(const QPixmap& frame)
         m_pixmapItem = m_scene->addPixmap(frame);
         m_pixmapItem->setZValue(2); // Above video item and GStreamer overlay
         m_pixmapItem->setVisible(true);
+        
+        // ============ CRITICAL: Enable smooth transformation for high quality ============
+        m_pixmapItem->setTransformationMode(Qt::SmoothTransformation);
+        
+        // Enable device coordinate caching for better quality rendering
+        m_pixmapItem->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
+        
+        qCDebug(log_ui_video) << "VideoPane: Created pixmap item with SmoothTransformation and caching enabled";
+        
         pixmapCreateTime = sectionTimer.restart();
         
         // CRITICAL: Hide Qt video item to prevent interference
@@ -1158,6 +1177,12 @@ void VideoPane::updateVideoFrame(const QPixmap& frame)
         // Ensure pixmap item is visible (only if needed)
         if (!m_pixmapItem->isVisible()) {
             m_pixmapItem->setVisible(true);
+        }
+        
+        // ============ QUALITY CHECK: Ensure smooth transformation is always enabled ============
+        if (m_pixmapItem->transformationMode() != Qt::SmoothTransformation) {
+            m_pixmapItem->setTransformationMode(Qt::SmoothTransformation);
+            qCDebug(log_ui_video) << "VideoPane: Re-enabled SmoothTransformation on pixmap item";
         }
         
         // Ensure item is properly added to scene if it somehow got removed
@@ -1285,6 +1310,8 @@ void VideoPane::updateVideoFrame(const QPixmap& frame)
         qCDebug(log_ui_video) << "  View update:" << viewUpdateTime << "ms";
     }
 }
+
+
 void VideoPane::enableDirectFFmpegMode(bool enable)
 {
     qCDebug(log_ui_video) << "VideoPane: enableDirectFFmpegMode called with:" << enable << "current mode:" << m_directFFmpegMode;

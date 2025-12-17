@@ -40,7 +40,7 @@ FFmpegFrameProcessor::FFmpegFrameProcessor()
     , last_height_(-1)
     , last_format_(AV_PIX_FMT_NONE)
     , last_scaling_algorithm_(-1)
-    , scaling_algorithm_(SWS_LANCZOS)
+    , scaling_algorithm_(SWS_BILINEAR)
     , frame_drop_threshold_display_(16)    // Restore: ~60fps capable (drop if >16ms processing)
     , frame_drop_threshold_recording_(33)  // Restore: ~30fps capable (drop if >33ms processing)
     , last_process_time_(0)
@@ -318,7 +318,7 @@ QPixmap FFmpegFrameProcessor::ProcessPacket(AVPacket* packet, AVCodecContext* co
 }
 
 QImage FFmpegFrameProcessor::ProcessPacketToImage(AVPacket* packet, AVCodecContext* codec_context, 
-                                                   bool is_recording)
+                                                   bool is_recording, const QSize& targetSize)
 {
     // OPTIMIZATION: Decode directly to QImage to avoid QPixmap creation on worker thread
     if (stop_requested_) {
@@ -389,7 +389,7 @@ QImage FFmpegFrameProcessor::ProcessPacketToImage(AVPacket* packet, AVCodecConte
     }
     
     // Convert frame directly to QImage (bypassing QPixmap)
-    QImage result = ConvertFrameToImage(frame_to_convert);
+    QImage result = ConvertFrameToImage(frame_to_convert, targetSize);
     
     if (sw_frame) {
         AV_FRAME_RESET(sw_frame);
@@ -670,7 +670,7 @@ QPixmap FFmpegFrameProcessor::ConvertWithScaling(AVFrame* frame)
     AVPixelFormat format = static_cast<AVPixelFormat>(frame->format);
     
     // Update scaling context if needed (this method handles its own mutex locking)
-    UpdateScalingContext(width, height, format);
+    UpdateScalingContext(width, height, format, QSize());
     
     // Check if scaling context is available (use mutex to protect sws_context_ access)
     {
@@ -715,7 +715,7 @@ QPixmap FFmpegFrameProcessor::ConvertWithScaling(AVFrame* frame)
 }
 
 // Thread-safe QImage conversion methods (avoid QPixmap on worker thread)
-QImage FFmpegFrameProcessor::ConvertFrameToImage(AVFrame* frame)
+QImage FFmpegFrameProcessor::ConvertFrameToImage(AVFrame* frame, const QSize& targetSize)
 {
     if (!frame) {
         return QImage();
@@ -730,15 +730,26 @@ QImage FFmpegFrameProcessor::ConvertFrameToImage(AVFrame* frame)
         return QImage();
     }
     
-    // Try fast path for RGB formats
-    if (format == AV_PIX_FMT_RGB24 || format == AV_PIX_FMT_BGR24 || 
-        format == AV_PIX_FMT_RGBA || format == AV_PIX_FMT_BGRA ||
-        format == AV_PIX_FMT_BGR0 || format == AV_PIX_FMT_RGB0) {
+    // OPTIMIZATION: Skip conversion entirely if frame already matches target
+    if (targetSize.isValid() && 
+        frame->width == targetSize.width() && 
+        frame->height == targetSize.height() &&
+        (format == AV_PIX_FMT_RGB24 || format == AV_PIX_FMT_BGR24)) {
+        
+        // Direct copy without scaling - FASTEST PATH
         return ConvertRgbFrameDirectlyToImage(frame);
     }
     
-    // Use scaling for other formats
-    return ConvertWithScalingToImage(frame);
+    // Try fast path for RGB formats only if no scaling needed
+    if ((format == AV_PIX_FMT_RGB24 || format == AV_PIX_FMT_BGR24 || 
+         format == AV_PIX_FMT_RGBA || format == AV_PIX_FMT_BGRA ||
+         format == AV_PIX_FMT_BGR0 || format == AV_PIX_FMT_RGB0) &&
+        (!targetSize.isValid() || (targetSize.width() == width && targetSize.height() == height))) {
+        return ConvertRgbFrameDirectlyToImage(frame);
+    }
+    
+    // Use scaling for other formats or when target size is specified
+    return ConvertWithScalingToImage(frame, targetSize);
 }
 
 QImage FFmpegFrameProcessor::ConvertRgbFrameDirectlyToImage(AVFrame* frame)
@@ -764,14 +775,18 @@ QImage FFmpegFrameProcessor::ConvertRgbFrameDirectlyToImage(AVFrame* frame)
     return image.copy();
 }
 
-QImage FFmpegFrameProcessor::ConvertWithScalingToImage(AVFrame* frame)
+QImage FFmpegFrameProcessor::ConvertWithScalingToImage(AVFrame* frame, const QSize& targetSize)
 {
     int width = frame->width;
     int height = frame->height;
     AVPixelFormat format = static_cast<AVPixelFormat>(frame->format);
     
+    // Determine target dimensions
+    int targetWidth = targetSize.isValid() ? targetSize.width() : width;
+    int targetHeight = targetSize.isValid() ? targetSize.height() : height;
+    
     // Update scaling context if needed
-    UpdateScalingContext(width, height, format);
+    UpdateScalingContext(width, height, format, targetSize);
     
     // Check if scaling context is available
     {
@@ -781,8 +796,8 @@ QImage FFmpegFrameProcessor::ConvertWithScalingToImage(AVFrame* frame)
         }
     }
     
-    // Allocate RGB image (using ARGB32 for better compatibility and quality)
-    QImage image(width, height, QImage::Format_ARGB32);
+    // Allocate RGB image with target dimensions
+    QImage image(targetWidth, targetHeight, QImage::Format_ARGB32);
     if (image.isNull()) {
         return QImage();
     }
@@ -799,22 +814,35 @@ QImage FFmpegFrameProcessor::ConvertWithScalingToImage(AVFrame* frame)
                                  0, height, rgb_data, rgb_linesize);
     }
     
-    if (scale_result < 0 || scale_result != height) {
+    if (scale_result < 0 || scale_result != targetHeight) {
         return QImage();
     }
     
     return image.copy();  // Ensure thread-safe copy
 }
 
-void FFmpegFrameProcessor::UpdateScalingContext(int width, int height, AVPixelFormat format)
+void FFmpegFrameProcessor::UpdateScalingContext(int width, int height, AVPixelFormat format, const QSize& targetSize)
 {
     QMutexLocker locker(&mutex_);
     
-    if (sws_context_ && width == last_width_ && height == last_height_ && format == last_format_ && scaling_algorithm_ == last_scaling_algorithm_) {
+    // Determine target dimensions
+    int targetWidth = targetSize.isValid() ? targetSize.width() : width;
+    int targetHeight = targetSize.isValid() ? targetSize.height() : height;
+    
+    // Check if context needs update (including target dimensions)
+    static int last_target_width_ = -1;
+    static int last_target_height_ = -1;
+    
+    if (sws_context_ && width == last_width_ && height == last_height_ && format == last_format_ && 
+        scaling_algorithm_ == last_scaling_algorithm_ && targetWidth == last_target_width_ && targetHeight == last_target_height_) {
         return; // Context is still valid
     }
     
     CleanupScalingContext();
+    
+    // Update cached target dimensions
+    last_target_width_ = targetWidth;
+    last_target_height_ = targetHeight;
     
     const char* format_name = av_get_pix_fmt_name(format);
     const char* algorithm_name = "unknown";
@@ -825,19 +853,28 @@ void FFmpegFrameProcessor::UpdateScalingContext(int width, int height, AVPixelFo
     
     qCInfo(log_ffmpeg_backend) << "Creating scaling context:" 
                                << width << "x" << height 
+                               << "to" << targetWidth << "x" << targetHeight
                                << "from format" << format << "(" << (format_name ? format_name : "unknown") << ")"
                                << "to RGB32 (32-bit ARGB)"
                                << "with algorithm" << algorithm_name;
     
-    // ============ BALANCED SCALING FOR PERFORMANCE + QUALITY ============
-    // Use LANCZOS algorithm without extra dithering flags
-    // SWS_ACCURATE_RND adds per-pixel overhead (expensive!)
-    // LANCZOS alone provides good quality/performance balance
+    // OPTIMIZATION: Choose scaling algorithm based on performance needs
+    int scaling_flags;
+    
+    if (targetSize.isValid() && (targetSize.width() == width && targetSize.height() == height)) {
+        // No scaling needed - use fastest point sampling
+        scaling_flags = SWS_POINT;
+        qCDebug(log_ffmpeg_backend) << "Using point sampling (no scaling needed)";
+    } else {
+        // Real scaling needed - use fast bilinear for low latency
+        scaling_flags = SWS_FAST_BILINEAR;
+        qCDebug(log_ffmpeg_backend) << "Using fast bilinear scaling for low latency";
+    }
     
     sws_context_ = sws_getContext(
         width, height, format,
-        width, height, AV_PIX_FMT_RGB32,
-        scaling_algorithm_,  // Just the algorithm, no extra flags
+        targetWidth, targetHeight, AV_PIX_FMT_RGB32,
+        scaling_flags,  // Optimized for performance
         nullptr, nullptr, nullptr
     );
     
@@ -846,7 +883,7 @@ void FFmpegFrameProcessor::UpdateScalingContext(int width, int height, AVPixelFo
         return;
     }
     
-    qCInfo(log_ffmpeg_backend) << "Scaling context: LANCZOS (balanced quality/performance)";
+    qCInfo(log_ffmpeg_backend) << "Scaling context created successfully";
     
     // ============ CRITICAL: Set color space for MJPEG quality ============
     // MJPEG uses YUVJ (full range YUV), not limited range YUV

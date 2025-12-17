@@ -21,7 +21,7 @@ set CMAKE_C_COMPILER=%MINGW_PATH%\bin\gcc.exe
 set CMAKE_CXX_COMPILER=%MINGW_PATH%\bin\g++.exe
 
 REM Set output directory (change this to your desired path)
-set OUTPUT_DIR=build/Debug
+set OUTPUT_DIR=build/Release
 
 echo ============================================================================
 echo Building Openterface_QT with Static FFmpeg
@@ -67,7 +67,7 @@ echo.
 
 REM Build the project
 echo Building project...
-cmake --build "%OUTPUT_DIR%" --config Debug -j2
+cmake --build "%OUTPUT_DIR%" --config Release -j2
 
 if %errorlevel% neq 0 (
     echo Build failed

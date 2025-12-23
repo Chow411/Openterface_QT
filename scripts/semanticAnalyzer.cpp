@@ -38,6 +38,17 @@ SemanticAnalyzer::SemanticAnalyzer(MouseManager* mouseManager, KeyboardMouse* ke
     }
 }
 
+void SemanticAnalyzer::analyzeTree(std::shared_ptr<ASTNode> tree) {
+    if (!tree) {
+        qCDebug(log_script) << "analyzeTree: null tree";
+        emit analysisFinished(false);
+        return;
+    }
+    currentTree = std::move(tree);
+    bool ok = analyze(currentTree.get());
+    emit analysisFinished(ok);
+}
+
 bool SemanticAnalyzer::analyze(const ASTNode* node) {
     if (!node) {
         qDebug(log_script) << "Received null node in analyze method.";
@@ -60,7 +71,34 @@ bool SemanticAnalyzer::analyze(const ASTNode* node) {
         case ASTNodeType::CommandStatement:
             qDebug(log_script) << "Analyzing command statement.";
             emit commandIncrease();
-            analyzeCommandStetement(static_cast<const CommandStatementNode*>(node));
+            // If the command is purely a sleep, handle locally in worker thread
+            {
+                const CommandStatementNode* cmd = static_cast<const CommandStatementNode*>(node);
+                QString commandName = cmd->getCommandName();
+                if (commandName == "Sleep") {
+                    analyzeSleepStatement(cmd);
+                } else if (executor) {
+                    // Route command execution to main thread synchronously
+                    bool execResult = false;
+                    bool invoked = QMetaObject::invokeMethod(
+                        executor,
+                        "executeCommand",
+                        Qt::BlockingQueuedConnection,
+                        Q_RETURN_ARG(bool, execResult),
+                        Q_ARG(const ASTNode*, node)
+                    );
+                    if (!invoked) {
+                        qCDebug(log_script) << "Failed to invoke executeCommand on executor";
+                        analysisSuccess = false;
+                    } else if (!execResult) {
+                        qCDebug(log_script) << "executeCommand reported failure";
+                        analysisSuccess = false;
+                    }
+                } else {
+                    // Fallback to old behavior (not recommended for thread safety)
+                    analyzeCommandStetement(cmd);
+                }
+            }
             break;
             
         default:

@@ -47,15 +47,22 @@ public:
     SemanticAnalyzer(MouseManager* mouseManager, KeyboardMouse* keyboardMouse, QObject* parent = nullptr);
     bool analyze(const ASTNode* node);
 
+public slots:
+    void analyzeTree(std::shared_ptr<ASTNode> tree);
+    void setExecutor(QObject* exec) { executor = exec; }
 
 signals:
     void captureImg(const QString& path = "");
     void captureAreaImg(const QString& path = "", const QRect& captureArea = QRect());
     void commandIncrease();
+    void analysisFinished(bool success);
 
 private:
     MouseManager* mouseManager;
     KeyboardMouse* keyboardMouse;
+    std::shared_ptr<ASTNode> currentTree;
+    QObject* executor = nullptr; // object living in main thread used for command execution
+
     void analyzeCommandStetement(const CommandStatementNode* node);
     void analyzeClickStatement(const CommandStatementNode* node);
     void analyzeSendStatement(const CommandStatementNode* node);

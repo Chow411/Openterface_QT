@@ -25,18 +25,21 @@ echo ===========================================================================
 
 REM Locate Git Bash (prefer it over WSL bash)
 set "GIT_BASH="
-if exist "C:\Program Files\Git\bin\bash.exe" (
-    set "GIT_BASH=C:\Program Files\Git\bin\bash.exe"
-) else if exist "C:\Program Files (x86)\Git\bin\bash.exe" (
-    set "GIT_BASH=C:\Program Files (x86)\Git\bin\bash.exe"
+for /f "tokens=*" %%i in ('where git 2^>nul') do set GIT_EXE=%%i
+if defined GIT_EXE (
+    set "GIT_DIR=!GIT_EXE:\cmd\git.exe=!"
+    set "GIT_BASH=!GIT_DIR!\bin\bash.exe"
+    if exist "!GIT_BASH!" (
+        echo Using Git Bash: !GIT_BASH!
+    ) else (
+        set "GIT_BASH="
+    )
 )
 
 if not defined GIT_BASH (
     echo ERROR: Git Bash not found. Please install Git for Windows.
     exit /b 1
 )
-
-echo Using Git Bash: !GIT_BASH!
 
 REM Check build script exists
 set "SCRIPT_PATH=%SCRIPT_DIR%build-shared-ffmpeg-windows.sh"

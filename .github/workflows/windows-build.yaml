@@ -138,49 +138,14 @@ jobs:
           modules: qtmultimedia qtserialport qtimageformats
           setup-python: false
 
-      - name: Install 7zip (for extraction)
-        shell: pwsh
+      - name: Build Shared FFmpeg (using Qt's MinGW)
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          choco install -y 7zip --no-progress
-
-      - name: Download and extract external MinGW
-        shell: pwsh
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        run: |
-          $mingwUrl = 'https://github.com/cristianadam/mingw-builds/releases/download/v11.2.0-rev3/x86_64-11.2.0-release-posix-seh-rt_v9-rev3.7z'
-          $dest = 'C:\mingw-external'
-          New-Item -ItemType Directory -Force -Path $dest
-          $archive = "${env:RUNNER_TEMP}\mingw.7z"
-          Invoke-WebRequest -Uri $mingwUrl -OutFile $archive
-          & 7z x $archive -o$dest -y
-          $extracted = Get-ChildItem $dest | Where-Object {$_.PsIsContainer} | Select-Object -First 1
-          $mingwDir = (Join-Path $dest $extracted.Name).TrimEnd('\')
-          Write-Host "MINGW_DIR: $mingwDir"
-          echo "$mingwDir\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "EXTERNAL_MINGW=$mingwDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SKIP_MSYS_MINGW=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Ensure Bash (Git Bash) is available
-        shell: pwsh
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        run: |
-          $bash = Get-Command bash.exe -ErrorAction SilentlyContinue
-          if (-not $bash) {
-            choco install -y git --no-progress
-          }
-          $bashPath = (Get-Command bash.exe -ErrorAction SilentlyContinue).Path
-          Write-Host "Found bash at $bashPath"
-
-      - name: Build Shared FFmpeg (external MinGW)
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        run: |
-          echo "Building shared FFmpeg with external MinGW..."
+          echo "Building shared FFmpeg using Qt's MinGW..."
+          set "EXTERNAL_MINGW=${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64"
           echo "DEBUG: EXTERNAL_MINGW=%EXTERNAL_MINGW%"
           echo "DEBUG: PATH=%PATH%"
-          where bash || echo "bash not found"
           where gcc || echo "gcc not found"
-          dir C:\mingw-external || echo "C:\mingw-external not found"
           cd build-script
           call build-shared-ffmpeg-windows.bat
 
@@ -197,7 +162,8 @@ jobs:
         working-directory: ${{ runner.temp }}\build
         run: |
           echo "Setting up build environment..."
-          set PATH=%EXTERNAL_MINGW%\bin;${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin;%PATH%
+          set "EXTERNAL_MINGW=${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64"
+          set PATH=%EXTERNAL_MINGW%\bin;%PATH%
 
           echo "Updating translations with lupdate..."
           lupdate ${{ env.SOURCE_DIR }}\openterfaceQT.pro

@@ -167,8 +167,14 @@ if not exist "build" mkdir build
 cd build
 if errorlevel 1 (exit /b 1)
 echo Configuring libjpeg-turbo ^(shared^)...
-cmake .. -G "MinGW Makefiles" -DCMAKE_INSTALL_PREFIX="%FFMPEG_INSTALL_PREFIX%" -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=ON -DENABLE_STATIC=OFF -DWITH_JPEG8=ON -DWITH_TURBOJPEG=ON
-if errorlevel 1 (exit /b 1)
+cmake .. -G "MinGW Makefiles" ^
+  -DCMAKE_INSTALL_PREFIX="%FFMPEG_INSTALL_PREFIX%" ^
+  -DCMAKE_BUILD_TYPE=Release ^
+  -DENABLE_SHARED=ON ^
+  -DENABLE_STATIC=OFF ^
+  -DWITH_JPEG8=ON ^
+  -DWITH_TURBOJPEG=ON ^
+  -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON
 echo Building libjpeg-turbo with %NUM_CORES% cores...
 mingw32-make -j%NUM_CORES% || make -j%NUM_CORES%
 if errorlevel 1 (exit /b 1)
@@ -182,10 +188,11 @@ echo libjpeg-turbo built and installed ^(shared^).
 :skip_libjpeg_turbo
 echo.
 
+dir "%FFMPEG_INSTALL_PREFIX%\lib\libturbojpeg*"
 
 REM Set extra flags (use UNIX-style paths for compiler/linker)
 set "EXTRA_CFLAGS=-I%FFMPEG_INSTALL_PREFIX%\include"
-set "EXTRA_LDFLAGS=-L%FFMPEG_INSTALL_PREFIX%\lib -lturbojpeg -lz -lbz2 -llzma -lwinpthread"
+set "EXTRA_LDFLAGS=-L%FFMPEG_INSTALL_PREFIX%\lib -lz -lbz2 -llzma -lwinpthread"
 set "NVENC_ARG=--disable-nvenc"
 set "CUDA_ARG=--enable-decoder=mjpeg"
 

@@ -170,10 +170,10 @@ echo Configuring libjpeg-turbo ^(shared^)...
 cmake .. -G "MinGW Makefiles" -DCMAKE_INSTALL_PREFIX="%FFMPEG_INSTALL_PREFIX%" -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=ON -DENABLE_STATIC=OFF -DWITH_JPEG8=ON -DWITH_TURBOJPEG=ON
 if errorlevel 1 (exit /b 1)
 echo Building libjpeg-turbo with %NUM_CORES% cores...
-mingw32-make -j%NUM_CORES% 2>nul || make -j%NUM_CORES%
+mingw32-make -j%NUM_CORES% || make -j%NUM_CORES%
 if errorlevel 1 (exit /b 1)
 echo Installing libjpeg-turbo...
-mingw32-make install 2>nul || make install
+mingw32-make install || make install
 if errorlevel 1 (exit /b 1)
 cd "%BUILD_DIR%"
 rmdir /s /q "libjpeg-turbo-%LIBJPEG_TURBO_VERSION%"
@@ -185,7 +185,7 @@ echo.
 
 REM Set extra flags (use UNIX-style paths for compiler/linker)
 set "EXTRA_CFLAGS=-I%FFMPEG_INSTALL_PREFIX%\include"
-set "EXTRA_LDFLAGS=-L%FFMPEG_INSTALL_PREFIX%\lib -lz -lbz2 -llzma -lwinpthread"
+set "EXTRA_LDFLAGS=-L%FFMPEG_INSTALL_PREFIX%\lib -lturbojpeg -lz -lbz2 -llzma -lwinpthread"
 set "NVENC_ARG=--disable-nvenc"
 set "CUDA_ARG=--enable-decoder=mjpeg"
 
@@ -251,7 +251,7 @@ echo.
 REM Build FFmpeg
 echo Building FFmpeg...
 echo Using %NUM_CORES% CPU cores for compilation
-mingw32-make -j%NUM_CORES% 2>nul || make -j%NUM_CORES%
+mingw32-make -j%NUM_CORES% || make -j%NUM_CORES%
 if errorlevel 1 (
     echo ERROR: FFmpeg build failed.
     exit /b 1
@@ -261,7 +261,7 @@ echo.
 
 REM Install FFmpeg
 echo Installing FFmpeg to %FFMPEG_INSTALL_PREFIX%...
-mingw32-make install 2>nul || make install
+mingw32-make install || make install
 if errorlevel 1 (
     echo ERROR: FFmpeg install failed.
     exit /b 1

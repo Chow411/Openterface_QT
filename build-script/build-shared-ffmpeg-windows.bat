@@ -213,12 +213,9 @@ echo.
 
 REM Extract FFmpeg
 echo Extracting source code...
-if not exist "ffmpeg-%FFMPEG_VERSION%" (
-    tar -xjf "ffmpeg-%FFMPEG_VERSION%.tar.bz2" >nul 2>&1
-    echo Source extracted
-) else (
-    echo Source already extracted
-)
+if exist "ffmpeg-%FFMPEG_VERSION%" rmdir /s /q "ffmpeg-%FFMPEG_VERSION%"
+tar -xjf "ffmpeg-%FFMPEG_VERSION%.tar.bz2" >nul 2>&1
+echo Source extracted
 cd "ffmpeg-%FFMPEG_VERSION%"
 echo.
 

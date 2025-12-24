@@ -224,7 +224,21 @@ REM Configure FFmpeg
 echo Configuring FFmpeg for shared build...
 set "PKG_CONFIG_PATH=%FFMPEG_INSTALL_PREFIX%\lib\pkgconfig;%PKG_CONFIG_PATH%"
 
-%GIT_BASH% ./configure --prefix="%FFMPEG_INSTALL_PREFIX%" --arch=x86_64 --target-os=mingw32 --enable-shared --disable-static --enable-gpl --enable-version3 --enable-nonfree --disable-debug --disable-programs --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages --disable-outdevs --enable-avcodec --enable-avformat --enable-avutil --enable-swresample --enable-swscale --enable-avdevice --enable-avfilter --enable-postproc --enable-network --enable-runtime-cpudetect --enable-pthreads --disable-w32threads --enable-zlib --enable-bzlib --enable-lzma --enable-dxva2 --enable-d3d11va --enable-hwaccels --enable-decoder=mjpeg --enable-cuda --enable-cuvid --enable-nvdec %NVENC_ARG% --enable-ffnvcodec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid --pkg-config-flags="" --extra-cflags="%EXTRA_CFLAGS%" --extra-ldflags="%EXTRA_LDFLAGS%"
+%GIT_BASH% ./configure ^
+--prefix="%FFMPEG_INSTALL_PREFIX%" ^
+--arch=x86_64 ^
+--target-os=mingw32 ^
+--enable-shared --disable-static ^
+--enable-gpl --enable-version3 --enable-nonfree ^
+--disable-debug --disable-programs --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages --disable-outdevs ^
+--enable-avcodec --enable-avformat --enable-avutil --enable-swresample --enable-swscale ^
+--enable-avdevice --enable-avfilter --enable-postproc ^
+--enable-network --enable-runtime-cpudetect --enable-pthreads --disable-w32threads ^
+--enable-zlib --enable-bzlib --enable-lzma ^
+--enable-dxva2 --enable-d3d11va --enable-hwaccels ^
+--enable-decoder=mjpeg --enable-cuda --enable-cuvid --enable-nvdec %NVENC_ARG% --enable-ffnvcodec ^
+--enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid ^
+--pkg-config-flags="" --extra-cflags="%EXTRA_CFLAGS%" --extra-ldflags="%EXTRA_LDFLAGS%"
 
 if errorlevel 1 (
     echo ERROR: FFmpeg configure failed.

@@ -141,7 +141,7 @@ echo Build directory ready: %BUILD_DIR%
 echo.
 
 REM === Convert install prefix to forward slashes for build tools ===
-set "FFMPEG_INSTALL_PREFIX_UNIX=%FFMPEG_INSTALL_PREFIX:\=/"
+REM (Removed - cmake handles Windows paths fine)
 
 REM Build libjpeg-turbo
 echo Building libjpeg-turbo %LIBJPEG_TURBO_VERSION% ^(shared^)...
@@ -164,7 +164,7 @@ if not exist "build" mkdir build
 cd build
 if errorlevel 1 (exit /b 1)
 echo Configuring libjpeg-turbo ^(shared^)...
-cmake .. -G "MinGW Makefiles" -DCMAKE_INSTALL_PREFIX="%FFMPEG_INSTALL_PREFIX_UNIX%" -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=ON -DENABLE_STATIC=OFF -DWITH_JPEG8=ON -DWITH_TURBOJPEG=ON
+cmake .. -G "MinGW Makefiles" -DCMAKE_INSTALL_PREFIX="%FFMPEG_INSTALL_PREFIX%" -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=ON -DENABLE_STATIC=OFF -DWITH_JPEG8=ON -DWITH_TURBOJPEG=ON
 if errorlevel 1 (exit /b 1)
 echo Building libjpeg-turbo with %NUM_CORES% cores...
 mingw32-make -j%NUM_CORES% 2>nul || make -j%NUM_CORES%
@@ -181,8 +181,8 @@ echo.
 
 
 REM Set extra flags (use UNIX-style paths for compiler/linker)
-set "EXTRA_CFLAGS=-I%FFMPEG_INSTALL_PREFIX_UNIX%/include"
-set "EXTRA_LDFLAGS=-L%FFMPEG_INSTALL_PREFIX_UNIX%/lib -lz -lbz2 -llzma -lwinpthread"
+set "EXTRA_CFLAGS=-I%FFMPEG_INSTALL_PREFIX%\include"
+set "EXTRA_LDFLAGS=-L%FFMPEG_INSTALL_PREFIX%\lib -lz -lbz2 -llzma -lwinpthread"
 set "NVENC_ARG=--disable-nvenc"
 
 if defined ENABLE_NVENC (
@@ -219,10 +219,10 @@ echo.
 
 REM Configure FFmpeg
 echo Configuring FFmpeg for shared build...
-set "PKG_CONFIG_PATH=%FFMPEG_INSTALL_PREFIX_UNIX%/lib/pkgconfig;%PKG_CONFIG_PATH%"
+set "PKG_CONFIG_PATH=%FFMPEG_INSTALL_PREFIX%\lib\pkgconfig;%PKG_CONFIG_PATH%"
 
 .\configure ^
-    --prefix="%FFMPEG_INSTALL_PREFIX_UNIX%" ^
+    --prefix="%FFMPEG_INSTALL_PREFIX%" ^
     --arch=x86_64 ^
     --target-os=mingw32 ^
     --enable-shared ^

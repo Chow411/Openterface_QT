@@ -26,16 +26,12 @@ void ScriptRunner::runTree(std::shared_ptr<ASTNode> tree, QObject* originSender)
     if (m_executor) {
         connect(workerAnalyzer, &SemanticAnalyzer::captureImg, m_executor, &ScriptExecutor::captureImg, Qt::QueuedConnection);
         connect(workerAnalyzer, &SemanticAnalyzer::captureAreaImg, m_executor, &ScriptExecutor::captureAreaImg, Qt::QueuedConnection);
+        connect(workerAnalyzer, &SemanticAnalyzer::commandData, m_executor, &ScriptExecutor::executeCommand, Qt::QueuedConnection);
     }
 
     // Connect command increase to the script tool UI
     if (m_tool) {
         connect(workerAnalyzer, &SemanticAnalyzer::commandIncrease, m_tool, &ScriptTool::handleCommandIncrement, Qt::QueuedConnection);
-    }
-
-    // Use executor for synchronous main-thread command execution
-    if (m_executor) {
-        workerAnalyzer->setExecutor(m_executor);
     }
 
     // When analysis finishes, emit up and stop thread

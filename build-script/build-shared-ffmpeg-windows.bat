@@ -157,7 +157,7 @@ if not exist "libjpeg-turbo.tar.gz" (
     curl -L "%LIBJPEG_TURBO_URL%" -o "libjpeg-turbo.tar.gz"
 )
 echo Extracting libjpeg-turbo...
-tar -xzf "libjpeg-turbo.tar.gz"
+tar -xzf "libjpeg-turbo.tar.gz" >nul 2>&1
 cd "libjpeg-turbo-%LIBJPEG_TURBO_VERSION%"
 if errorlevel 1 (exit /b 1)
 if not exist "build" mkdir build
@@ -209,7 +209,7 @@ echo.
 REM Extract FFmpeg
 echo Extracting source code...
 if not exist "ffmpeg-%FFMPEG_VERSION%" (
-    tar -xjf "ffmpeg-%FFMPEG_VERSION%.tar.bz2"
+    tar -xjf "ffmpeg-%FFMPEG_VERSION%.tar.bz2" >nul 2>&1
     echo Source extracted
 ) else (
     echo Source already extracted

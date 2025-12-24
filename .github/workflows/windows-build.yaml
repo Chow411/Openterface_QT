@@ -76,6 +76,7 @@ jobs:
       - name: Ensure MSYS2 packages installed
         shell: bash
         run: |
+          export PATH=/c/msys64/usr/bin:$PATH
           pacman -S --noconfirm --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-nasm mingw-w64-x86_64-make mingw-w64-x86_64-pkg-config mingw-w64-x86_64-zlib mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-libjpeg-turbo
 
       - name: Install MinGW and CMake
@@ -101,8 +102,6 @@ jobs:
           key: choco-packages-windows
           restore-keys: |
             choco-packages-windows
-
-      # MSYS2 caching removed — using MSYS2 MinGW instead
 
       - name: Cache FFmpeg (shared)
         id: cache-ffmpeg

@@ -124,7 +124,7 @@ jobs:
           Write-Host "Installing NASM via Chocolatey..."
           choco install -y nasm --no-progress
           Write-Host "Verifying NASM installation..."
-          & "C:\ProgramData\chocolatey\bin\nasm.exe" --version
+          nasm --version
           if ($LASTEXITCODE -ne 0) {
             Write-Error "NASM installation failed"
             exit 1
@@ -170,7 +170,7 @@ jobs:
         run: |
           echo "Building shared FFmpeg using external MinGW..."
           set "EXTERNAL_MINGW=C:\mingw64"
-          set "PATH=C:\ProgramData\Chocolatey\bin;%PATH%"
+          set "PATH=C:\Program Files\NASM\bin;%PATH%"
           echo "DEBUG: EXTERNAL_MINGW=%EXTERNAL_MINGW%"
           echo "DEBUG: PATH=%PATH%"
           where nasm || echo "nasm not found"

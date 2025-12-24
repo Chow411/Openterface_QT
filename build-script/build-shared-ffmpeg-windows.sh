@@ -66,7 +66,8 @@ if [ "${SKIP_MSYS_MINGW:-1}" = "1" ]; then
     fi
 else
     echo "ERROR: SKIP_MSYS_MINGW is not set to 1. Automated package-managed installation was removed from this script."
-    echo "Please run this script with SKIP_MSYS_MINGW=1 (the default) and provide an external MinGW toolchain (set EXTERNAL_MINGW or ensure /c/mingw64 exists)."    exit 1
+    echo "Please run this script with SKIP_MSYS_MINGW=1 (the default) and provide an external MinGW toolchain (set EXTERNAL_MINGW or ensure /c/mingw64 exists)."
+    exit 1
 fi
 
 # Choose CMake generator for external MinGW

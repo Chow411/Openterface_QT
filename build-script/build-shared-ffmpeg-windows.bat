@@ -222,7 +222,7 @@ if not exist "ffmpeg-%FFMPEG_VERSION%" (
 cd "ffmpeg-%FFMPEG_VERSION%"
 echo.
 
-REM Configure FFmpeg
+REM Build FFmpeg
 echo Configuring FFmpeg for shared build...
 set "PKG_CONFIG_PATH=%FFMPEG_INSTALL_PREFIX%\lib\pkgconfig;%PKG_CONFIG_PATH%"
 
@@ -250,8 +250,9 @@ echo.
 
 REM Build FFmpeg
 echo Building FFmpeg...
-echo Using %NUM_CORES% CPU cores for compilation
-mingw32-make -j%NUM_CORES% || make -j%NUM_CORES%
+echo Using 1 CPU core for compilation to avoid race conditions
+mingw32-make clean || make clean
+mingw32-make -j1 || make -j1
 if errorlevel 1 (
     echo ERROR: FFmpeg build failed.
     exit /b 1

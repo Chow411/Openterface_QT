@@ -48,13 +48,16 @@ echo.
 REM If EXTERNAL_MINGW is provided, convert it to POSIX-style path and pass it into the bash invocation
 REM Prefer using a bash on PATH (e.g., Git Bash).
 if defined EXTERNAL_MINGW (
+    REM Remove trailing backslash if present
     set EXTM=%EXTERNAL_MINGW%
-    set EXTM_MSYS=%EXTM:\=/%
-    set EXTM_MSYS=%EXTM_MSYS::=%
-    set EXTM_MSYS=/%EXTM_MSYS%
-    echo [93mUsing external MinGW: %EXTERNAL_MINGW% (msys path: %EXTM_MSYS%)[0m
-    echo DEBUG: EXTERNAL_MINGW=%EXTERNAL_MINGW%
-    echo DEBUG: EXTM_MSYS=%EXTM_MSYS%
+    if "!EXTM:~-1!"=="\" set EXTM=!EXTM:~0,-1!
+    
+    set EXTM_MSYS=!EXTM:\=/!
+    set EXTM_MSYS=!EXTM_MSYS::=!
+    set EXTM_MSYS=/!EXTM_MSYS!
+    echo [93mUsing external MinGW: !EXTM! (msys path: !EXTM_MSYS!)[0m
+    echo DEBUG: EXTERNAL_MINGW=!EXTM!
+    echo DEBUG: EXTM_MSYS=!EXTM_MSYS!
     where bash >nul 2>&1
     if %errorlevel% equ 0 (
         echo [92mFound bash on PATH - creating wrapper script and invoking shared build script with external MinGW[0m

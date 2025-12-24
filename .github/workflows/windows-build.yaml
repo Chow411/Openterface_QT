@@ -115,9 +115,20 @@ jobs:
           } else {
             Write-Host "Chocolatey already installed"
           }
-          Write-Host "Installing CMake and NASM via Chocolatey..."
-          choco install -y cmake nasm --no-progress
-          Write-Host "Skipping Chocolatey MinGW install; will use external MinGW downloaded later."
+          Write-Host "Installing CMake via Chocolatey..."
+          choco install -y cmake --no-progress
+
+      - name: Install NASM
+        shell: pwsh
+        run: |
+          Write-Host "Installing NASM via Chocolatey..."
+          choco install -y nasm --no-progress
+          Write-Host "Verifying NASM installation..."
+          & "C:\ProgramData\chocolatey\bin\nasm.exe" --version
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "NASM installation failed"
+            exit 1
+          }
 
       - name: Install CMake (Chocolatey)
         if: steps.cache-mingw.outputs.cache-hit != 'true'
@@ -159,9 +170,10 @@ jobs:
         run: |
           echo "Building shared FFmpeg using external MinGW..."
           set "EXTERNAL_MINGW=C:\mingw64"
+          set "PATH=C:\ProgramData\Chocolatey\bin;%PATH%"
           echo "DEBUG: EXTERNAL_MINGW=%EXTERNAL_MINGW%"
           echo "DEBUG: PATH=%PATH%"
-          where gcc || echo "gcc not found"
+          where nasm || echo "nasm not found"
           cd build-script
           call build-shared-ffmpeg-windows.bat
 

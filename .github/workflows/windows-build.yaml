@@ -196,6 +196,11 @@ jobs:
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           echo "Building shared FFmpeg with external MinGW..."
+          echo "DEBUG: EXTERNAL_MINGW=%EXTERNAL_MINGW%"
+          echo "DEBUG: PATH=%PATH%"
+          where bash || echo "bash not found"
+          where gcc || echo "gcc not found"
+          dir C:\mingw-external || echo "C:\mingw-external not found"
           cd build-script
           call build-shared-ffmpeg-windows.bat
 

@@ -53,11 +53,20 @@ if defined EXTERNAL_MINGW (
     set EXTM_MSYS=%EXTM_MSYS::=%
     set EXTM_MSYS=/%EXTM_MSYS%
     echo [93mUsing external MinGW: %EXTERNAL_MINGW% (msys path: %EXTM_MSYS%)[0m
+    echo DEBUG: EXTERNAL_MINGW=%EXTERNAL_MINGW%
+    echo DEBUG: EXTM_MSYS=%EXTM_MSYS%
     where bash >nul 2>&1
     if %errorlevel% equ 0 (
-        echo [92mFound bash on PATH - invoking shared build script with external MinGW[0m
-        REM Pass environment variables through to the bash command so the script can pick them up
-        bash -lc "EXTERNAL_MINGW_MSYS=%EXTM_MSYS% SKIP_MSYS_MINGW=1 bash '%SCRIPT_PATH_MSYS%'"
+        echo [92mFound bash on PATH - creating wrapper script and invoking shared build script with external MinGW[0m
+        REM Create a small temporary bash wrapper to avoid complex inline quoting issues
+        set TEMP_SCRIPT=%TEMP%\ffmpeg_wrapper_%RANDOM%.sh
+        > "%TEMP_SCRIPT%" echo EXTERNAL_MINGW_MSYS=%EXTM_MSYS%
+        >> "%TEMP_SCRIPT%" echo SKIP_MSYS_MINGW=1
+        >> "%TEMP_SCRIPT%" echo bash '%SCRIPT_PATH_MSYS%'
+        echo [92mInvoking: bash "%TEMP_SCRIPT%"[0m
+        bash "%TEMP_SCRIPT%"
+        REM Cleanup wrapper if present
+        if exist "%TEMP_SCRIPT%" del /f /q "%TEMP_SCRIPT%" >nul 2>&1
     ) else (
         echo [91mError: bash.exe not found on PATH. Install Git for Windows or ensure bash is available.[0m
         exit /b 1

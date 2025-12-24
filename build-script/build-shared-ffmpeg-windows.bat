@@ -69,7 +69,7 @@ if defined EXTERNAL_MINGW (
     (
         echo export EXTERNAL_MINGW_MSYS=!MINGW_PATH_POSIX!
         echo export SKIP_MSYS_MINGW=1
-        echo bash "%SCRIPT_PATH_POSIX%"
+        echo bash "!SCRIPT_PATH_POSIX!"
     ) > "!TEMP_WRAPPER!"
     
     echo Wrapper script created: !TEMP_WRAPPER!
@@ -130,16 +130,40 @@ REM Function: Convert Windows path to POSIX format
 REM Usage: call :ConvertToPosix "C:\path\to\file" OUTPUT_VAR
 REM ============================================================================
 :ConvertToPosix
-setlocal
+setlocal enabledelayedexpansion
 set "WIN_PATH=%~1"
-set "POSIX_PATH=%WIN_PATH:\=/%"
-REM Extract drive letter (e.g., C:)
-set "DRIVE=%POSIX_PATH:~0,1%"
-REM Remove colon and convert to lowercase
-set "POSIX_PATH=/%DRIVE%%POSIX_PATH:~2%"
-REM Convert drive letter to lowercase
-for %%i in (a b c d e f g h i j k l m n o p q r s t u v w x y z) do (
-    call set "POSIX_PATH=%%POSIX_PATH:/%%i=/%%i%%"
-)
+REM Replace backslashes with forward slashes
+set "POSIX_PATH=!WIN_PATH:\=/!"
+REM Extract drive letter and convert to lowercase
+set "DRIVE_LETTER=!POSIX_PATH:~0,1!"
+REM Map uppercase to lowercase
+if /i "!DRIVE_LETTER!"=="A" set "DRIVE_LOWER=a"
+if /i "!DRIVE_LETTER!"=="B" set "DRIVE_LOWER=b"
+if /i "!DRIVE_LETTER!"=="C" set "DRIVE_LOWER=c"
+if /i "!DRIVE_LETTER!"=="D" set "DRIVE_LOWER=d"
+if /i "!DRIVE_LETTER!"=="E" set "DRIVE_LOWER=e"
+if /i "!DRIVE_LETTER!"=="F" set "DRIVE_LOWER=f"
+if /i "!DRIVE_LETTER!"=="G" set "DRIVE_LOWER=g"
+if /i "!DRIVE_LETTER!"=="H" set "DRIVE_LOWER=h"
+if /i "!DRIVE_LETTER!"=="I" set "DRIVE_LOWER=i"
+if /i "!DRIVE_LETTER!"=="J" set "DRIVE_LOWER=j"
+if /i "!DRIVE_LETTER!"=="K" set "DRIVE_LOWER=k"
+if /i "!DRIVE_LETTER!"=="L" set "DRIVE_LOWER=l"
+if /i "!DRIVE_LETTER!"=="M" set "DRIVE_LOWER=m"
+if /i "!DRIVE_LETTER!"=="N" set "DRIVE_LOWER=n"
+if /i "!DRIVE_LETTER!"=="O" set "DRIVE_LOWER=o"
+if /i "!DRIVE_LETTER!"=="P" set "DRIVE_LOWER=p"
+if /i "!DRIVE_LETTER!"=="Q" set "DRIVE_LOWER=q"
+if /i "!DRIVE_LETTER!"=="R" set "DRIVE_LOWER=r"
+if /i "!DRIVE_LETTER!"=="S" set "DRIVE_LOWER=s"
+if /i "!DRIVE_LETTER!"=="T" set "DRIVE_LOWER=t"
+if /i "!DRIVE_LETTER!"=="U" set "DRIVE_LOWER=u"
+if /i "!DRIVE_LETTER!"=="V" set "DRIVE_LOWER=v"
+if /i "!DRIVE_LETTER!"=="W" set "DRIVE_LOWER=w"
+if /i "!DRIVE_LETTER!"=="X" set "DRIVE_LOWER=x"
+if /i "!DRIVE_LETTER!"=="Y" set "DRIVE_LOWER=y"
+if /i "!DRIVE_LETTER!"=="Z" set "DRIVE_LOWER=z"
+REM Build POSIX path: /c/path/to/file (remove colon and prepend /)
+set "POSIX_PATH=/!DRIVE_LOWER!!POSIX_PATH:~2!"
 endlocal & set "%~2=%POSIX_PATH%"
 goto :eof

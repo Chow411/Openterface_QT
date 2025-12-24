@@ -187,10 +187,12 @@ REM Set extra flags (use UNIX-style paths for compiler/linker)
 set "EXTRA_CFLAGS=-I%FFMPEG_INSTALL_PREFIX%\include"
 set "EXTRA_LDFLAGS=-L%FFMPEG_INSTALL_PREFIX%\lib -lz -lbz2 -llzma -lwinpthread"
 set "NVENC_ARG=--disable-nvenc"
+set "CUDA_ARG=--enable-decoder=mjpeg"
 
 if defined ENABLE_NVENC (
     echo NVENC enabled
     set "NVENC_ARG=--enable-nvenc"
+    set "CUDA_ARG=%CUDA_ARG% --enable-cuda --enable-cuvid --enable-nvdec --enable-ffnvcodec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
     if defined NVENC_SDK_PATH (
         set "NVENC_SDK_PATH_UNIX=%NVENC_SDK_PATH:\=/"
         set "EXTRA_CFLAGS=%EXTRA_CFLAGS% -I%NVENC_SDK_PATH_UNIX%/include"
@@ -236,8 +238,7 @@ set "PKG_CONFIG_PATH=%FFMPEG_INSTALL_PREFIX%\lib\pkgconfig;%PKG_CONFIG_PATH%"
 --enable-network --enable-runtime-cpudetect --enable-pthreads --disable-w32threads ^
 --enable-zlib --enable-bzlib --enable-lzma ^
 --enable-dxva2 --enable-d3d11va --enable-hwaccels ^
---enable-decoder=mjpeg --enable-cuda --enable-cuvid --enable-nvdec %NVENC_ARG% --enable-ffnvcodec ^
---enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid ^
+%CUDA_ARG% %NVENC_ARG% ^
 --pkg-config-flags="" --extra-cflags="%EXTRA_CFLAGS%" --extra-ldflags="%EXTRA_LDFLAGS%"
 
 if errorlevel 1 (

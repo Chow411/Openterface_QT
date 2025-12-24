@@ -209,7 +209,7 @@ jobs:
           set max_attempts=3
           :openssl_loop
           echo Attempt %attempt% of %max_attempts%
-          "%V%" install openssl --triplet=x64-mingw-static --clean-after-build --debug
+          "%V%" install --classic openssl --triplet=x64-mingw-static --clean-after-build --debug
           if errorlevel 1 (
             echo "openssl install failed on attempt %attempt%"
             set /a attempt+=1

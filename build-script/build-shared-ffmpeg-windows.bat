@@ -63,27 +63,15 @@ if defined EXTERNAL_MINGW (
     echo Using external MinGW: !MINGW_PATH!
     echo MinGW path (POSIX): !MINGW_PATH_POSIX!
     echo.
-    
-    REM Create temporary wrapper script
-    set "TEMP_WRAPPER=%TEMP%\ffmpeg_build_%RANDOM%.sh"
-    (
-        echo export EXTERNAL_MINGW_MSYS=!MINGW_PATH_POSIX!
-        echo export SKIP_MSYS_MINGW=1
-        echo bash "!SCRIPT_PATH_POSIX!"
-    ) > "!TEMP_WRAPPER!"
-    
-    echo Wrapper script created: !TEMP_WRAPPER!
-    echo Contents:
-    type "!TEMP_WRAPPER!"
-    echo.
     echo Starting FFmpeg build (this will take 30-60 minutes)...
     echo.
     
-    bash "!TEMP_WRAPPER!"
-    set BUILD_EXIT=!errorlevel!
+    REM Set environment variables and run bash script directly
+    set EXTERNAL_MINGW_MSYS=!MINGW_PATH_POSIX!
+    set SKIP_MSYS_MINGW=1
     
-    REM Cleanup
-    if exist "!TEMP_WRAPPER!" del /f /q "!TEMP_WRAPPER!" >nul 2>&1
+    bash "%SCRIPT_PATH_POSIX%"
+    set BUILD_EXIT=!errorlevel!
     
     if !BUILD_EXIT! neq 0 (
         echo.

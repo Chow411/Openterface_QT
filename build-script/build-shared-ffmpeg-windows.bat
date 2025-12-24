@@ -59,20 +59,20 @@ if defined EXTERNAL_MINGW (
     echo DEBUG: EXTERNAL_MINGW=!EXTM!
     echo DEBUG: EXTM_MSYS=!EXTM_MSYS!
     where bash >nul 2>&1
-    if %errorlevel% equ 0 (
+    if !errorlevel! equ 0 (
         echo [92mFound bash on PATH - creating wrapper script and invoking shared build script with external MinGW[0m
         REM Create a small temporary bash wrapper using PowerShell to avoid quoting and CRLF issues
-        set TEMP_SCRIPT=%TEMP%\ffmpeg_wrapper_%RANDOM%.sh
-        powershell -NoProfile -Command "Set-Content -LiteralPath '%TEMP_SCRIPT%' -Value \"EXTERNAL_MINGW_MSYS=%EXTM_MSYS%`nSKIP_MSYS_MINGW=1`nbash '%SCRIPT_PATH_MSYS%'\" -Encoding ASCII"
-        echo [92mTemp script created: %TEMP_SCRIPT%[0m
-        type "%TEMP_SCRIPT%"
-        echo [92mInvoking: bash "%TEMP_SCRIPT%"[0m
-        bash "%TEMP_SCRIPT%"
-        set EXITCODE=%ERRORLEVEL%
+        set TEMP_SCRIPT=%TEMP%\ffmpeg_wrapper_!RANDOM!.sh
+        powershell -NoProfile -Command "Set-Content -LiteralPath '!TEMP_SCRIPT!' -Value \"EXTERNAL_MINGW_MSYS=!EXTM_MSYS!`nSKIP_MSYS_MINGW=1`nbash '!SCRIPT_PATH_MSYS!'\" -Encoding ASCII"
+        echo [92mTemp script created: !TEMP_SCRIPT![0m
+        type "!TEMP_SCRIPT!"
+        echo [92mInvoking: bash "!TEMP_SCRIPT!"[0m
+        bash "!TEMP_SCRIPT!"
+        set EXITCODE=!ERRORLEVEL!
         REM Cleanup wrapper if present
-        if exist "%TEMP_SCRIPT%" del /f /q "%TEMP_SCRIPT%" >nul 2>&1
-        if %EXITCODE% neq 0 (
-            exit /b %EXITCODE%
+        if exist "!TEMP_SCRIPT!" del /f /q "!TEMP_SCRIPT!" >nul 2>&1
+        if !EXITCODE! neq 0 (
+            exit /b !EXITCODE!
         )
     ) else (
         echo [91mError: bash.exe not found on PATH. Install Git for Windows or ensure bash is available.[0m
@@ -81,16 +81,16 @@ if defined EXTERNAL_MINGW (
 ) else (
     REM No EXTERNAL_MINGW specified — attempt to run the script with bash on PATH
     where bash >nul 2>&1
-    if %errorlevel% equ 0 (
+    if !errorlevel! equ 0 (
         echo [92mFound bash on PATH - invoking shared build script using system bash[0m
-        bash -lc "bash '%SCRIPT_PATH_MSYS%'"
+        bash -lc "bash '!SCRIPT_PATH_MSYS!'"
     ) else (
         echo [91mError: bash.exe not found on PATH and EXTERNAL_MINGW not set; please install Git for Windows (bash) or set EXTERNAL_MINGW to use an external MinGW.[0m
         exit /b 1
     )
 )
 
-if %errorlevel% equ 0 (
+if !errorlevel! equ 0 (
     echo.
     echo [92m============================================================================[0m
     echo [92mFFmpeg shared build completed successfully![0m

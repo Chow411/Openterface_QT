@@ -65,18 +65,17 @@ jobs:
           key: mingw-ninja-nasm-yasm-static-11.2.0-rev3
           restore-keys: |
             mingw-ninja-nasm-yasm-static-
-      - name: Cache MSYS2 / MinGW packages
-        id: cache-msys2
+      - name: Cache external MinGW and related artifacts
+        id: cache-mingw
         uses: actions/cache@v3
         with:
           path: |
-            C:\msys64\mingw64
-            C:\msys64\usr\bin
-            C:\msys64\var\lib\pacman\local
-            D:\vcpkg\downloads\tools\msys2
-          key: msys2-${{ runner.os }}-mingw64-${{ hashFiles('vcpkg.json') }}-v1
+            C:\mingw64
+            C:\mingw64\bin
+            D:\vcpkg\downloads\tools
+          key: mingw-${{ runner.os }}-mingw64-${{ hashFiles('vcpkg.json') }}-v1
           restore-keys: |
-            msys2-${{ runner.os }}-mingw64-
+            mingw-${{ runner.os }}-mingw64-
       - name: Cache vcpkg
         id: cache-vcpkg
         uses: actions/cache@v3
@@ -146,25 +145,18 @@ jobs:
             echo "yasm not found on PATH, installing via choco"
             choco install yasm -y || echo "yasm install failed"
           )
-      - name: Setup MSYS2 (use action)
-        uses: msys2/setup-msys2@v2
-        with:
-          update: true
-
-
-      - name: Install Build Tools
-        if: steps.cache-msys2.outputs.cache-hit != 'true'
+      # We no longer use packaged MSYS-style toolchains in CI; prefer the external MinGW packaged in the workflow (C:\mingw64)
+      - name: Ensure external MinGW on PATH
         run: |
-          echo "Updating MSYS2 and installing MinGW-w64 toolchain..."
-          C:\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm"
-          C:\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm"
-          C:\msys64\usr\bin\bash.exe -lc "pacman -S --needed --noconfirm --overwrite=* mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-libiconv mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-winpthreads"
-          echo "Verifying compiler..."
-          set PATH=C:\msys64\mingw64\bin;%PATH%
+          echo "Adding external MinGW to PATH"
+          set PATH=C:\mingw64\bin;%PATH%
           g++ --version
+          where g++
+          echo "If g++ is not present, ensure the runner snapshot contains a working MinGW distribution at C:\mingw64"
+
       - name: Verify MinGW Static Linking Capability
         run: |
-          set PATH=C:\msys64\mingw64\bin;%PATH%
+          set PATH=C:\mingw64\bin;%PATH%
           echo "Testing static compilation with MinGW..."
           echo #include ^<iostream^> > test.cpp
           echo int main() { std::cout ^<^< "Static build OK!" ^<^< std::endl; return 0; } >> test.cpp
@@ -179,13 +171,6 @@ jobs:
             exit /b 1
           )
           echo "✅ MinGW static linking verified successfully."
-          echo "Listing all .a libraries in C:\msys64\mingw64\lib:"
-          dir C:\msys64\mingw64\lib\*.a
-          if not exist "C:\msys64\mingw64\lib\libbz2.a" (
-            echo "❌ libbz2.a not found in MinGW lib directory."
-            exit /b 1
-          )
-          echo "✅ libbz2.a verified."
           del test.cpp test.exe
       - name: Install or Update vcpkg (bootstrap only)
         run: |
@@ -214,50 +199,46 @@ jobs:
           echo vcpkg version/loglevel: && "%VCPKG_DIR%\vcpkg.exe" version || echo "could not show vcpkg version"
           call "%VCPKG_DIR%\vcpkg.exe" integrate install
           echo vcpkg installed ports (end) && "%VCPKG_DIR%\vcpkg.exe" list || echo "couldn't list vcpkg packages"
-      # vcpkg manifest will install pkgconf (manifest mode), which will create the msys2 root.
 
-      - name: Install vcpkg manifest (zlib, openssl, pkgconf) using MSYS2
-        # Run using bash so we can safely use cygpath and a POSIX-style invocation.
-        shell: bash
+      - name: Install OpenSSL via vcpkg (central)
+        shell: cmd
         run: |
-          echo "Installing static packages via manifest (vcpkg.json) using vcpkg"
-          echo "VCPKG_DIR: $VCPKG_DIR"
-          echo "SOURCE_DIR: $SOURCE_DIR"
-          # Convert windows paths to MSYS2-friendly unix paths
-          MSYS_VCPKG_DIR="$(cygpath -u "$VCPKG_DIR")"
-          MSYS_SOURCE_DIR="$(cygpath -u "$SOURCE_DIR")"
-          echo "MSYS_VCPKG_DIR: $MSYS_VCPKG_DIR"
-          echo "MSYS_SOURCE_DIR: $MSYS_SOURCE_DIR"
-          # Prefer invoking vcpkg under MSYS2 if available, otherwise run via cmd
-          # NOTE: some vcpkg releases don't accept --manifest-root; run the vcpkg.exe from the vcpkg root
-          # but execute it with working directory set to the manifest (SOURCE_DIR). That ensures manifest mode
-          # installs into a repo-local vcpkg_installed directory if that's vcpkg's behavior.
-          if [ -x "/c/msys64/usr/bin/bash" ]; then
-            echo "System MSYS2 detected at /c/msys64/usr/bin/bash"
-            # When running under MSYS2, use the vcpkg.exe from its directory but instruct it to use the repository manifest
-            if [ -x "$MSYS_VCPKG_DIR/vcpkg.exe" ]; then
-              echo "Running vcpkg install FROM the manifest directory: $MSYS_SOURCE_DIR"
-              # Retry loop (bash) for network/transient failures when ports fetch from remote git/http locations
-              attempts=0
-              max_attempts=3
-              until [ $attempts -ge $max_attempts ]
-              do
-                attempts=$((attempts+1))
-                (cd "$MSYS_SOURCE_DIR" && "$MSYS_VCPKG_DIR/vcpkg.exe" install --triplet=x64-mingw-static --host-triplet=x64-mingw-static --clean-after-build --recurse --debug) && break
-                echo "vcpkg install attempt $attempts failed; sleeping then retrying..."
-                sleep $((attempts * 5))
-              done
-              if [ $attempts -gt $max_attempts ]; then
-                echo "vcpkg install failed after $max_attempts attempts"
-                exit 1
-              fi
-            else
-              echo "vcpkg.exe not found at $MSYS_VCPKG_DIR; falling back to CMD vcpkg.exe"
-              # fallback: call cmd.exe but do a few attempts to avoid a single transient failure failing the run
-              attempt=1
-              max_attempts=3
-              while [ $attempt -le $max_attempts ]
-              do
+          echo "Installing OpenSSL into central vcpkg"
+          set V=%VCPKG_DIR%\vcpkg.exe
+          set attempt=1
+          set max_attempts=3
+          :openssl_loop
+          echo Attempt %attempt% of %max_attempts%
+          "%V%" install openssl --triplet=x64-mingw-static --clean-after-build --debug
+          if errorlevel 1 (
+            echo "openssl install failed on attempt %attempt%"
+            set /a attempt+=1
+            if %attempt% LEQ %max_attempts% (
+              echo "Retrying after pause..."
+              powershell -c "Start-Sleep -s %attempt%"
+              goto :openssl_loop
+            ) else (
+              echo "openssl install failed after %max_attempts% attempts"
+              exit /b 1
+            )
+          ) else (
+            echo "openssl install succeeded"
+          )
+
+      - name: Ensure OpenSSL is available in central vcpkg
+        shell: cmd
+        run: |
+          echo Checking central vcpkg for OpenSSL static libs and headers...
+          if exist "%VCPKG_DIR%\installed\x64-mingw-static\lib\libcrypto.a" (
+            if exist "%VCPKG_DIR%\installed\x64-mingw-static\include\openssl\ssl.h" (
+              echo OpenSSL libraries and headers already present in central vcpkg
+              dir "%VCPKG_DIR%\installed\x64-mingw-static\lib\libcrypto.a"
+              dir "%VCPKG_DIR%\installed\x64-mingw-static\lib\libssl.a"
+              dir "%VCPKG_DIR%\installed\x64-mingw-static\include\openssl"
+            ) else (
+              echo OpenSSL libs found but headers missing, checking repo-local...
+            )
+
                 cmd.exe /C "pushd \"%SOURCE_DIR%\" && \"%VCPKG_DIR%\\vcpkg.exe\" install --triplet=x64-mingw-static --host-triplet=x64-mingw-static --clean-after-build --recurse --debug && popd" && break
                 echo "vcpkg (cmd) install attempt $attempt failed; retrying after sleep..."
                 attempt=$((attempt+1))
@@ -269,7 +250,7 @@ jobs:
               fi
             fi
           else
-            echo "System MSYS2 not available. Running vcpkg via cmd.exe from the manifest directory: %SOURCE_DIR%"
+            echo "System packaged toolchain not available. Running vcpkg via cmd.exe from the manifest directory: %SOURCE_DIR%"
             attempt=1
             max_attempts=3
             while [ $attempt -le $max_attempts ]
@@ -285,11 +266,7 @@ jobs:
             fi
           fi
           echo "vcpkg list (after install):"
-          if [ -x "$MSYS_VCPKG_DIR/vcpkg.exe" ]; then
-            (cd "$MSYS_SOURCE_DIR" && "$MSYS_VCPKG_DIR/vcpkg.exe" list) || ("$MSYS_VCPKG_DIR/vcpkg.exe" list)
-          else
-            cmd.exe /C "pushd \"%SOURCE_DIR%\" && \"%VCPKG_DIR%\\vcpkg.exe\" list && popd"
-          fi
+          cmd.exe /C "pushd "%SOURCE_DIR%" && "%VCPKG_DIR%\vcpkg.exe" list && popd"
       - name: Ensure OpenSSL is available in central vcpkg
         shell: cmd
         run: |

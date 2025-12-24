@@ -1,10 +1,9 @@
 #!/bin/bash
 # ============================================================================
-# FFmpeg Static Build Script - Windows (external MinGW)
+# FFmpeg Shared Build Script - Windows (external MinGW)
 # ============================================================================
-# This script builds static FFmpeg and libjpeg-turbo on Windows using an external
-# MinGW toolchain (e.g., C:\mingw64) and a bash shell (Git Bash). Automated
-# package-managed toolchain support has been removed from the automated flow.
+# This script builds shared FFmpeg and libjpeg-turbo on Windows using an external
+# MinGW toolchain (e.g., C:\mingw64) and a bash shell (Git Bash).
 # ============================================================================
 
 set -e  # Exit on error
@@ -12,14 +11,14 @@ set -u  # Exit on undefined variable
 
 # Configuration
 # Environment variables supported by this script (set before running / from caller):
-#   SKIP_MSYS_MINGW=1          -> Skip package-managed install and prefer external MinGW (caller should set EXTERNAL_MINGW_MSYS) 
+#   SKIP_MSYS_MINGW=1          -> Skip package-managed install and prefer external MinGW (caller should set EXTERNAL_MINGW_MSYS)
 #   EXTERNAL_MINGW_MSYS=/c/mingw64 -> Path to external mingw in MSYS-style (set by caller wrapper when using EXTERNAL_MINGW)
 #   ENABLE_NVENC=1             -> Attempt to enable NVENC support (requires NVENC SDK/headers)
 #   NVENC_SDK_PATH=...         -> Path to NVENC SDK (optional, used when ENABLE_NVENC=1)
 
 FFMPEG_VERSION="6.1.1"
 LIBJPEG_TURBO_VERSION="3.0.4"
-FFMPEG_INSTALL_PREFIX="/c/ffmpeg-static"
+FFMPEG_INSTALL_PREFIX="/c/ffmpeg-shared"
 BUILD_DIR="$(pwd)/ffmpeg-build-temp"
 DOWNLOAD_URL="https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2"
 LIBJPEG_TURBO_URL="https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/${LIBJPEG_TURBO_VERSION}.tar.gz"
@@ -28,7 +27,7 @@ LIBJPEG_TURBO_URL="https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/t
 NUM_CORES=$(nproc)
 
 echo "============================================================================"
-echo "FFmpeg Static Build - Windows (external MinGW)"
+echo "FFmpeg Shared Build - Windows (external MinGW)"
 echo "============================================================================"
 echo "FFmpeg Version: ${FFMPEG_VERSION}"
 echo "libjpeg-turbo Version: ${LIBJPEG_TURBO_VERSION}"
@@ -73,74 +72,6 @@ fi
 # Choose CMake generator for external MinGW
 GENERATOR="MinGW Makefiles"
 
-# Check for Intel Media SDK/Media Driver
-echo "Checking for Intel QSV support..."
-echo "Note: Intel QSV works with modern Intel graphics drivers that include Media Driver components"
-echo "      The old standalone Media SDK is deprecated"
-echo ""
-
-# Check for Intel graphics driver version (rough check)
-if [ -d "/c/Windows/System32/DriverStore/FileRepository" ]; then
-    INTEL_DRIVER_COUNT=$(find "/c/Windows/System32/DriverStore/FileRepository" -name "*igfx*" -o -name "*intel*" | grep -i "igd\|gfx\|intel" | wc -l 2>/dev/null || echo "0")
-    if [ "$INTEL_DRIVER_COUNT" -gt 0 ]; then
-        echo "✓ Found Intel graphics drivers installed ($INTEL_DRIVER_COUNT driver files)"
-        echo "  This should include QSV/Media Driver support"
-    else
-        echo "⚠ No Intel graphics drivers found"
-        echo "  Install latest Intel graphics drivers from:"
-        echo "  https://www.intel.com/content/www/us/en/download/19344/intel-graphics-windows-dxe.html"
-    fi
-else
-    echo "⚠ Cannot check driver installation"
-fi
-
-# Check for libmfx library
-if pkg-config --exists libmfx; then
-    echo "✓ libmfx library found (QSV support available)"
-    LIBMFX_VERSION=$(pkg-config --modversion libmfx 2>/dev/null || echo "unknown")
-    echo "  Version: $LIBMFX_VERSION"
-else
-    echo "⚠ libmfx library not found in pkg-config"
-    echo "  This is normal if using system drivers instead of SDK"
-fi
-
-echo ""
-echo "Intel QSV Setup Instructions:"
-echo "1. Ensure you have Intel integrated graphics or discrete Intel GPU"
-echo "2. Install latest Intel graphics drivers:"
-echo "   https://www.intel.com/content/www/us/en/download/19344/intel-graphics-windows-dxe.html"
-echo "3. For older systems, you may need Intel Media Driver:"
-echo "   https://www.intel.com/content/www/us/en/download-center/select-download/s/intel-media-driver-windows"
-echo ""
-echo "QSV will work if your Intel GPU supports it and drivers are installed."
-echo ""
-
-# Check for CUDA installation
-echo "Checking for NVIDIA CUDA Toolkit..."
-if [ -d "/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA" ]; then
-    CUDA_VERSION=$(ls "/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA" | grep "^v" | sort -V | tail -n 1)
-    if [ -n "$CUDA_VERSION" ]; then
-        echo "✓ Found CUDA: $CUDA_VERSION"
-        export CUDA_PATH="/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/$CUDA_VERSION"
-        export PATH="$CUDA_PATH/bin:$PATH"
-    else
-        echo "⚠ CUDA Toolkit not found - GPU acceleration may not work"
-        echo "  Download from: https://developer.nvidia.com/cuda-downloads"
-    fi
-else
-    echo "⚠ CUDA Toolkit not found at standard location"
-    echo "  Download from: https://developer.nvidia.com/cuda-downloads"
-fi
-echo ""
-
-# Verify cross-compilation tools are available
-echo "Verifying MinGW64 toolchain..."
-which gcc
-which nm
-which ar
-echo "✓ MinGW64 toolchain verified"
-echo ""
-
 # Create build directory
 echo "Step 2/8: Creating build directory..."
 mkdir -p "${BUILD_DIR}"
@@ -148,9 +79,9 @@ cd "${BUILD_DIR}"
 echo "✓ Build directory ready: ${BUILD_DIR}"
 echo ""
 
-# Download and build libjpeg-turbo
-echo "Step 3/8: Building libjpeg-turbo ${LIBJPEG_TURBO_VERSION}..."
-if [ ! -f "${FFMPEG_INSTALL_PREFIX}/lib/libturbojpeg.a" ]; then
+# Download and build libjpeg-turbo (prefer shared libs for a shared build)
+echo "Step 3/8: Building libjpeg-turbo ${LIBJPEG_TURBO_VERSION} (shared)..."
+if [ ! -f "${FFMPEG_INSTALL_PREFIX}/bin/libturbojpeg.dll" ] && [ ! -f "${FFMPEG_INSTALL_PREFIX}/lib/libturbojpeg.dll" ]; then
     echo "Downloading libjpeg-turbo..."
     if [ ! -f "libjpeg-turbo.tar.gz" ]; then
         wget "${LIBJPEG_TURBO_URL}" -O "libjpeg-turbo.tar.gz"
@@ -160,8 +91,8 @@ if [ ! -f "${FFMPEG_INSTALL_PREFIX}/lib/libturbojpeg.a" ]; then
     cd "libjpeg-turbo-${LIBJPEG_TURBO_VERSION}"
     mkdir -p build
     cd build
-    echo "Configuring libjpeg-turbo... (generator: ${GENERATOR})"
-    cmake .. -G "${GENERATOR}" -DCMAKE_INSTALL_PREFIX="${FFMPEG_INSTALL_PREFIX}" -DCMAKE_BUILD_TYPE=Release -DENABLE_STATIC=ON -DENABLE_SHARED=OFF -DWITH_JPEG8=ON -DWITH_TURBOJPEG=ON -DWITH_ZLIB=ON
+    echo "Configuring libjpeg-turbo (shared): (generator: ${GENERATOR})"
+    cmake .. -G "${GENERATOR}" -DCMAKE_INSTALL_PREFIX="${FFMPEG_INSTALL_PREFIX}" -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=ON -DENABLE_STATIC=OFF -DWITH_JPEG8=ON -DWITH_TURBOJPEG=ON -DWITH_ZLIB=ON
     echo "Building libjpeg-turbo with ${NUM_CORES} cores..."
     if [ "${GENERATOR}" = "MinGW Makefiles" ]; then
         mingw32-make -j${NUM_CORES} || make -j${NUM_CORES}
@@ -180,23 +111,22 @@ if [ ! -f "${FFMPEG_INSTALL_PREFIX}/lib/libturbojpeg.a" ]; then
     fi
     cd "${BUILD_DIR}"
     rm -rf "libjpeg-turbo-${LIBJPEG_TURBO_VERSION}"
-    echo "✓ libjpeg-turbo built and installed"
+    echo "✓ libjpeg-turbo built and installed (shared)"
 else
-    echo "✓ libjpeg-turbo already installed"
+    echo "✓ libjpeg-turbo (shared) already installed"
 fi
 
 # Determine optional flags for QSV (libmfx) and NVENC
-# By default, do NOT force libmfx/NVENC linking; they should be optional and allowed to be missing at runtime.
+# For a shared build we avoid forcing static linking flags
 ENABLE_LIBMFX=""
 EXTRA_CFLAGS="-I${FFMPEG_INSTALL_PREFIX}/include"
-EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lmingwex -lwinpthread -static -static-libgcc -static-libstdc++"
+EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lwinpthread"
 
 # libmfx (QSV): Only enable if user explicitly requests it via ENABLE_LIBMFX=1 and pkg-config can find it.
 if [ "${ENABLE_LIBMFX:-0}" = "1" ]; then
     if pkg-config --exists libmfx; then
         echo "libmfx found via pkg-config; enabling QSV (libmfx)"
         ENABLE_LIBMFX="--enable-libmfx"
-        # Do NOT append -lmfx by default; rely on import library if present, but avoid forcing static link
     else
         echo "ERROR: ENABLE_LIBMFX=1 but libmfx not found via pkg-config. Install headers/libs or unset ENABLE_LIBMFX."
         exit 1
@@ -205,7 +135,7 @@ else
     echo "libmfx not enabled; QSV support will be attempted at runtime if available via drivers/SDK (dynamic loading by FFmpeg)."
 fi
 
-# NVENC: If requested, enable support but do NOT force linking against nvEncodeAPI - configure will detect headers if present. If SDK not present, enable will fail and you must either provide SDK or leave ENABLE_NVENC unset.
+# NVENC: If requested, enable support but do NOT force linking against nvEncodeAPI
 if [ "${ENABLE_NVENC:-0}" = "1" ]; then
     echo "NVENC enable requested via ENABLE_NVENC=1"
     NVENC_ARG="--enable-nvenc"
@@ -219,6 +149,7 @@ if [ "${ENABLE_NVENC:-0}" = "1" ]; then
 else
     NVENC_ARG="--disable-nvenc"
 fi
+
 echo ""
 
 # Download FFmpeg source
@@ -229,6 +160,7 @@ if [ ! -f "ffmpeg-${FFMPEG_VERSION}.tar.bz2" ]; then
 else
     echo "✓ FFmpeg source already downloaded"
 fi
+
 echo ""
 
 # Extract source
@@ -242,8 +174,8 @@ fi
 cd "ffmpeg-${FFMPEG_VERSION}"
 echo ""
 
-# Configure FFmpeg
-echo "Step 6/8: Configuring FFmpeg for static build..."
+# Configure FFmpeg for shared build
+echo "Step 6/8: Configuring FFmpeg for shared build..."
 echo "This may take a few minutes..."
 echo ""
 
@@ -254,8 +186,8 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --prefix="${FFMPEG_INSTALL_PREFIX}" \
     --arch=x86_64 \
     --target-os=mingw32 \
-    --disable-shared \
-    --enable-static \
+    --enable-shared \
+    --disable-static \
     --enable-gpl \
     --enable-version3 \
     --enable-nonfree \
@@ -295,14 +227,7 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-decoder=h264_cuvid \
     --enable-decoder=hevc_cuvid \
     --enable-decoder=mjpeg_cuvid \
-    --enable-decoder=mpeg1_cuvid \
-    --enable-decoder=mpeg2_cuvid \
-    --enable-decoder=mpeg4_cuvid \
-    --enable-decoder=vc1_cuvid \
-    --enable-decoder=vp8_cuvid \
-    --enable-decoder=vp9_cuvid \
-    --enable-decoder=vp9_cuvid \
-    --pkg-config-flags="--static" \
+    --pkg-config-flags="" \
     --extra-cflags="${EXTRA_CFLAGS}" \
     --extra-ldflags="${EXTRA_LDFLAGS}"
 
@@ -327,19 +252,20 @@ make install
 echo "✓ Installation complete"
 echo ""
 
-# Verify installation
+# Verify installation (check for DLLs for a shared build)
 echo "============================================================================"
-echo "Verifying installation..."
+echo "Verifying installation (shared)..."
 echo "============================================================================"
 
-if [ -d "${FFMPEG_INSTALL_PREFIX}/include/libavcodec" ] && [ -f "${FFMPEG_INSTALL_PREFIX}/lib/libavcodec.a" ] && [ -f "${FFMPEG_INSTALL_PREFIX}/lib/libturbojpeg.a" ]; then
-    echo "✓ FFmpeg and libjpeg-turbo static libraries installed successfully!"
+if ls "${FFMPEG_INSTALL_PREFIX}/bin/"*.dll >/dev/null 2>&1 || ls "${FFMPEG_INSTALL_PREFIX}/lib/"*.dll >/dev/null 2>&1; then
+    echo "✓ FFmpeg shared libraries installed successfully!"
     echo ""
-    echo "Installed FFmpeg libraries:"
-    ls -lh "${FFMPEG_INSTALL_PREFIX}/lib/"*.a | grep -E 'libav|libsw|libpostproc'
+    echo "Installed FFmpeg libraries (DLLs):"
+    ls -lh "${FFMPEG_INSTALL_PREFIX}/bin/"*.dll 2>/dev/null || true
+    ls -lh "${FFMPEG_INSTALL_PREFIX}/lib/"*.dll 2>/dev/null || true
     echo ""
-    echo "Installed libjpeg-turbo libraries:"
-    ls -lh "${FFMPEG_INSTALL_PREFIX}/lib/"*jpeg*.a 2>/dev/null || true
+    echo "Installed libjpeg-turbo libraries (DLLs):"
+    ls -lh "${FFMPEG_INSTALL_PREFIX}/bin/"*jpeg*.dll 2>/dev/null || ls -lh "${FFMPEG_INSTALL_PREFIX}/lib/"*jpeg*.dll 2>/dev/null || true
     echo ""
     echo "Include directories:"
     ls -d "${FFMPEG_INSTALL_PREFIX}/include/"lib* 2>/dev/null || true
@@ -348,25 +274,28 @@ if [ -d "${FFMPEG_INSTALL_PREFIX}/include/libavcodec" ] && [ -f "${FFMPEG_INSTAL
     echo "Installation Summary"
     echo "============================================================================"
     echo "Install Path: ${FFMPEG_INSTALL_PREFIX}"
-    echo "Libraries: ${FFMPEG_INSTALL_PREFIX}/lib"
+    echo "Libraries (DLLs): ${FFMPEG_INSTALL_PREFIX}/bin or ${FFMPEG_INSTALL_PREFIX}/lib"
     echo "Headers: ${FFMPEG_INSTALL_PREFIX}/include"
     echo "pkg-config: ${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig"
     echo ""
-    echo "Components installed:"
-    echo "  ✓ FFmpeg ${FFMPEG_VERSION} (static)"
-    echo "  ✓ libjpeg-turbo ${LIBJPEG_TURBO_VERSION} (static)"
+    echo "Components installed (shared):"
+    echo "  ✓ FFmpeg ${FFMPEG_VERSION} (shared)"
+    echo "  ✓ libjpeg-turbo ${LIBJPEG_TURBO_VERSION} (shared)"
     echo ""
     echo "============================================================================"
 else
-    echo "✗ Installation verification failed!"
+    echo "✗ Installation verification failed (no DLLs found)!"
     exit 1
 fi
 
 echo ""
 echo "Build completed successfully!"
 echo ""
-echo "To use this FFmpeg in your CMake project:"
+echo "To use this FFmpeg in your CMake project (shared):"
 echo "  set FFMPEG_PREFIX=${FFMPEG_INSTALL_PREFIX}"
 echo "  or pass -DFFMPEG_PREFIX=${FFMPEG_INSTALL_PREFIX} to cmake"
+echo ""
+echo "> Note: For runtime, ensure ${FFMPEG_INSTALL_PREFIX}/bin is in your PATH or bundle the DLLs with your application."
 
+echo ""
 exit 0

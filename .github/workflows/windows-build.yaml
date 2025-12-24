@@ -2,7 +2,7 @@ name: Build / Openterface Windows Installer
 
 on:
   push:
-    branches: ["main", "dev"]
+    branches: ["main", "dev_1223_portable_build"]
     tags: ["v*"]
     paths:
       - '.github/workflows/windows-build.yaml'
@@ -67,14 +67,14 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Cache MinGW and CMake
+      - name: Cache Chocolatey packages
         id: cache-mingw
         uses: actions/cache@v4
         with:
-          path: C:\msys64\mingw64
-          key: msys2-mingw64-cmake-windows
+          path: C:\ProgramData\chocolatey\lib
+          key: choco-packages-windows
           restore-keys: |
-            msys2-mingw64-cmake-windows
+            choco-packages-windows
 
       - name: Cache MSYS2
         id: cache-msys2
@@ -85,14 +85,14 @@ jobs:
           restore-keys: |
             msys2-base-windows
 
-      - name: Cache FFmpeg
+      - name: Cache FFmpeg (shared)
         id: cache-ffmpeg
         uses: actions/cache@v4
         with:
-          path: C:\ffmpeg-static
-          key: ffmpeg-static-6.1.1-windows-qsv
+          path: C:\ffmpeg-shared
+          key: ffmpeg-shared-6.1.1-windows
           restore-keys: |
-            ffmpeg-static-6.1.1-windows-qsv
+            ffmpeg-shared-6.1.1-windows
 
       - name: Update version
         run: |
@@ -112,26 +112,39 @@ jobs:
         run: |
           git fetch --all --tags -f
 
-      - name: Install MSYS2
+      - name: Install Chocolatey and MinGW/CMake
+        shell: pwsh
         run: |
-          if exist "C:\msys64\usr\bin\pacman.exe" (
-            echo "MSYS2 already installed"
-          ) else (
-            echo "Installing MSYS2..."
-            curl -L -o msys2.exe https://github.com/msys2/msys2-installer/releases/download/2023-10-26/msys2-x86_64-20231026.exe
-            msys2.exe --script install_msys2.msys2
-            del msys2.exe
-          )
+          if (-not (Test-Path "$env:ProgramData\chocolatey\bin\choco.exe")) {
+            Write-Host "Installing Chocolatey..."
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex
+          } else {
+            Write-Host "Chocolatey already installed"
+          }
+          Write-Host "Installing MinGW-w64 and CMake via Chocolatey..."
+          choco install -y mingw cmake --no-progress
+          $gcc = (Get-Command gcc.exe -ErrorAction SilentlyContinue)
+          if ($gcc) {
+            $gccDir = Split-Path $gcc.Path -Parent
+            Write-Host "Adding $gccDir to PATH"
+            echo "$gccDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          } else {
+            Write-Host "Warning: gcc not found after install"
+          }
 
-      - name: Install MinGW and CMake
+      - name: Install MinGW and CMake (Chocolatey)
         if: steps.cache-mingw.outputs.cache-hit != 'true'
+        shell: pwsh
         run: |
-          echo "Installing MinGW-w64 and CMake via MSYS2..."
-          set PATH=C:\msys64\usr\bin;%PATH%
-          pacman -S --needed --noconfirm --overwrite=* mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-libiconv mingw-w64-x86_64-libmfx
-
-          echo "Setting up PATH..."
-          echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
+          choco install -y mingw cmake --no-progress
+          $gcc = (Get-Command gcc.exe -ErrorAction SilentlyContinue)
+          if ($gcc) {
+            $gccDir = Split-Path $gcc.Path -Parent
+            echo "$gccDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          } else {
+            Write-Host "Warning: gcc not found after install"
+          }
 
       - name: Install Qt
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -145,12 +158,12 @@ jobs:
           modules: qtmultimedia qtserialport qtimageformats
           setup-python: false
 
-      - name: Build Static FFmpeg
+      - name: Build Shared FFmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          echo "Building static FFmpeg..."
+          echo "Building shared FFmpeg..."
           cd build-script
-          call build-static-ffmpeg-windows.bat
+          call build-shared-ffmpeg-windows.bat
 
       - name: Set up Visual Studio shell
         uses: egor-tensin/vs-shell@v2
@@ -176,7 +189,7 @@ jobs:
           echo "Configuring with CMake..."
           cmake -G "MinGW Makefiles" ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DFFMPEG_PREFIX=C:\ffmpeg-static ^
+            -DFFMPEG_PREFIX=C:\ffmpeg-shared ^
             ${{ env.SOURCE_DIR }}
 
           echo "Building with mingw32-make..."

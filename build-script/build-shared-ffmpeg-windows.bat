@@ -23,8 +23,12 @@ echo ===========================================================================
 echo FFmpeg Shared Build Script for Windows
 echo ============================================================================
 
-REM Locate Git Bash (prefer it over WSL bash)
+REM Locate MSYS2 Bash (prefer it over Git Bash and WSL bash)
 set "GIT_BASH="
+if exist "C:\msys64\usr\bin\bash.exe" (
+    set "GIT_BASH=C:\msys64\usr\bin\bash.exe"
+    goto :found
+)
 for /f "tokens=*" %%i in ('where bash 2^>nul') do (
     echo %%i | findstr /i "git" >nul
     if !errorlevel! == 0 (
@@ -43,7 +47,7 @@ if not defined GIT_BASH (
 :fallback
 
 if not defined GIT_BASH (
-    echo ERROR: Bash not found. Please install Git for Windows or ensure bash is in PATH.
+    echo ERROR: Bash not found. Please install MSYS2 or Git for Windows or ensure bash is in PATH.
     exit /b 1
 )
 

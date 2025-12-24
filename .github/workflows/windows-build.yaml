@@ -62,6 +62,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-nasm mingw-w64-x86_64-make mingw-w64-x86_64-pkg-config mingw-w64-x86_64-zlib mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-libjpeg-turbo
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -76,7 +82,7 @@ jobs:
           restore-keys: |
             choco-packages-windows
 
-      # MSYS2 caching removed — using external MinGW instead
+      # MSYS2 caching removed — using MSYS2 MinGW instead
 
       - name: Cache FFmpeg (shared)
         id: cache-ffmpeg
@@ -118,24 +124,12 @@ jobs:
           Write-Host "Installing CMake via Chocolatey..."
           choco install -y cmake --no-progress
 
-      - name: Install NASM
-        shell: pwsh
-        run: |
-          Write-Host "Installing NASM via Chocolatey..."
-          choco install -y nasm --no-progress
-          Write-Host "Verifying NASM installation..."
-          nasm --version
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "NASM installation failed"
-            exit 1
-          }
-
       - name: Install CMake (Chocolatey)
         if: steps.cache-mingw.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           choco install -y cmake --no-progress
-          Write-Host "Skipping Chocolatey MinGW install; will use external MinGW downloaded later."
+          Write-Host "Skipping Chocolatey MinGW install; will use MSYS2 MinGW."
 
       - name: Install Qt
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -149,28 +143,11 @@ jobs:
           modules: qtmultimedia qtserialport qtimageformats
           setup-python: false
 
-      - name: Install 7-Zip (for extraction)
-        run: |
-          choco install -y 7zip --no-progress
-
-      - name: Download and extract external MinGW
-        run: |
-          echo "Downloading MinGW-w64 static build..."
-          curl -L -o mingw-w64.7z https://github.com/cristianadam/mingw-builds/releases/download/v11.2.0-rev3/x86_64-11.2.0-release-posix-seh-rt_v9-rev3.7z
-          mkdir C:\mingw64_tmp
-          7z x mingw-w64.7z -oC:\mingw64_tmp
-          move C:\mingw64_tmp\x86_64-11.2.0-release-posix-seh-rt_v9-rev3\* C:\mingw64\
-          rmdir /s /q C:\mingw64_tmp
-          echo "Verifying g++..."
-          set PATH=C:\mingw64\bin;%PATH%
-          g++ --version
-
-      - name: Build Shared FFmpeg (using external MinGW)
+      - name: Build Shared FFmpeg (using MSYS2 MinGW)
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          echo "Building shared FFmpeg using external MinGW..."
-          set "EXTERNAL_MINGW=C:\mingw64"
-          set "PATH=C:\Program Files\NASM\bin;%PATH%"
+          echo "Building shared FFmpeg using MSYS2 MinGW..."
+          set "EXTERNAL_MINGW=C:\msys64\mingw64"
           echo "DEBUG: EXTERNAL_MINGW=%EXTERNAL_MINGW%"
           echo "DEBUG: PATH=%PATH%"
           where nasm || echo "nasm not found"
@@ -190,7 +167,7 @@ jobs:
         working-directory: ${{ runner.temp }}\build
         run: |
           echo "Setting up build environment..."
-          set "EXTERNAL_MINGW=C:\mingw64"
+          set "EXTERNAL_MINGW=C:\msys64\mingw64"
           set PATH=%EXTERNAL_MINGW%\bin;%PATH%
 
           echo "Updating translations with lupdate..."

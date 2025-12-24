@@ -76,14 +76,7 @@ jobs:
           restore-keys: |
             choco-packages-windows
 
-      - name: Cache MSYS2
-        id: cache-msys2
-        uses: actions/cache@v4
-        with:
-          path: C:\msys64
-          key: msys2-base-windows
-          restore-keys: |
-            msys2-base-windows
+      # MSYS2 caching removed — using external MinGW instead
 
       - name: Cache FFmpeg (shared)
         id: cache-ffmpeg
@@ -112,7 +105,7 @@ jobs:
         run: |
           git fetch --all --tags -f
 
-      - name: Install Chocolatey and MinGW/CMake
+      - name: Install Chocolatey and CMake
         shell: pwsh
         run: |
           if (-not (Test-Path "$env:ProgramData\chocolatey\bin\choco.exe")) {
@@ -122,29 +115,16 @@ jobs:
           } else {
             Write-Host "Chocolatey already installed"
           }
-          Write-Host "Installing MinGW-w64 and CMake via Chocolatey..."
-          choco install -y mingw cmake --no-progress
-          $gcc = (Get-Command gcc.exe -ErrorAction SilentlyContinue)
-          if ($gcc) {
-            $gccDir = Split-Path $gcc.Path -Parent
-            Write-Host "Adding $gccDir to PATH"
-            echo "$gccDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          } else {
-            Write-Host "Warning: gcc not found after install"
-          }
+          Write-Host "Installing CMake via Chocolatey (no mingw)..."
+          choco install -y cmake --no-progress
+          Write-Host "Skipping Chocolatey MinGW install; will use external MinGW downloaded later."
 
-      - name: Install MinGW and CMake (Chocolatey)
+      - name: Install CMake (Chocolatey)
         if: steps.cache-mingw.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          choco install -y mingw cmake --no-progress
-          $gcc = (Get-Command gcc.exe -ErrorAction SilentlyContinue)
-          if ($gcc) {
-            $gccDir = Split-Path $gcc.Path -Parent
-            echo "$gccDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          } else {
-            Write-Host "Warning: gcc not found after install"
-          }
+          choco install -y cmake --no-progress
+          Write-Host "Skipping Chocolatey MinGW install; will use external MinGW downloaded later."
 
       - name: Install Qt
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -217,7 +197,7 @@ jobs:
         working-directory: ${{ runner.temp }}\build
         run: |
           echo "Setting up build environment..."
-          set PATH=C:\msys64\mingw64\bin;${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin;%PATH%
+          set PATH=%EXTERNAL_MINGW%\bin;${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\mingw_64\bin;%PATH%
 
           echo "Updating translations with lupdate..."
           lupdate ${{ env.SOURCE_DIR }}\openterfaceQT.pro

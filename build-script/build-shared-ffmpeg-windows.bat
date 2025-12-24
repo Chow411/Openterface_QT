@@ -58,15 +58,19 @@ if defined EXTERNAL_MINGW (
     where bash >nul 2>&1
     if %errorlevel% equ 0 (
         echo [92mFound bash on PATH - creating wrapper script and invoking shared build script with external MinGW[0m
-        REM Create a small temporary bash wrapper to avoid complex inline quoting issues
+        REM Create a small temporary bash wrapper using PowerShell to avoid quoting and CRLF issues
         set TEMP_SCRIPT=%TEMP%\ffmpeg_wrapper_%RANDOM%.sh
-        > "%TEMP_SCRIPT%" echo EXTERNAL_MINGW_MSYS=%EXTM_MSYS%
-        >> "%TEMP_SCRIPT%" echo SKIP_MSYS_MINGW=1
-        >> "%TEMP_SCRIPT%" echo bash '%SCRIPT_PATH_MSYS%'
+        powershell -NoProfile -Command "Set-Content -LiteralPath '%TEMP_SCRIPT%' -Value \"EXTERNAL_MINGW_MSYS=%EXTM_MSYS%`nSKIP_MSYS_MINGW=1`nbash '%SCRIPT_PATH_MSYS%'\" -Encoding ASCII"
+        echo [92mTemp script created: %TEMP_SCRIPT%[0m
+        type "%TEMP_SCRIPT%"
         echo [92mInvoking: bash "%TEMP_SCRIPT%"[0m
         bash "%TEMP_SCRIPT%"
+        set EXITCODE=%ERRORLEVEL%
         REM Cleanup wrapper if present
         if exist "%TEMP_SCRIPT%" del /f /q "%TEMP_SCRIPT%" >nul 2>&1
+        if %EXITCODE% neq 0 (
+            exit /b %EXITCODE%
+        )
     ) else (
         echo [91mError: bash.exe not found on PATH. Install Git for Windows or ensure bash is available.[0m
         exit /b 1

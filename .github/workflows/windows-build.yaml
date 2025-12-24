@@ -155,7 +155,7 @@ jobs:
           Invoke-WebRequest -Uri $mingwUrl -OutFile $archive
           & 7z x $archive -o$dest -y
           $extracted = Get-ChildItem $dest | Where-Object {$_.PsIsContainer} | Select-Object -First 1
-          $mingwDir = Join-Path $dest $extracted.Name
+          $mingwDir = (Join-Path $dest $extracted.Name).TrimEnd('\')
           Write-Host "MINGW_DIR: $mingwDir"
           echo "$mingwDir\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo "EXTERNAL_MINGW=$mingwDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append

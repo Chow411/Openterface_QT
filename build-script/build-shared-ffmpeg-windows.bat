@@ -1,8 +1,8 @@
 @echo off
 REM ============================================================================
-REM Shared FFmpeg Build Script for Windows (external MinGW)
-REM This script builds FFmpeg with shared libraries using an external MinGW
-REM toolchain and Git Bash.
+REM Shared FFmpeg Build Script for Windows (MSYS2 MinGW)
+REM This script builds FFmpeg with shared libraries using MSYS2 MinGW
+REM toolchain and MSYS2 Bash.
 REM ============================================================================
 
 setlocal enabledelayedexpansion
@@ -15,7 +15,7 @@ set "BUILD_DIR=%cd%\ffmpeg-build-temp"
 set "SCRIPT_DIR=%~dp0"
 
 REM Optional environment variables:
-REM   EXTERNAL_MINGW=C:\mingw64  -> Path to external MinGW toolchain
+REM   EXTERNAL_MINGW=C:\msys64\mingw64  -> Path to MinGW toolchain (default MSYS2)
 REM   ENABLE_NVENC=1              -> Enable NVENC support
 REM   NVENC_SDK_PATH=...          -> Path to NVENC SDK (optional)
 
@@ -68,10 +68,14 @@ if defined EXTERNAL_MINGW (
     REM Remove trailing backslash if present
     if "!MINGW_PATH:~-1!"=="\" set "MINGW_PATH=!MINGW_PATH:~0,-1!"
 ) else (
-    set "MINGW_PATH=C:\mingw64"
+    set "MINGW_PATH=C:\msys64\mingw64"
     REM If default not found, search common drives
     if not exist "!MINGW_PATH!\bin\gcc.exe" (
         for %%d in (C D E F G) do (
+            if exist "%%d:\msys64\mingw64\bin\gcc.exe" (
+                set "MINGW_PATH=%%d:\msys64\mingw64"
+                goto :mingw_found
+            )
             if exist "%%d:\mingw64\bin\gcc.exe" (
                 set "MINGW_PATH=%%d:\mingw64"
                 goto :mingw_found
@@ -88,7 +92,7 @@ if not exist "!MINGW_PATH!\bin\gcc.exe" (
     exit /b 1
 )
 
-echo Using external MinGW: !MINGW_PATH!
+echo Using MinGW: !MINGW_PATH!
 
 REM Set environment for the build
 set "EXTERNAL_MINGW_MSYS=!MINGW_PATH!"

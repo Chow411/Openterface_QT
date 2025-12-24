@@ -148,6 +148,7 @@ jobs:
         run: |
           echo "Building shared FFmpeg using MSYS2 MinGW..."
           set "EXTERNAL_MINGW=C:\msys64\mingw64"
+          set "PATH=C:\msys64\mingw64\bin;%PATH%"
           echo "DEBUG: EXTERNAL_MINGW=%EXTERNAL_MINGW%"
           echo "DEBUG: PATH=%PATH%"
           where nasm || echo "nasm not found"
@@ -168,7 +169,7 @@ jobs:
         run: |
           echo "Setting up build environment..."
           set "EXTERNAL_MINGW=C:\msys64\mingw64"
-          set PATH=%EXTERNAL_MINGW%\bin;%PATH%
+          set "PATH=C:\msys64\mingw64\bin;%PATH%"
 
           echo "Updating translations with lupdate..."
           lupdate ${{ env.SOURCE_DIR }}\openterfaceQT.pro

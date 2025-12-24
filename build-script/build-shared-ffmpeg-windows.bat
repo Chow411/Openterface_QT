@@ -7,7 +7,7 @@ REM ============================================================================
 
 setlocal enabledelayedexpansion
 
-REM Configuration
+REM Configuration (use BACKSLASHES for Windows paths)
 set "FFMPEG_VERSION=6.1.1"
 set "LIBJPEG_TURBO_VERSION=3.0.4"
 set "FFMPEG_INSTALL_PREFIX=C:\ffmpeg-shared"
@@ -105,16 +105,12 @@ echo.
 echo Starting FFmpeg build (this will take 30-60 minutes)...
 echo.
 
-REM Configuration
-set "FFMPEG_VERSION=6.1.1"
-set "LIBJPEG_TURBO_VERSION=3.0.4"
-set "FFMPEG_INSTALL_PREFIX=C:\ffmpeg-shared"
-set "BUILD_DIR=%cd%\ffmpeg-build-temp"
+REM URLs and versions (keep as before)
 set "DOWNLOAD_URL=https://ffmpeg.org/releases/ffmpeg-%FFMPEG_VERSION%.tar.bz2"
 set "LIBJPEG_TURBO_URL=https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/%LIBJPEG_TURBO_VERSION%.tar.gz"
 
 REM Number of CPU cores
-for /f "tokens=*" %%i in ('echo %NUMBER_OF_PROCESSORS%') do set "NUM_CORES=%%i"
+set "NUM_CORES=%NUMBER_OF_PROCESSORS%"
 
 echo ============================================================================
 echo FFmpeg Shared Build - Windows (external MinGW)
@@ -125,7 +121,6 @@ echo Install Prefix: %FFMPEG_INSTALL_PREFIX%
 echo Build Directory: %BUILD_DIR%
 echo CPU Cores: %NUM_CORES%
 echo ============================================================================
-echo.
 
 REM Check for required tools
 echo Checking for required tools...
@@ -141,47 +136,61 @@ echo.
 REM Create build directory
 echo Creating build directory...
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
-cd "%BUILD_DIR%"
+cd /d "%BUILD_DIR%"
 echo Build directory ready: %BUILD_DIR%
 echo.
 
+REM === Convert install prefix to forward slashes for build tools ===
+set "FFMPEG_INSTALL_PREFIX_UNIX=%FFMPEG_INSTALL_PREFIX:\=/"
+
 REM Build libjpeg-turbo
-echo Building libjpeg-turbo %LIBJPEG_TURBO_VERSION% (shared)...
-if not exist "%FFMPEG_INSTALL_PREFIX%\bin\libturbojpeg.dll" if not exist "%FFMPEG_INSTALL_PREFIX%\lib\libturbojpeg.dll" (
-    echo Downloading libjpeg-turbo...
-    if not exist "libjpeg-turbo.tar.gz" (
-        curl -L "%LIBJPEG_TURBO_URL%" -o "libjpeg-turbo.tar.gz"
-    )
-    echo Extracting libjpeg-turbo...
-    tar -xzf libjpeg-turbo.tar.gz
-    cd "libjpeg-turbo-%LIBJPEG_TURBO_VERSION%"
-    if not exist "build" mkdir build
-    cd build
-    echo Configuring libjpeg-turbo (shared)...
-    cmake .. -G "MinGW Makefiles" -DCMAKE_INSTALL_PREFIX="%FFMPEG_INSTALL_PREFIX%" -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=ON -DENABLE_STATIC=OFF -DWITH_JPEG8=ON -DWITH_TURBOJPEG=ON -DWITH_ZLIB=ON
-    echo Building libjpeg-turbo with %NUM_CORES% cores...
-    mingw32-make -j%NUM_CORES% 2>nul || make -j%NUM_CORES%
-    echo Installing libjpeg-turbo...
-    mingw32-make install 2>nul || make install
-    cd "%BUILD_DIR%"
-    rmdir /s /q "libjpeg-turbo-%LIBJPEG_TURBO_VERSION%"
-    echo libjpeg-turbo built and installed (shared)
-) else (
-    echo libjpeg-turbo (shared) already installed
+echo Building libjpeg-turbo %LIBJPEG_TURBO_VERSION% ^(shared^)...
+
+set "TURBO_INSTALLED=0"
+if exist "%FFMPEG_INSTALL_PREFIX%\bin\libturbojpeg.dll" set "TURBO_INSTALLED=1"
+if exist "%FFMPEG_INSTALL_PREFIX%\lib\libturbojpeg.dll" set "TURBO_INSTALLED=1"
+
+if "%TURBO_INSTALLED%"=="1" goto :skip_libjpeg_turbo
+
+echo Downloading libjpeg-turbo...
+if not exist "libjpeg-turbo.tar.gz" (
+    curl -L "%LIBJPEG_TURBO_URL%" -o "libjpeg-turbo.tar.gz"
 )
+echo Extracting libjpeg-turbo...
+tar -xzf "libjpeg-turbo.tar.gz"
+cd "libjpeg-turbo-%LIBJPEG_TURBO_VERSION%"
+if errorlevel 1 (exit /b 1)
+if not exist "build" mkdir build
+cd build
+if errorlevel 1 (exit /b 1)
+echo Configuring libjpeg-turbo ^(shared^)...
+cmake .. -G "MinGW Makefiles" -DCMAKE_INSTALL_PREFIX="%FFMPEG_INSTALL_PREFIX_UNIX%" -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=ON -DENABLE_STATIC=OFF -DWITH_JPEG8=ON -DWITH_TURBOJPEG=ON
+if errorlevel 1 (exit /b 1)
+echo Building libjpeg-turbo with %NUM_CORES% cores...
+mingw32-make -j%NUM_CORES% 2>nul || make -j%NUM_CORES%
+if errorlevel 1 (exit /b 1)
+echo Installing libjpeg-turbo...
+mingw32-make install 2>nul || make install
+if errorlevel 1 (exit /b 1)
+cd "%BUILD_DIR%"
+rmdir /s /q "libjpeg-turbo-%LIBJPEG_TURBO_VERSION%"
+echo libjpeg-turbo built and installed ^(shared^).
+
+:skip_libjpeg_turbo
 echo.
 
-REM Set extra flags
-set "EXTRA_CFLAGS=-I%FFMPEG_INSTALL_PREFIX%\include"
-set "EXTRA_LDFLAGS=-L%FFMPEG_INSTALL_PREFIX%\lib -lz -lbz2 -llzma -lwinpthread"
-set "ENABLE_LIBMFX="
+
+REM Set extra flags (use UNIX-style paths for compiler/linker)
+set "EXTRA_CFLAGS=-I%FFMPEG_INSTALL_PREFIX_UNIX%/include"
+set "EXTRA_LDFLAGS=-L%FFMPEG_INSTALL_PREFIX_UNIX%/lib -lz -lbz2 -llzma -lwinpthread"
 set "NVENC_ARG=--disable-nvenc"
 
 if defined ENABLE_NVENC (
     echo NVENC enabled
     set "NVENC_ARG=--enable-nvenc"
     if defined NVENC_SDK_PATH (
-        set "EXTRA_CFLAGS=%EXTRA_CFLAGS% -I%NVENC_SDK_PATH%\include"
+        set "NVENC_SDK_PATH_UNIX=%NVENC_SDK_PATH:\=/"
+        set "EXTRA_CFLAGS=%EXTRA_CFLAGS% -I%NVENC_SDK_PATH_UNIX%/include"
     )
 )
 
@@ -210,10 +219,10 @@ echo.
 
 REM Configure FFmpeg
 echo Configuring FFmpeg for shared build...
-set "PKG_CONFIG_PATH=%FFMPEG_INSTALL_PREFIX%\lib\pkgconfig;%PKG_CONFIG_PATH%"
+set "PKG_CONFIG_PATH=%FFMPEG_INSTALL_PREFIX_UNIX%/lib/pkgconfig;%PKG_CONFIG_PATH%"
 
 .\configure ^
-    --prefix="%FFMPEG_INSTALL_PREFIX%" ^
+    --prefix="%FFMPEG_INSTALL_PREFIX_UNIX%" ^
     --arch=x86_64 ^
     --target-os=mingw32 ^
     --enable-shared ^
@@ -244,7 +253,6 @@ set "PKG_CONFIG_PATH=%FFMPEG_INSTALL_PREFIX%\lib\pkgconfig;%PKG_CONFIG_PATH%"
     --enable-zlib ^
     --enable-bzlib ^
     --enable-lzma ^
-    %ENABLE_LIBMFX% ^
     --enable-dxva2 ^
     --enable-d3d11va ^
     --enable-hwaccels ^
@@ -261,6 +269,10 @@ set "PKG_CONFIG_PATH=%FFMPEG_INSTALL_PREFIX%\lib\pkgconfig;%PKG_CONFIG_PATH%"
     --extra-cflags="%EXTRA_CFLAGS%" ^
     --extra-ldflags="%EXTRA_LDFLAGS%"
 
+if errorlevel 1 (
+    echo ERROR: FFmpeg configure failed.
+    exit /b 1
+)
 echo Configuration complete
 echo.
 
@@ -268,12 +280,20 @@ REM Build FFmpeg
 echo Building FFmpeg...
 echo Using %NUM_CORES% CPU cores for compilation
 mingw32-make -j%NUM_CORES% 2>nul || make -j%NUM_CORES%
+if errorlevel 1 (
+    echo ERROR: FFmpeg build failed.
+    exit /b 1
+)
 echo Build complete
 echo.
 
 REM Install FFmpeg
 echo Installing FFmpeg to %FFMPEG_INSTALL_PREFIX%...
 mingw32-make install 2>nul || make install
+if errorlevel 1 (
+    echo ERROR: FFmpeg install failed.
+    exit /b 1
+)
 echo Installation complete
 echo.
 
@@ -324,16 +344,7 @@ echo   or pass -DFFMPEG_PREFIX=%FFMPEG_INSTALL_PREFIX% to cmake
 echo.
 echo Note: For runtime, ensure %FFMPEG_INSTALL_PREFIX%\bin is in your PATH or bundle the DLLs with your application.
 
-cd "%SCRIPT_DIR%.."
-
-set "BUILD_EXIT=0"
-if !BUILD_EXIT! neq 0 (
-    echo.
-    echo ============================================================================
-    echo FFmpeg build FAILED!
-    echo ============================================================================
-    exit /b !BUILD_EXIT!
-)
+cd /d "%SCRIPT_DIR%"
 
 echo.
 echo ============================================================================

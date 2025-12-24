@@ -115,8 +115,8 @@ jobs:
           } else {
             Write-Host "Chocolatey already installed"
           }
-          Write-Host "Installing CMake via Chocolatey (no mingw)..."
-          choco install -y cmake --no-progress
+          Write-Host "Installing CMake and NASM via Chocolatey..."
+          choco install -y cmake nasm --no-progress
           Write-Host "Skipping Chocolatey MinGW install; will use external MinGW downloaded later."
 
       - name: Install CMake (Chocolatey)

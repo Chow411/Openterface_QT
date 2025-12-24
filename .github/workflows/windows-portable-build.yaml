@@ -66,7 +66,7 @@ jobs:
           restore-keys: |
             mingw-ninja-nasm-yasm-static-
       - name: Cache external MinGW and related artifacts
-        id: cache-mingw
+        id: cache-mingw-external
         uses: actions/cache@v3
         with:
           path: |
@@ -344,8 +344,12 @@ jobs:
           )
       - name: Build Static FFmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        env:
+          SKIP_MSYS_MINGW: '1'
+          EXTERNAL_MINGW: 'C:\\mingw64'
         run: |
-          echo "Building static FFmpeg..."
+          echo "Building static FFmpeg (using external MinGW at %EXTERNAL_MINGW%)..."
+          set PATH=%EXTERNAL_MINGW%\bin;%PATH%
           cd build-script
           call build-static-ffmpeg-windows.bat
       - name: Verify vcpkg static libraries (with debug output)

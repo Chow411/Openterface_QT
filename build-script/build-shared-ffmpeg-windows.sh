@@ -371,7 +371,21 @@ if command -v perl >/dev/null 2>&1; then
     EXTRA_LDFLAGS=$(printf '%s' "$EXTRA_LDFLAGS" | perl -pe 's{([A-Za-z]):/}{"/".lc($1)."/"}ge')
     PKG_CONFIG_PATH=$(printf '%s' "$PKG_CONFIG_PATH" | perl -pe 's{([A-Za-z]):/}{"/".lc($1)."/"}ge')
 else
-    echo "Warning: perl not found; not normalizing Windows-style paths in flags."
+    echo "Warning: perl not found; attempting fallback normalization using awk (lower-case drive letters)."
+    normalize_path() {
+        printf '%s' "$1" | awk '{
+            s = $0;
+            # Replace occurrences like "C:/" with "/c/" (works for any drive letter)
+            while (match(s, /[A-Za-z]:\//)) {
+                d = substr(s, RSTART, 1);
+                s = substr(s, 1, RSTART-1) "/" tolower(d) "/" substr(s, RSTART+3);
+            }
+            print s;
+        }'
+    }
+    EXTRA_CFLAGS=$(normalize_path "$EXTRA_CFLAGS")
+    EXTRA_LDFLAGS=$(normalize_path "$EXTRA_LDFLAGS")
+    PKG_CONFIG_PATH=$(normalize_path "$PKG_CONFIG_PATH")
 fi
 
 # Print effective options for debugging

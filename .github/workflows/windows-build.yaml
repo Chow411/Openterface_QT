@@ -79,8 +79,8 @@ jobs:
           export PATH=/c/msys64/usr/bin:$PATH
           # Update core system and database first (noninteractive)
           pacman -Syu --noconfirm
-          # Install required mingw packages (use pkgconf, not legacy pkg-config). Include git for nv-codec-headers build.
-          pacman -S --noconfirm --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-nasm mingw-w64-x86_64-make mingw-w64-x86_64-pkgconf mingw-w64-x86_64-zlib mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-libjpeg-turbo
+          # Install required mingw packages (use pkgconf, not legacy pkg-config). Include git and perl for nv-codec-headers build and path normalization.
+          pacman -S --noconfirm --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-nasm mingw-w64-x86_64-make mingw-w64-x86_64-pkgconf mingw-w64-x86_64-zlib mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-libjpeg-turbo perl
           pacman -S --noconfirm --needed git
 
       - name: Install nv-codec-headers (ffnvcodec) for NVENC

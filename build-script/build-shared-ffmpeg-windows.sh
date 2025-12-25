@@ -357,6 +357,15 @@ fi
 cd "ffmpeg-${FFMPEG_VERSION}"
 echo ""
 
+# Avoid sed errors due to Windows-style temp paths (e.g., C:\Users\RUNNER~1\...)
+export CLEAN_TMP="/c/ffmpeg-tmp"
+mkdir -p "$CLEAN_TMP"
+export TMP="$CLEAN_TMP"
+export TEMP="$CLEAN_TMP"
+export TMPDIR="$CLEAN_TMP"
+unset ORIGINAL_PATH MSYSTEM_PREFIX CHERE_INVOKING
+echo "Using clean temporary directory: $TMPDIR"
+
 # Configure FFmpeg for shared build
 echo "Step 6/8: Configuring FFmpeg for shared build..."
 echo "This may take a few minutes..."

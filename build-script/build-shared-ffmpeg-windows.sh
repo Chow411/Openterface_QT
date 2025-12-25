@@ -365,6 +365,15 @@ echo ""
 # Set PKG_CONFIG_PATH to find libjpeg-turbo
 export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 
+# Normalize Windows-style paths (e.g., C:/path -> /c/path) in flags to avoid sed/configure parsing issues
+if command -v perl >/dev/null 2>&1; then
+    EXTRA_CFLAGS=$(printf '%s' "$EXTRA_CFLAGS" | perl -pe 's{([A-Za-z]):/}{"/".lc($1)."/"}ge')
+    EXTRA_LDFLAGS=$(printf '%s' "$EXTRA_LDFLAGS" | perl -pe 's{([A-Za-z]):/}{"/".lc($1)."/"}ge')
+    PKG_CONFIG_PATH=$(printf '%s' "$PKG_CONFIG_PATH" | perl -pe 's{([A-Za-z]):/}{"/".lc($1)."/"}ge')
+else
+    echo "Warning: perl not found; not normalizing Windows-style paths in flags."
+fi
+
 # Print effective options for debugging
 echo "CONFIGURE OPTIONS: NVENC_ARG='${NVENC_ARG}' CUDA_FLAGS='${CUDA_FLAGS}' ENABLE_LIBMFX='${ENABLE_LIBMFX}' EXTRA_CFLAGS='${EXTRA_CFLAGS}' EXTRA_LDFLAGS='${EXTRA_LDFLAGS}'"
 

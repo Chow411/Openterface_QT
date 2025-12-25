@@ -190,6 +190,7 @@ jobs:
           echo "Building shared FFmpeg using MSYS2 MinGW..."
           export EXTERNAL_MINGW=/mingw64
           export PATH=/c/msys64/usr/bin:/c/msys64/mingw64/bin:$PATH
+          export MSYS2_ARG_CONV_EXCL="*"  # Prevent path conversion in arguments
           echo "DEBUG: EXTERNAL_MINGW=${EXTERNAL_MINGW}"
           echo "DEBUG: PATH=${PATH}"
           command -v nasm || echo "nasm not found"

@@ -170,25 +170,10 @@ jobs:
         shell: bash
         run: |
           echo "Building shared FFmpeg using MSYS2 MinGW..."
-          export EXTERNAL_MINGW=/mingw64
           export EXTERNAL_MINGW=/c/msys64/mingw64
           export PATH=/c/msys64/usr/bin:/c/msys64/mingw64/bin:$PATH
-          export MSYS2_ARG_CONV_EXCL="*"  # Prevent path conversion in arguments
-          echo "DEBUG: EXTERNAL_MINGW=${EXTERNAL_MINGW}"
-          echo "DEBUG: PATH=${PATH}"
-          command -v nasm || echo "nasm not found"
-          cd build-script
-          # If we want NVENC enabled in CI and prepare ffnvcodec automatically, set AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1
-          # Use tee to show output in console AND save to log file
-          
-          AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=${EXTERNAL_MINGW} ./build-shared-ffmpeg-windows.sh 2>&1 | tee ../ffmpeg_build.log
-          
-          # Check if build succeeded
-          if [ ! -d "/c/ffmpeg-shared/include" ] || [ ! -d "/c/ffmpeg-shared/lib" ]; then
-            echo "ERROR: FFmpeg build failed - installation directories not found"
-            exit 1
-          fi
-          echo "FFmpeg build completed successfully"
+          export MSYS2_ARG_CONV_EXCL="*"
+          AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/c/msys64/mingw64 ./build-shared-ffmpeg-windows.sh 2>&1 | tee "${{ github.workspace }}/ffmpeg_build.log"
 
       - name: Upload FFmpeg Build Log
         if: always()

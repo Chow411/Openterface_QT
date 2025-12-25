@@ -98,6 +98,11 @@ if [ "${SKIP_MSYS_MINGW:-1}" = "1" ]; then
     command -v nasm >/dev/null 2>&1 || command -v yasm >/dev/null 2>&1 || { echo "ERROR: nasm or yasm not found on PATH"; MISSING=1; }
     command -v tar >/dev/null 2>&1 || { echo "ERROR: tar not found on PATH"; MISSING=1; }
     command -v wget >/dev/null 2>&1 || command -v curl >/dev/null 2>&1 || { echo "ERROR: wget or curl not found on PATH"; MISSING=1; }
+
+    # Additional helpful checks: cmp (diffutils) and make
+    command -v cmp >/dev/null 2>&1 || { echo "ERROR: cmp not found on PATH (package: diffutils). Install via pacman: pacman -S diffutils"; MISSING=1; }
+    command -v make >/dev/null 2>&1 || command -v mingw32-make >/dev/null 2>&1 || command -v gmake >/dev/null 2>&1 || { echo "ERROR: make not found on PATH. Install via pacman: pacman -S --needed mingw-w64-x86_64-make"; MISSING=1; }
+
     if [ "$MISSING" -eq 1 ]; then
         echo "One or more required tools are missing. Install the missing tools (gcc, cmake, make/mingw32-make, nasm/yasm, tar, wget/curl, git, bash) and ensure they are on PATH."
         exit 1
@@ -174,20 +179,51 @@ else
     echo "libmfx not enabled; QSV support will be attempted at runtime if available via drivers/SDK (dynamic loading by FFmpeg)."
 fi
 
-# NVENC: If requested, enable support but do NOT force linking against nvEncodeAPI
-if [ "${ENABLE_NVENC:-0}" = "1" ]; then
-    echo "NVENC enable requested via ENABLE_NVENC=1"
+# CUDA/NVENC: Auto-detect and enable when possible
+# Default: disabled (avoid accidental configure failures)
+NVENC_ARG="--disable-nvenc"
+CUDA_FLAGS=""
+
+# Detection strategy (in order):
+# 1) pkg-config ffnvcodec (packaged headers/libs)
+# 2) NVENC SDK present (nvEncodeAPI.h)
+# If user explicitly sets ENABLE_NVENC=1 we require headers or pkg-config and will fail if missing.
+if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
+    echo "ffnvcodec detected via pkg-config; enabling NVENC/ffnvcodec support"
     NVENC_ARG="--enable-nvenc"
-    NVENC_SDK_PATH="${NVENC_SDK_PATH:-/c/Program Files/NVIDIA Video Codec SDK}"
-    if [ -d "${NVENC_SDK_PATH}" ]; then
-        echo "NVENC SDK path: ${NVENC_SDK_PATH} (headers will be picked up if configure can find them)"
-        EXTRA_CFLAGS="${EXTRA_CFLAGS} -I${NVENC_SDK_PATH}/include"
-    else
-        echo "NVENC SDK path not found: ${NVENC_SDK_PATH}. If headers/libs are not available, configure may fail."
-    fi
+    # Use pkg-config to get cflags/libs if available
+    EXTRA_CFLAGS="${EXTRA_CFLAGS} $(pkg-config --cflags ffnvcodec 2>/dev/null || true)"
+    EXTRA_LDFLAGS="${EXTRA_LDFLAGS} $(pkg-config --libs-only-L ffnvcodec 2>/dev/null || true) $(pkg-config --libs-only-l ffnvcodec 2>/dev/null || true)"
+    CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-ffnvcodec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
 else
-    NVENC_ARG="--disable-nvenc"
+    # Try NVENC SDK headers if provided by user or found in common locations
+    NVENC_SDK_PATH="${NVENC_SDK_PATH:-/c/Program Files/NVIDIA Video Codec SDK}"
+    if [ -f "${NVENC_SDK_PATH}/include/nvEncodeAPI.h" ]; then
+        echo "NVENC SDK headers found: ${NVENC_SDK_PATH}/include"
+        NVENC_ARG="--enable-nvenc"
+        EXTRA_CFLAGS="${EXTRA_CFLAGS} -I${NVENC_SDK_PATH}/include"
+        # If ffnvcodec pkg-config is absent we still attempt to enable CUDA decoders, but configure may fail if libraries are missing
+        if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
+            CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-ffnvcodec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
+        else
+            echo "Warning: ffnvcodec pkg-config not found. Enabling CUDA/NVENC may still fail if runtime libraries are missing."
+            CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
+        fi
+    else
+        if [ "${ENABLE_NVENC:-0}" = "1" ]; then
+            echo "ERROR: ENABLE_NVENC=1 but neither ffnvcodec pkg-config nor NVENC SDK headers found (looked at ${NVENC_SDK_PATH})."
+            echo "To build with NVENC, install ffnvcodec dev package or set NVENC_SDK_PATH to the NVIDIA Video Codec SDK root containing include/nvEncodeAPI.h."
+            exit 1
+        else
+            echo "NVENC/ CUDA not detected; build will proceed without NVENC/CUDA support (dynamic runtime detection at app level remains possible)."
+            NVENC_ARG="--disable-nvenc"
+            CUDA_FLAGS=""
+        fi
+    fi
 fi
+
+# Print detection summary for the user
+echo "NVENC detection: NVENC_ARG='${NVENC_ARG}' CUDA_FLAGS='${CUDA_FLAGS}' EXTRA_CFLAGS='${EXTRA_CFLAGS}' EXTRA_LDFLAGS='${EXTRA_LDFLAGS}'"
 
 echo ""
 
@@ -220,6 +256,11 @@ echo ""
 
 # Set PKG_CONFIG_PATH to find libjpeg-turbo
 export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+
+# Print effective options for debugging
+echo "CONFIGURE OPTIONS: NVENC_ARG='${NVENC_ARG}' CUDA_FLAGS='${CUDA_FLAGS}' ENABLE_LIBMFX='${ENABLE_LIBMFX}' EXTRA_CFLAGS='${EXTRA_CFLAGS}' EXTRA_LDFLAGS='${EXTRA_LDFLAGS}'"
+
+echo "Running: ./configure --prefix='${FFMPEG_INSTALL_PREFIX}' --enable-shared --disable-static ..."
 
 ./configure \
     --prefix="${FFMPEG_INSTALL_PREFIX}" \
@@ -258,14 +299,7 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-d3d11va \
     --enable-hwaccels \
     --enable-decoder=mjpeg \
-    --enable-cuda \
-    --enable-cuvid \
-    --enable-nvdec \
-    ${NVENC_ARG} \
-    --enable-ffnvcodec \
-    --enable-decoder=h264_cuvid \
-    --enable-decoder=hevc_cuvid \
-    --enable-decoder=mjpeg_cuvid \
+    ${NVENC_ARG} ${CUDA_FLAGS} \
     --pkg-config-flags="" \
     --extra-cflags="${EXTRA_CFLAGS}" \
     --extra-ldflags="${EXTRA_LDFLAGS}"

@@ -167,8 +167,10 @@ jobs:
           export MSYSTEM=MINGW64
           # Put MinGW bin first so mingw-w64 tools (gcc, sed, make, etc.) are used instead of MSYS utilities
           export PATH=/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH
-          # Run the build inside a MinGW64 login shell to ensure correct environment
-          /c/msys64/mingw64.exe -l -c 'cd build-script && AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/c/msys64/mingw64 ./build-shared-ffmpeg-windows.sh' 2>&1 | tee "${{ github.workspace }}/ffmpeg_build.log"
+          # Run the build inside a MinGW64 login shell and tee the output inside MSYS so the log file is available on the Windows filesystem
+          /c/msys64/mingw64.exe -l -c "cd build-script && AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/c/msys64/mingw64 ./build-shared-ffmpeg-windows.sh 2>&1 | tee /c/ffmpeg_build.log"
+          # Copy the log back to the GitHub workspace so upload artifact step can find it
+          cp /c/ffmpeg_build.log "${{ github.workspace }}/ffmpeg_build.log" || true
 
       - name: Build LibUSB (using MSYS2 MinGW)
         if: steps.cache-libusb.outputs.cache-hit != 'true'
@@ -181,7 +183,10 @@ jobs:
           export MSYS2_ARG_CONV_EXCL="*"
           export MSYSTEM=MINGW64
           export PATH=/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH
-          /c/msys64/mingw64.exe -l -c 'cd build-script && ./install-libusb-windows.sh' 2>&1 | tee "${{ github.workspace }}/libusb_build.log"
+          # Run libusb install inside MSYS and tee to a Windows path
+          /c/msys64/mingw64.exe -l -c "cd build-script && ./install-libusb-windows.sh 2>&1 | tee /c/libusb_build.log"
+          # Copy the log back to the GitHub workspace
+          cp /c/libusb_build.log "${{ github.workspace }}/libusb_build.log" || true
 
       - name: Upload FFmpeg Build Log
         if: always()
@@ -198,6 +203,13 @@ jobs:
           name: libusb-build-log
           path: ${{ github.workspace }}/libusb_build.log
           if-no-files-found: warn
+
+      - name: Dump FFmpeg and LibUSB logs (tail)
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path "$env:GITHUB_WORKSPACE\ffmpeg_build.log") { Write-Host "---- FFmpeg tail (last 200 lines) ----"; Get-Content "$env:GITHUB_WORKSPACE\ffmpeg_build.log" -Tail 200 } else { Write-Host "No ffmpeg_build.log" }
+          if (Test-Path "$env:GITHUB_WORKSPACE\libusb_build.log") { Write-Host "---- LibUSB tail (last 200 lines) ----"; Get-Content "$env:GITHUB_WORKSPACE\libusb_build.log" -Tail 200 } else { Write-Host "No libusb_build.log" }
 
       - name: Set up Visual Studio shell
         uses: egor-tensin/vs-shell@v2

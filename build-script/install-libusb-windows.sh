@@ -4,7 +4,9 @@
 # This script builds and installs LibUSB shared library.
 # ============================================================================
 
-set -e  # Exit on error
+set -euo pipefail
+set -x  # Verbose execution for CI logs
+trap 'echo "LibUSB build failed - last 200 lines of logs:"; tail -n 200 "${BUILD_DIR}/libusb-build.log" || true; tail -n 200 "${BUILD_DIR}/libusb-configure.log" || true; exit 1' ERR
 
 # Get variables from environment (passed from .bat)
 LIBUSB_VERSION="${LIBUSB_VERSION:-1.0.27}"
@@ -55,15 +57,31 @@ export lt_cv_sys_lib_search_path_spec=""
 
 # Configure with autotools
 echo "Configuring LibUSB with autotools..."
-./configure --host=x86_64-w64-mingw32 --prefix="$LIBUSB_INSTALL_PREFIX" --enable-static --disable-shared
+CONFIG_LOG="${BUILD_DIR}/libusb-configure.log"
+mkdir -p "${BUILD_DIR}"
+./configure --host=x86_64-w64-mingw32 --prefix="$LIBUSB_INSTALL_PREFIX" --enable-static --disable-shared 2>&1 | tee "${CONFIG_LOG}"
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo "✗ LibUSB configure failed! See ${CONFIG_LOG}"
+    tail -n 200 "${CONFIG_LOG}" || true
+    exit 1
+fi
 
 # Build
 echo "Building LibUSB..."
-make -j"$NUM_CORES"
+BUILD_LOG="${BUILD_DIR}/libusb-build.log"
+make -j"$NUM_CORES" 2>&1 | tee "${BUILD_LOG}"
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo "✗ LibUSB build failed! See ${BUILD_LOG}"
+    tail -n 200 "${BUILD_LOG}" || true
+    exit 1
+fi
 
 # Install
 echo "Installing LibUSB..."
 make install
+
+echo "LibUSB build and install completed successfully!"
+echo "Installed to: $LIBUSB_INSTALL_PREFIX"
 
 echo "LibUSB build and install completed successfully!"
 echo "Installed to: $LIBUSB_INSTALL_PREFIX"

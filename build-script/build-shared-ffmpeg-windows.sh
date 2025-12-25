@@ -6,8 +6,11 @@
 # MinGW toolchain (e.g., C:\mingw64) and a bash shell (Git Bash).
 # ============================================================================
 
-set -e  # Exit on error
-set -u  # Exit on undefined variable
+set -euo pipefail
+set -x  # Verbose execution for CI logs
+
+# On error, dump last part of logs for easier debugging
+trap 'echo "FFmpeg build failed - last 200 lines of logs:"; tail -n 200 "${BUILD_DIR}/ffmpeg-build.log" || true; tail -n 200 "${BUILD_DIR}/ffmpeg-configure.log" || true; exit 1' ERR
 
 # Quick help / usage
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
@@ -379,6 +382,9 @@ echo "CONFIGURE OPTIONS: NVENC_ARG='${NVENC_ARG}' CUDA_FLAGS='${CUDA_FLAGS}' ENA
 
 echo "Running: ./configure --prefix='${FFMPEG_INSTALL_PREFIX}' --enable-shared --disable-static ..."
 
+CONFIG_LOG="${BUILD_DIR}/ffmpeg-configure.log"
+echo "Configure output will be saved to: ${CONFIG_LOG}"
+
 ./configure \
     --prefix="${FFMPEG_INSTALL_PREFIX}" \
     --arch=x86_64 \
@@ -419,7 +425,40 @@ echo "Running: ./configure --prefix='${FFMPEG_INSTALL_PREFIX}' --enable-shared -
     ${NVENC_ARG} ${CUDA_FLAGS} \
     --pkg-config-flags="" \
     --extra-cflags="${EXTRA_CFLAGS}" \
-    --extra-ldflags="${EXTRA_LDFLAGS}"
+    --extra-ldflags="${EXTRA_LDFLAGS}" \
+    2>&1 | tee "${CONFIG_LOG}"
+
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo "✗ FFmpeg configure failed! See ${CONFIG_LOG}"
+    tail -n 200 "${CONFIG_LOG}" || true
+    exit 1
+fi
+
+# Build FFmpeg
+echo "Step 7/8: Building FFmpeg..."
+echo "This will take 30-60 minutes depending on your CPU..."
+echo "Using ${NUM_CORES} CPU cores for compilation"
+echo ""
+
+# Capture build output for debugging
+BUILD_LOG="${BUILD_DIR}/ffmpeg-build.log"
+echo "Build output will be saved to: ${BUILD_LOG}"
+
+make -j${NUM_CORES} 2>&1 | tee "${BUILD_LOG}"
+
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo "✗ FFmpeg build failed!"
+    echo "Build output (last 100 lines):"
+    tail -100 "${BUILD_LOG}" || true
+    exit 1
+fi
+
+# Ensure install directory exists
+mkdir -p "${FFMPEG_INSTALL_PREFIX}"
+
+# Install FFmpeg
+echo "Step 8/8: Installing FFmpeg to ${FFMPEG_INSTALL_PREFIX}..."
+make install
 
 echo "✓ Configuration complete"
 echo ""

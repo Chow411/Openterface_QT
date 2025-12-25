@@ -164,8 +164,8 @@ fi
 # Determine optional flags for QSV (libmfx) and NVENC
 # For a shared build we avoid forcing static linking flags
 ENABLE_LIBMFX=""
-EXTRA_CFLAGS="-I/c/ffmpeg-shared/include -I/c/msys64/mingw64/include"
-EXTRA_LDFLAGS="-L/c/ffmpeg-shared/lib -lz -lbz2 -llzma -lwinpthread"
+EXTRA_CFLAGS="-I${FFMPEG_INSTALL_PREFIX}/include"
+EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lwinpthread"
 
 # libmfx (QSV): Only enable if user explicitly requests it via ENABLE_LIBMFX=1 and pkg-config can find it.
 if [ "${ENABLE_LIBMFX:-0}" = "1" ]; then
@@ -373,7 +373,6 @@ echo ""
 
 # Set PKG_CONFIG_PATH to find libjpeg-turbo
 export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-export MSYS2_ARG_CONV_EXCL="*"
 
 # Print effective options for debugging
 echo "CONFIGURE OPTIONS: NVENC_ARG='${NVENC_ARG}' CUDA_FLAGS='${CUDA_FLAGS}' ENABLE_LIBMFX='${ENABLE_LIBMFX}' EXTRA_CFLAGS='${EXTRA_CFLAGS}' EXTRA_LDFLAGS='${EXTRA_LDFLAGS}'"

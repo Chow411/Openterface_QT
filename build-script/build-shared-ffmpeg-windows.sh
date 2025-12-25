@@ -188,8 +188,15 @@ CUDA_FLAGS=""
 # Helper to build nv-codec-headers (ffnvcodec) into FFMPEG_INSTALL_PREFIX
 build_ffnvcodec_headers() {
     echo "Attempting to build nv-codec-headers (ffnvcodec) into ${FFMPEG_INSTALL_PREFIX}..."
-    TMPDIR=$(mktemp -d 2>/dev/null || mktemp -d -t nvcodecheaders)
+    # Create a temporary working dir (fallback to ${BUILD_DIR} if mktemp fails)
+    TMPDIR=$(mktemp -d 2>/dev/null || true)
+    if [ -z "${TMPDIR}" ] || [ ! -d "${TMPDIR}" ]; then
+        TMPDIR="${BUILD_DIR}/nv-code-headers-tmp.$$"
+        mkdir -p "${TMPDIR}"
+    fi
+    echo "Using temp dir: ${TMPDIR}"
     cd "${TMPDIR}"
+
     git clone https://github.com/FFmpeg/nv-codec-headers.git
     cd nv-codec-headers
     # Try to use a tag compatible with FFmpeg 6.x
@@ -197,10 +204,38 @@ build_ffnvcodec_headers() {
     if git rev-list -n 1 n12.0.16.1 >/dev/null 2>&1; then
         git checkout n12.0.16.1
     fi
+
     make PREFIX="${FFMPEG_INSTALL_PREFIX}" || { echo "ERROR: building nv-codec-headers failed"; cd "${BUILD_DIR}"; rm -rf "${TMPDIR}"; return 1; }
     make PREFIX="${FFMPEG_INSTALL_PREFIX}" install || { echo "ERROR: installing nv-codec-headers failed"; cd "${BUILD_DIR}"; rm -rf "${TMPDIR}"; return 1; }
-    # Ensure pkg-config can find installed ffnvcodec
-    export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+
+    # Locate installed .pc file and set PKG_CONFIG_PATH using MSYS-style path
+    find_pc() {
+        # First try MSYS-style path
+        if [ -f "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig/ffnvcodec.pc" ]; then
+            echo "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig"
+            return 0
+        fi
+        # Try Windows-style C:/... path
+        winp=$(echo "${FFMPEG_INSTALL_PREFIX}" | sed -E 's|^/([a-zA-Z])/(.*)|\U\1:/\2|')
+        if [ -f "${winp}/lib/pkgconfig/ffnvcodec.pc" ]; then
+            # Convert to MSYS path
+            drive=$(echo "$winp" | cut -c1 | tr '[:upper:]' '[:lower:]')
+            rest=$(echo "$winp" | sed -E 's|^[A-Za-z]:/(.*)|\1|')
+            echo "/${drive}/${rest}/lib/pkgconfig"
+            return 0
+        fi
+        return 1
+    }
+
+    if pkgdir=$(find_pc); then
+        export PKG_CONFIG_PATH="${pkgdir}:${PKG_CONFIG_PATH:-}"
+        echo "Updated PKG_CONFIG_PATH to include: ${pkgdir}"
+    else
+        echo "WARNING: ffnvcodec.pc not found under ${FFMPEG_INSTALL_PREFIX} (checked MSYS and Windows-style paths)."
+        echo "Contents of ${FFMPEG_INSTALL_PREFIX} (for debug):"
+        ls -la "${FFMPEG_INSTALL_PREFIX}" || true
+    fi
+
     cd "${BUILD_DIR}"
     rm -rf "${TMPDIR}"
     echo "nv-codec-headers installed into ${FFMPEG_INSTALL_PREFIX}"

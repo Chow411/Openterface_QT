@@ -89,9 +89,9 @@ jobs:
           export PATH=/c/msys64/usr/bin:/c/msys64/mingw64/bin:$PATH
           echo "Installing nv-codec-headers into /c/ffmpeg-shared (for NVENC support)"
           mkdir -p /c/ffmpeg-shared
-          rm -rf /tmp/nv-codec-headers || true
-          git clone https://github.com/FFmpeg/nv-codec-headers.git /tmp/nv-codec-headers
-          cd /tmp/nv-codec-headers
+          rm -rf /c/ffmpeg-shared/nv-codec-headers || true
+          git clone https://github.com/FFmpeg/nv-codec-headers.git /c/ffmpeg-shared/nv-codec-headers
+          cd /c/ffmpeg-shared/nv-codec-headers
           git fetch --tags || true
           git checkout n12.0.16.1 || true
           make PREFIX="/c/ffmpeg-shared"
@@ -100,6 +100,7 @@ jobs:
           echo "Listing /c/ffmpeg-shared/lib/pkgconfig:"
           ls -la /c/ffmpeg-shared/lib/pkgconfig || true
           echo "pkg-config can find ffnvcodec:"; pkg-config --exists ffnvcodec && echo OK || (echo NOT_FOUND; cat /c/ffmpeg-shared/lib/pkgconfig/ffnvcodec.pc)
+          
       - name: Install MinGW and CMake
         if: steps.cache-mingw.outputs.cache-hit != 'true'
         run: |

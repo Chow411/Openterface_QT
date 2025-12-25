@@ -106,23 +106,7 @@ jobs:
           restore-keys: |
             choco-packages-windows
 
-      - name: Cache FFmpeg (shared)
-        id: cache-ffmpeg
-        uses: actions/cache@v4
-        with:
-          path: C:\ffmpeg-shared
-          key: ffmpeg-shared-6.1.1-windows-pathfix
-          restore-keys: |
-            ffmpeg-shared-6.1.1-windows-pathfix
 
-      - name: Cache LibUSB
-        id: cache-libusb
-        uses: actions/cache@v4
-        with:
-          path: C:\libusb
-          key: libusb-1.0.27-windows-v2
-          restore-keys: |
-            libusb-1.0.27-windows-v2
 
       - name: Update version
         run: |

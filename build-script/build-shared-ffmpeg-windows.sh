@@ -442,17 +442,42 @@ make install
 echo "✓ Installation complete"
 echo ""
 
-# Verify installation (check for DLLs for a shared build)
+# Verify installation (check for DLLs and import libs for a shared build)
 echo "============================================================================"
 echo "Verifying installation (shared)..."
 echo "============================================================================"
 
+# Check for DLLs
 if ls "${FFMPEG_INSTALL_PREFIX}/bin/"*.dll >/dev/null 2>&1 || ls "${FFMPEG_INSTALL_PREFIX}/lib/"*.dll >/dev/null 2>&1; then
-    echo "✓ FFmpeg shared libraries installed successfully!"
+    echo "✓ FFmpeg shared libraries (DLLs) installed successfully!"
+
+    # Check for import libraries (.dll.a) required by CMake
+    echo "Checking for FFmpeg import libraries (.dll.a)..."
+    MISSING_LIBS=0
+    for lib in avdevice avfilter avformat avcodec swresample swscale avutil; do
+        if [ -f "${FFMPEG_INSTALL_PREFIX}/lib/lib${lib}.dll.a" ]; then
+            echo "✓ Found: lib${lib}.dll.a"
+        else
+            echo "✗ Missing: lib${lib}.dll.a"
+            MISSING_LIBS=1
+        fi
+    done
+
+    if [ $MISSING_LIBS -eq 1 ]; then
+        echo "✗ Some FFmpeg import libraries are missing. Build may have failed for some components."
+        exit 1
+    fi
+
+    echo "✓ All required FFmpeg import libraries found!"
     echo ""
+
     echo "Installed FFmpeg libraries (DLLs):"
     ls -lh "${FFMPEG_INSTALL_PREFIX}/bin/"*.dll 2>/dev/null || true
     ls -lh "${FFMPEG_INSTALL_PREFIX}/lib/"*.dll 2>/dev/null || true
+    echo ""
+    echo "Installed FFmpeg import libraries (.dll.a):"
+    ls -lh "${FFMPEG_INSTALL_PREFIX}/lib/"libav*.dll.a 2>/dev/null || true
+    ls -lh "${FFMPEG_INSTALL_PREFIX}/lib/"libsw*.dll.a 2>/dev/null || true
     echo ""
     echo "Installed libjpeg-turbo libraries (DLLs):"
     ls -lh "${FFMPEG_INSTALL_PREFIX}/bin/"*jpeg*.dll 2>/dev/null || ls -lh "${FFMPEG_INSTALL_PREFIX}/lib/"*jpeg*.dll 2>/dev/null || true

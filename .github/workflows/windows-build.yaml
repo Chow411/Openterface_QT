@@ -171,10 +171,12 @@ jobs:
         run: |
           echo "Building shared FFmpeg using MSYS2 MinGW..."
           export EXTERNAL_MINGW=/c/msys64/mingw64
-          export PATH=/c/msys64/usr/bin:/c/msys64/mingw64/bin:$PATH
           export MSYS2_ARG_CONV_EXCL="*"
-          cd build-script 
-          AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/c/msys64/mingw64 ./build-shared-ffmpeg-windows.sh 2>&1 | tee "${{ github.workspace }}/ffmpeg_build.log"
+          export MSYSTEM=MINGW64
+          # Put MinGW bin first so mingw-w64 tools (gcc, sed, make, etc.) are used instead of MSYS utilities
+          export PATH=/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH
+          # Run the build inside a MinGW64 login shell to ensure correct environment
+          /c/msys64/mingw64.exe -l -c 'cd build-script && AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/c/msys64/mingw64 ./build-shared-ffmpeg-windows.sh' 2>&1 | tee "${{ github.workspace }}/ffmpeg_build.log"
 
       - name: Upload FFmpeg Build Log
         if: always()

@@ -164,15 +164,12 @@ jobs:
 
       - name: Build Shared FFmpeg (using MSYS2 MinGW)
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: bash
         run: |
-          echo "Building shared FFmpeg using MSYS2 MinGW..."
-          set "EXTERNAL_MINGW=C:\msys64\mingw64"
-          set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;%PATH%"
-          echo "DEBUG: EXTERNAL_MINGW=%EXTERNAL_MINGW%"
-          echo "DEBUG: PATH=%PATH%"
-          where nasm || echo "nasm not found"
+          export EXTERNAL_MINGW=/c/msys64/mingw64
+          export PATH=/c/msys64/usr/bin:/c/msys64/mingw64/bin:$PATH
           cd build-script
-          call build-shared-ffmpeg-windows.bat
+          ./build-shared-ffmpeg-windows.sh
 
       - name: Set up Visual Studio shell
         uses: egor-tensin/vs-shell@v2

@@ -115,6 +115,15 @@ jobs:
           restore-keys: |
             ffmpeg-shared-6.1.1-windows
 
+      - name: Cache LibUSB
+        id: cache-libusb
+        uses: actions/cache@v4
+        with:
+          path: C:\libusb
+          key: libusb-1.0.27-windows
+          restore-keys: |
+            libusb-1.0.27-windows
+
       - name: Update version
         run: |
           if [ "${{ github.event.inputs.increase_version }}" = "true" ]; then
@@ -178,12 +187,33 @@ jobs:
           # Run the build inside a MinGW64 login shell to ensure correct environment
           /c/msys64/mingw64.exe -l -c 'cd build-script && AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/c/msys64/mingw64 ./build-shared-ffmpeg-windows.sh' 2>&1 | tee "${{ github.workspace }}/ffmpeg_build.log"
 
+      - name: Build LibUSB (using MSYS2 MinGW)
+        if: steps.cache-libusb.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          echo "Building LibUSB using MSYS2 MinGW..."
+          export EXTERNAL_MINGW=/c/msys64/mingw64
+          export EXTERNAL_MINGW_MSYS=/c/msys64/mingw64
+          export SKIP_MSYS_MINGW=1
+          export MSYS2_ARG_CONV_EXCL="*"
+          export MSYSTEM=MINGW64
+          export PATH=/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH
+          /c/msys64/mingw64.exe -l -c 'cd build-script && ./install-libusb-windows.sh' 2>&1 | tee "${{ github.workspace }}/libusb_build.log"
+
       - name: Upload FFmpeg Build Log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-build-log
           path: ${{ github.workspace }}/ffmpeg_build.log
+          if-no-files-found: warn
+
+      - name: Upload LibUSB Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: libusb-build-log
+          path: ${{ github.workspace }}/libusb_build.log
           if-no-files-found: warn
 
       - name: Set up Visual Studio shell

@@ -1,0 +1,69 @@
+#!/bin/bash
+# ============================================================================
+# LibUSB Shared Library Build and Install Script for Windows (MSYS2 MinGW)
+# This script builds and installs LibUSB shared library.
+# ============================================================================
+
+set -e  # Exit on error
+
+# Get variables from environment (passed from .bat)
+LIBUSB_VERSION="${LIBUSB_VERSION:-1.0.27}"
+LIBUSB_INSTALL_PREFIX="${LIBUSB_INSTALL_PREFIX:-/c/libusb}"
+BUILD_DIR="${BUILD_DIR:-$(pwd)/libusb-build-temp}"
+NUM_CORES="${NUM_CORES:-$(nproc)}"
+DOWNLOAD_URL="${DOWNLOAD_URL:-https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2}"
+
+echo "LibUSB Version: $LIBUSB_VERSION"
+echo "Install Prefix: $LIBUSB_INSTALL_PREFIX"
+echo "Build Directory: $BUILD_DIR"
+echo "CPU Cores: $NUM_CORES"
+echo "Download URL: $DOWNLOAD_URL"
+
+# Create install directory if it doesn't exist
+mkdir -p "$LIBUSB_INSTALL_PREFIX"
+
+# Download LibUSB source
+echo "Downloading LibUSB $LIBUSB_VERSION..."
+if [ ! -f "libusb-${LIBUSB_VERSION}.tar.bz2" ]; then
+    curl -L -o "libusb-${LIBUSB_VERSION}.tar.bz2" "$DOWNLOAD_URL"
+else
+    echo "LibUSB source already downloaded."
+fi
+
+# Extract source
+echo "Extracting LibUSB source..."
+if [ ! -d "libusb-${LIBUSB_VERSION}" ]; then
+    tar -xjf "libusb-${LIBUSB_VERSION}.tar.bz2"
+else
+    echo "LibUSB source already extracted."
+fi
+
+# Enter source directory
+cd "libusb-${LIBUSB_VERSION}"
+
+# Clean previous build if exists
+if [ -f Makefile ]; then
+    echo "Cleaning previous build..."
+    make distclean
+fi
+
+# Set libtool environment to avoid rpath issues
+export lt_cv_deplibs_check_method=pass_all
+export lt_cv_shlibpath_overrides_runpath=no
+export lt_cv_sys_lib_dlsearch_path_spec=""
+export lt_cv_sys_lib_search_path_spec=""
+
+# Configure with autotools
+echo "Configuring LibUSB with autotools..."
+./configure --host=x86_64-w64-mingw32 --prefix="$LIBUSB_INSTALL_PREFIX" --enable-static --disable-shared
+
+# Build
+echo "Building LibUSB..."
+make -j"$NUM_CORES"
+
+# Install
+echo "Installing LibUSB..."
+make install
+
+echo "LibUSB build and install completed successfully!"
+echo "Installed to: $LIBUSB_INSTALL_PREFIX"

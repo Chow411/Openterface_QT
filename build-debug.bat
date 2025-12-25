@@ -60,20 +60,22 @@ goto :CHECK_STATIC
 echo Checking for shared FFmpeg libraries...
 if exist "%FFMPEG_PREFIX%\lib\libavformat.dll.a" (
     echo ✓ Found import lib: %FFMPEG_PREFIX%\lib\libavformat.dll.a
-    goto :AFTER_CHECK
+    goto :CHECK_LIBUSB
 )
 
 rem Try to find DLLs under bin
+set FOUND_DLLS=0
 dir /b "%FFMPEG_PREFIX%\bin\avformat-*.dll" >nul 2>nul
-if errorlevel 1 (
+if errorlevel 0 set FOUND_DLLS=1
+if "%FOUND_DLLS%"=="1" (
+    echo ✓ Found FFmpeg DLL(s) under %FFMPEG_PREFIX%\bin
+    goto :CHECK_LIBUSB
+) else (
     echo Error: FFmpeg shared libraries not found at %FFMPEG_PREFIX%
     echo.
     echo Please install or build shared FFmpeg (e.g. into %FFMPEG_PREFIX%)
     echo.
     exit /b 1
-) else (
-    echo ✓ Found FFmpeg DLL(s) under %FFMPEG_PREFIX%\bin
-    goto :AFTER_CHECK
 )
 
 :CHECK_STATIC
@@ -87,6 +89,34 @@ if not exist "%FFMPEG_PREFIX%\lib\libavformat.a" (
     exit /b 1
 )
 echo ✓ FFmpeg static libraries found
+
+:CHECK_LIBUSB
+echo Checking for libusb installation...
+set LIBUSB_FOUND=0
+if exist "%CD%\lib\libusb-1.0.a" set LIBUSB_FOUND=1
+if exist "%CD%\lib\libusb-1.0.dll.a" set LIBUSB_FOUND=1
+if exist "C:\libusb\lib\libusb-1.0.a" set LIBUSB_FOUND=1
+if exist "C:\libusb\lib\libusb-1.0.dll.a" set LIBUSB_FOUND=1
+if exist "C:\libusb\bin\libusb-1.0.dll" set LIBUSB_FOUND=1
+if "%LIBUSB_FOUND%"=="1" (
+    echo ✓ libusb found
+    goto :AFTER_CHECK
+)
+
+echo libusb not found in project or C:\libusb. Attempting automatic install to C:\libusb...
+call "%~dp0build-script\install-libusb-windows.bat" "C:\libusb"
+if %errorlevel% neq 0 (
+    echo Auto-install of libusb failed or aborted. Please install libusb to C:\libusb manually and re-run this script.
+    exit /b 1
+)
+
+rem Re-check after install
+if exist "C:\libusb\include\libusb-1.0\libusb.h" (
+    echo ✓ libusb now installed at C:\libusb
+) else (
+    echo Failed to find libusb after installation. Please verify C:\libusb contains include\libusb-1.0 and lib/ or bin/ with libusb files.
+    exit /b 1
+)
 
 :AFTER_CHECK
 

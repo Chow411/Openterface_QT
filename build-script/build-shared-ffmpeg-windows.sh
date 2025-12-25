@@ -365,31 +365,6 @@ echo ""
 # Set PKG_CONFIG_PATH to find libjpeg-turbo
 export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 
-# Normalize Windows-style paths (e.g., C:/path or C:\\path -> /c/path) in flags to avoid sed/configure parsing issues
-if command -v perl >/dev/null 2>&1; then
-    # Handle both forward and back slashes coming from pkg-config or other sources
-    EXTRA_CFLAGS=$(printf '%s' "$EXTRA_CFLAGS" | perl -pe 's{([A-Za-z]):[\\/]}{"/".lc($1)."/"}ge')
-    EXTRA_LDFLAGS=$(printf '%s' "$EXTRA_LDFLAGS" | perl -pe 's{([A-Za-z]):[\\/]}{"/".lc($1)."/"}ge')
-    PKG_CONFIG_PATH=$(printf '%s' "$PKG_CONFIG_PATH" | perl -pe 's{([A-Za-z]):[\\/]}{"/".lc($1)."/"}ge')
-else
-    echo "Warning: perl not found; attempting fallback normalization using awk (lower-case drive letters)."
-    normalize_path() {
-        printf '%s' "$1" | awk '{
-            s = $0;
-            # Replace occurrences like "C:/" or "C:\\" with "/c/" (works for any drive letter)
-            while (match(s, /[A-Za-z]:[\\/]/)) {
-                d = substr(s, RSTART, 1);
-                # skip the two-character ":/" or ":\\"
-                s = substr(s, 1, RSTART-1) "/" tolower(d) "/" substr(s, RSTART+3);
-            }
-            print s;
-        }'
-    }
-    EXTRA_CFLAGS=$(normalize_path "$EXTRA_CFLAGS")
-    EXTRA_LDFLAGS=$(normalize_path "$EXTRA_LDFLAGS")
-    PKG_CONFIG_PATH=$(normalize_path "$PKG_CONFIG_PATH")
-fi
-
 # Print effective options for debugging
 echo "CONFIGURE OPTIONS: NVENC_ARG='${NVENC_ARG}' CUDA_FLAGS='${CUDA_FLAGS}' ENABLE_LIBMFX='${ENABLE_LIBMFX}' EXTRA_CFLAGS='${EXTRA_CFLAGS}' EXTRA_LDFLAGS='${EXTRA_LDFLAGS}'"
 

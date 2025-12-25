@@ -166,8 +166,16 @@ jobs:
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         shell: bash
         run: |
+          echo "Building shared FFmpeg using MSYS2 MinGW..."
           export EXTERNAL_MINGW=/c/msys64/mingw64
           export PATH=/c/msys64/usr/bin:/c/msys64/mingw64/bin:$PATH
+          # Use Unix-style install prefix to avoid sed/backslash issues during configure
+          export FFMPEG_INSTALL_PREFIX=/c/ffmpeg-shared
+          export EXTRA_CFLAGS="-I${FFMPEG_INSTALL_PREFIX}/include"
+          export EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lwinpthread"
+          # Ensure /tmp exists and is writable for configure
+          mkdir -p /tmp
+          ls -ld /tmp || true
           cd build-script
           ./build-shared-ffmpeg-windows.sh
 

@@ -28,6 +28,12 @@ if(NOT DEFINED FFMPEG_PREFIX)
     endif()
 endif()
 
+# Normalize FFMPEG_PREFIX to use consistent path separators
+if(FFMPEG_PREFIX)
+    file(TO_CMAKE_PATH "${FFMPEG_PREFIX}" FFMPEG_PREFIX)
+    message(STATUS "Normalized FFMPEG_PREFIX: ${FFMPEG_PREFIX}")
+endif()
+
 # Option to control hardware acceleration libraries
 option(USE_HWACCEL "Enable hardware acceleration libraries (VA-API, VDPAU)" ON)
 
@@ -227,6 +233,12 @@ if(NOT DEFINED FFMPEG_LIB_EXT)
     endif()
 endif()
 
+# Normalize the library directory path to use consistent separators
+if(FFMPEG_LIB_DIR)
+    file(TO_CMAKE_PATH "${FFMPEG_LIB_DIR}" FFMPEG_LIB_DIR)
+    message(STATUS "Normalized FFmpeg library directory: ${FFMPEG_LIB_DIR}")
+endif()
+
 message(STATUS "Final FFmpeg library extension: ${FFMPEG_LIB_EXT}")
 
 # Build the list of FFmpeg libraries depending on detected extension
@@ -273,11 +285,26 @@ endif()
 message(STATUS "Using FFmpeg library paths: ${FFMPEG_LIBRARIES}")
 
 # Verify all FFmpeg libraries exist
+message(STATUS "Checking FFmpeg library existence...")
 foreach(FFMPEG_LIB ${FFMPEG_LIBRARIES})
-    if(EXISTS "${FFMPEG_LIB}")
-        message(STATUS "✓ Found: ${FFMPEG_LIB}")
+    # Normalize the library path
+    file(TO_CMAKE_PATH "${FFMPEG_LIB}" FFMPEG_LIB_NORMALIZED)
+    message(STATUS "Checking: ${FFMPEG_LIB_NORMALIZED}")
+    
+    if(EXISTS "${FFMPEG_LIB_NORMALIZED}")
+        message(STATUS "✓ Found: ${FFMPEG_LIB_NORMALIZED}")
     else()
-        message(FATAL_ERROR "✗ Missing: ${FFMPEG_LIB}")
+        message(STATUS "✗ Missing: ${FFMPEG_LIB_NORMALIZED}")
+        # Also try checking if the parent directory exists for debugging
+        get_filename_component(LIB_DIR "${FFMPEG_LIB_NORMALIZED}" DIRECTORY)
+        if(EXISTS "${LIB_DIR}")
+            message(STATUS "  Directory exists: ${LIB_DIR}")
+            file(GLOB LIB_DIR_CONTENTS "${LIB_DIR}/*")
+            message(STATUS "  Directory contents: ${LIB_DIR_CONTENTS}")
+        else()
+            message(STATUS "  Directory does not exist: ${LIB_DIR}")
+        endif()
+        message(FATAL_ERROR "✗ Missing: ${FFMPEG_LIB_NORMALIZED}")
     endif()
 endforeach()
 

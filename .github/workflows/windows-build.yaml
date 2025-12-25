@@ -178,7 +178,7 @@ jobs:
           command -v nasm || echo "nasm not found"
           cd build-script
           # If we want NVENC enabled in CI and prepare ffnvcodec automatically, set AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1
-          AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=${EXTERNAL_MINGW} ./build-shared-ffmpeg-windows.sh > "$(cygpath '${{ github.workspace }}')/ffmpeg_build.log" 2>&1
+          AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=${EXTERNAL_MINGW} ./build-shared-ffmpeg-windows.sh > "${{ github.workspace }}/ffmpeg_build.log" 2>&1
 
       - name: Upload FFmpeg Build Log
         if: always()

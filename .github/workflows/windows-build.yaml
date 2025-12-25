@@ -198,7 +198,7 @@ jobs:
           AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=${EXTERNAL_MINGW} ./build-shared-ffmpeg-windows.sh
 
       - name: Set up Visual Studio shell
-        uses: egor-tensin/vs-shell@v2
+        uses: egor-tensin/vs-shell@v2 
         with:
           arch: x64
       

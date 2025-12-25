@@ -236,6 +236,35 @@ build_ffnvcodec_headers() {
         ls -la "${FFMPEG_INSTALL_PREFIX}" || true
     fi
 
+    # Quick debug: try pkg-config now; if it fails attempt to copy the .pc into common MSYS pkgconfig dirs
+    if ! pkg-config --exists ffnvcodec >/dev/null 2>&1; then
+        echo "pkg-config cannot find ffnvcodec yet; attempting to copy .pc into known MSYS pkgconfig locations..."
+        PC_SRC="${pkgdir}/ffnvcodec.pc"
+        for dest in "/c/msys64/mingw64/lib/pkgconfig" "/mingw64/lib/pkgconfig" "/c/msys64/usr/lib/pkgconfig"; do
+            if [ -d "$dest" ]; then
+                prefix_dir=$(echo "$dest" | sed -E 's|/lib/pkgconfig$||')
+                echo "Copying $PC_SRC to $dest with prefix=$prefix_dir"
+                sed "s|^prefix=.*|prefix=${prefix_dir}|" "$PC_SRC" > "$dest/ffnvcodec.pc" || continue
+                export PKG_CONFIG_PATH="$dest:${PKG_CONFIG_PATH:-}"
+                echo "Updated PKG_CONFIG_PATH to include: $dest"
+                break
+            fi
+        done
+    fi
+
+    # Final check
+    if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
+        echo "ffnvcodec is now discoverable via pkg-config"
+    else
+        echo "ERROR: auto-install completed but pkg-config still cannot find ffnvcodec"
+        echo "Checked paths: ${PKG_CONFIG_PATH}"
+        echo "Contents of any pkgconfig dirs:"
+        for p in $(echo "${PKG_CONFIG_PATH}" | tr ':' '\n'); do ls -la "$p" 2>/dev/null || true; done
+        cd "${BUILD_DIR}"
+        rm -rf "${TMPDIR}"
+        return 1
+    fi
+
     cd "${BUILD_DIR}"
     rm -rf "${TMPDIR}"
     echo "nv-codec-headers installed into ${FFMPEG_INSTALL_PREFIX}"

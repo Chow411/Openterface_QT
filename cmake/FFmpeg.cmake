@@ -121,44 +121,28 @@ endif()
 
 # If pkg-config didn't find FFmpeg (or we're using static linking), fall back to path search
 if(NOT FFMPEG_FOUND)
-    message(STATUS "Falling back to manual path search for FFmpeg (static)...")
+    message(STATUS "Falling back to manual path search for FFmpeg...")
 
     # Find FFmpeg installation
     message(STATUS "FFmpeg search paths: ${FFMPEG_SEARCH_PATHS}")
     foreach(SEARCH_PATH ${FFMPEG_SEARCH_PATHS})
-        # For static builds, prefer .a files; for shared, .so files
-        if(USE_SHARED_FFMPEG)
-            set(LIB_EXTENSIONS ".so")
-        else()
-            set(LIB_EXTENSIONS ".a")
-        endif()
-        
-        # Platform-specific library paths
+        # Choose which library file extensions to try depending on platform and preference
         if(WIN32)
-            set(LIB_PATHS 
-                "${SEARCH_PATH}/lib"
-                "${SEARCH_PATH}/bin"
-            )
+            if(USE_SHARED_FFMPEG)
+                # Prefer import libraries or system libs when shared is requested
+                set(LIB_EXTENSIONS ".dll.a" ".lib" ".dll")
+            else()
+                # Try static first, fall back to MinGW import libs and system libs
+                set(LIB_EXTENSIONS ".a" ".dll.a" ".lib" ".dll")
+            endif()
+            set(LIB_PATHS "${SEARCH_PATH}/lib" "${SEARCH_PATH}/bin")
         else()
-            set(LIB_PATHS 
-                "${SEARCH_PATH}/lib/x86_64-linux-gnu"
-                "${SEARCH_PATH}/lib/aarch64-linux-gnu"
-                "${SEARCH_PATH}/lib"
-            )
-        endif()
-        
-        # Platform-specific library paths
-        if(WIN32)
-            set(LIB_PATHS 
-                "${SEARCH_PATH}/lib"
-                "${SEARCH_PATH}/bin"
-            )
-        else()
-            set(LIB_PATHS 
-                "${SEARCH_PATH}/lib/x86_64-linux-gnu"
-                "${SEARCH_PATH}/lib/aarch64-linux-gnu"
-                "${SEARCH_PATH}/lib"
-            )
+            if(USE_SHARED_FFMPEG)
+                set(LIB_EXTENSIONS ".so")
+            else()
+                set(LIB_EXTENSIONS ".a")
+            endif()
+            set(LIB_PATHS "${SEARCH_PATH}/lib/x86_64-linux-gnu" "${SEARCH_PATH}/lib/aarch64-linux-gnu" "${SEARCH_PATH}/lib")
         endif()
 
         # Check each potential library path with each extension
@@ -166,6 +150,7 @@ if(NOT FFMPEG_FOUND)
             foreach(LIB_EXT ${LIB_EXTENSIONS})
                 set(LIB_NAME "libavformat${LIB_EXT}")
                 message(STATUS "Checking for FFmpeg in: ${LIB_PATH}/${LIB_NAME}")
+
                 if(EXISTS "${LIB_PATH}/${LIB_NAME}" AND EXISTS "${SEARCH_PATH}/include/libavformat/avformat.h")
                     set(FFMPEG_LIB_DIR "${LIB_PATH}")
                     set(FFMPEG_LIB_EXT "${LIB_EXT}")
@@ -175,6 +160,20 @@ if(NOT FFMPEG_FOUND)
                     message(STATUS "Using ${LIB_EXT} libraries")
                     set(FFMPEG_FOUND TRUE)
                     break()
+                endif()
+
+                # Special-case: if checking for plain DLLs (no lib prefix), look for avformat-*.dll
+                if(LIB_EXT STREQUAL ".dll" AND EXISTS "${LIB_PATH}")
+                    file(GLOB _found_avformat_dlls "${LIB_PATH}/avformat-*.dll")
+                    if(_found_avformat_dlls)
+                        list(GET _found_avformat_dlls 0 _found_avformat_dll)
+                        set(FFMPEG_LIB_DIR "${LIB_PATH}")
+                        set(FFMPEG_LIB_EXT ".dll")
+                        set(FFMPEG_INCLUDE_DIRS "${SEARCH_PATH}/include")
+                        message(STATUS "Found FFmpeg DLL: ${_found_avformat_dll}")
+                        set(FFMPEG_FOUND TRUE)
+                        break()
+                    endif()
                 endif()
             endforeach()
             if(FFMPEG_FOUND)
@@ -210,9 +209,14 @@ endif()
 
 # Set library extension and verify it was set during detection
 if(NOT DEFINED FFMPEG_LIB_EXT)
-    # Default based on USE_SHARED_FFMPEG
+    # Default based on USE_SHARED_FFMPEG and platform
     if(USE_SHARED_FFMPEG)
-        set(FFMPEG_LIB_EXT ".so")
+        if(WIN32)
+            # Prefer MinGW import libs for shared builds on Windows
+            set(FFMPEG_LIB_EXT ".dll.a")
+        else()
+            set(FFMPEG_LIB_EXT ".so")
+        endif()
     else()
         set(FFMPEG_LIB_EXT ".a")
     endif()
@@ -220,16 +224,47 @@ endif()
 
 message(STATUS "Final FFmpeg library extension: ${FFMPEG_LIB_EXT}")
 
-# Use full paths for static linking - CRITICAL: avdevice must be first
-set(FFMPEG_LIBRARIES 
-    "${FFMPEG_LIB_DIR}/libavdevice${FFMPEG_LIB_EXT}"
-    "${FFMPEG_LIB_DIR}/libavfilter${FFMPEG_LIB_EXT}"
-    "${FFMPEG_LIB_DIR}/libavformat${FFMPEG_LIB_EXT}"
-    "${FFMPEG_LIB_DIR}/libavcodec${FFMPEG_LIB_EXT}"
-    "${FFMPEG_LIB_DIR}/libswresample${FFMPEG_LIB_EXT}"
-    "${FFMPEG_LIB_DIR}/libswscale${FFMPEG_LIB_EXT}"
-    "${FFMPEG_LIB_DIR}/libavutil${FFMPEG_LIB_EXT}"
-)
+# Build the list of FFmpeg libraries depending on detected extension
+if(FFMPEG_LIB_EXT STREQUAL ".dll")
+    # If we only found real DLLs, glob the actual DLL filenames (e.g. avdevice-*.dll)
+    file(GLOB _avdevice_dlls "${FFMPEG_LIB_DIR}/avdevice-*.dll" "${FFMPEG_LIB_DIR}/libavdevice-*.dll")
+    file(GLOB _avfilter_dlls "${FFMPEG_LIB_DIR}/avfilter-*.dll" "${FFMPEG_LIB_DIR}/libavfilter-*.dll")
+    file(GLOB _avformat_dlls "${FFMPEG_LIB_DIR}/avformat-*.dll" "${FFMPEG_LIB_DIR}/libavformat-*.dll")
+    file(GLOB _avcodec_dlls "${FFMPEG_LIB_DIR}/avcodec-*.dll" "${FFMPEG_LIB_DIR}/libavcodec-*.dll")
+    file(GLOB _swresample_dlls "${FFMPEG_LIB_DIR}/swresample-*.dll" "${FFMPEG_LIB_DIR}/libswresample-*.dll")
+    file(GLOB _swscale_dlls "${FFMPEG_LIB_DIR}/swscale-*.dll" "${FFMPEG_LIB_DIR}/libswscale-*.dll")
+    file(GLOB _avutil_dlls "${FFMPEG_LIB_DIR}/avutil-*.dll" "${FFMPEG_LIB_DIR}/libavutil-*.dll")
+
+    list(GET _avdevice_dlls 0 _avdevice)   
+    list(GET _avfilter_dlls 0 _avfilter)   
+    list(GET _avformat_dlls 0 _avformat)   
+    list(GET _avcodec_dlls 0 _avcodec)     
+    list(GET _swresample_dlls 0 _swresample)
+    list(GET _swscale_dlls 0 _swscale)     
+    list(GET _avutil_dlls 0 _avutil)       
+
+    set(FFMPEG_LIBRARIES
+        "${_avdevice}"
+        "${_avfilter}"
+        "${_avformat}"
+        "${_avcodec}"
+        "${_swresample}"
+        "${_swscale}"
+        "${_avutil}"
+    )
+else()
+    # Default behavior covers static (.a), import (.dll.a) and .so/.lib
+    set(FFMPEG_LIBRARIES 
+        "${FFMPEG_LIB_DIR}/libavdevice${FFMPEG_LIB_EXT}"
+        "${FFMPEG_LIB_DIR}/libavfilter${FFMPEG_LIB_EXT}"
+        "${FFMPEG_LIB_DIR}/libavformat${FFMPEG_LIB_EXT}"
+        "${FFMPEG_LIB_DIR}/libavcodec${FFMPEG_LIB_EXT}"
+        "${FFMPEG_LIB_DIR}/libswresample${FFMPEG_LIB_EXT}"
+        "${FFMPEG_LIB_DIR}/libswscale${FFMPEG_LIB_EXT}"
+        "${FFMPEG_LIB_DIR}/libavutil${FFMPEG_LIB_EXT}"
+    )
+endif()
+
 message(STATUS "Using FFmpeg library paths: ${FFMPEG_LIBRARIES}")
 
 # Verify all FFmpeg libraries exist

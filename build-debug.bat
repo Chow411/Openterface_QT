@@ -1,12 +1,26 @@
 @echo off
 REM ============================================================================
-REM Windows CMake Build with Static FFmpeg
+REM Windows CMake Build - choose Static or Shared FFmpeg
 REM ============================================================================
 
 setlocal
 
-REM Set FFmpeg prefix (adjust if you installed elsewhere)
-set FFMPEG_PREFIX=C:\ffmpeg-static
+REM Usage: build-debug.bat [static|shared]
+REM Default: static
+
+REM Parse first argument to select FFmpeg type
+set USE_SHARED=0
+if /I "%~1"=="shared" set USE_SHARED=1
+if /I "%~1"=="-shared" set USE_SHARED=1
+if /I "%~1"=="/shared" set USE_SHARED=1
+if /I "%~1"=="s" set USE_SHARED=1
+
+REM Set default FFmpeg prefix based on selection (can be overridden by environment)
+if "%USE_SHARED%"=="1" (
+    if not defined FFMPEG_PREFIX set FFMPEG_PREFIX=C:\ffmpeg-shared
+) else (
+    if not defined FFMPEG_PREFIX set FFMPEG_PREFIX=C:\ffmpeg-static
+)
 
 REM Set MinGW path (adjust if Qt is installed elsewhere)
 set MINGW_PATH=E:\Qt\Tools\mingw1120_64
@@ -23,15 +37,47 @@ set CMAKE_CXX_COMPILER=%MINGW_PATH%\bin\g++.exe
 REM Set output directory (change this to your desired path)
 set OUTPUT_DIR=build/Debug
 
-echo ============================================================================
-echo Building Openterface_QT with Static FFmpeg
-echo ============================================================================
+if "%USE_SHARED%"=="1" (
+    echo ============================================================================
+    echo Building Openterface_QT with SHARED FFmpeg
+    echo ============================================================================
+) else (
+    echo ============================================================================
+    echo Building Openterface_QT with STATIC FFmpeg
+    echo ============================================================================
+)
+
 echo FFmpeg Path: %FFMPEG_PREFIX%
 echo Output Directory: %OUTPUT_DIR%
 echo ============================================================================
 echo.
 
-REM Check if FFmpeg is installed
+REM Check if FFmpeg is installed (static vs shared)
+if "%USE_SHARED%"=="1" goto :CHECK_SHARED
+goto :CHECK_STATIC
+
+:CHECK_SHARED
+echo Checking for shared FFmpeg libraries...
+if exist "%FFMPEG_PREFIX%\lib\libavformat.dll.a" (
+    echo ✓ Found import lib: %FFMPEG_PREFIX%\lib\libavformat.dll.a
+    goto :AFTER_CHECK
+)
+
+rem Try to find DLLs under bin
+dir /b "%FFMPEG_PREFIX%\bin\avformat-*.dll" >nul 2>nul
+if errorlevel 1 (
+    echo Error: FFmpeg shared libraries not found at %FFMPEG_PREFIX%
+    echo.
+    echo Please install or build shared FFmpeg (e.g. into %FFMPEG_PREFIX%)
+    echo.
+    exit /b 1
+) else (
+    echo ✓ Found FFmpeg DLL(s) under %FFMPEG_PREFIX%\bin
+    goto :AFTER_CHECK
+)
+
+:CHECK_STATIC
+echo Checking for static FFmpeg libraries...
 if not exist "%FFMPEG_PREFIX%\lib\libavformat.a" (
     echo Error: FFmpeg static libraries not found at %FFMPEG_PREFIX%
     echo.
@@ -40,8 +86,10 @@ if not exist "%FFMPEG_PREFIX%\lib\libavformat.a" (
     echo.
     exit /b 1
 )
+echo ✓ FFmpeg static libraries found
 
-echo ✓ FFmpeg libraries found
+:AFTER_CHECK
+
 echo.
 
 REM Create build directory
@@ -49,12 +97,21 @@ if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 
 REM Run CMake from source directory
 echo Running CMake configuration...
+
+REM Pass USE_SHARED_FFMPEG to CMake as ON/OFF
+if "%USE_SHARED%"=="1" (
+    set CM_USE_SHARED_FFMPEG=ON
+) else (
+    set CM_USE_SHARED_FFMPEG=OFF
+)
+
 cmake -B "%OUTPUT_DIR%" -S . -G "MinGW Makefiles" ^
     -DCMAKE_BUILD_TYPE=Debug ^
     -DCMAKE_MAKE_PROGRAM=%CMAKE_MAKE_PROGRAM% ^
     -DCMAKE_C_COMPILER=%CMAKE_C_COMPILER% ^
     -DCMAKE_CXX_COMPILER=%CMAKE_CXX_COMPILER% ^
-    -DFFMPEG_PREFIX=%FFMPEG_PREFIX%
+    -DFFMPEG_PREFIX=%FFMPEG_PREFIX% ^
+    -DUSE_SHARED_FFMPEG=%CM_USE_SHARED_FFMPEG%
 
 if %errorlevel% neq 0 (
     echo CMake configuration failed!
@@ -67,7 +124,7 @@ echo.
 
 REM Build the project
 echo Building project...
-cmake --build "%OUTPUT_DIR%" --config Debug -j2
+cmake --build "%OUTPUT_DIR%" --config Debug -j4
 
 if %errorlevel% neq 0 (
     echo Build failed

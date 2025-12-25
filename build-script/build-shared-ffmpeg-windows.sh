@@ -9,12 +9,50 @@
 set -e  # Exit on error
 set -u  # Exit on undefined variable
 
-# Configuration
-# Environment variables supported by this script (set before running / from caller):
-#   SKIP_MSYS_MINGW=1          -> Skip package-managed install and prefer external MinGW (caller should set EXTERNAL_MINGW_MSYS)
-#   EXTERNAL_MINGW_MSYS=/c/mingw64 -> Path to external mingw in MSYS-style (set by caller wrapper when using EXTERNAL_MINGW)
-#   ENABLE_NVENC=1             -> Attempt to enable NVENC support (requires NVENC SDK/headers)
-#   NVENC_SDK_PATH=...         -> Path to NVENC SDK (optional, used when ENABLE_NVENC=1)
+# Quick help / usage
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    cat <<'EOF'
+Usage: ./build-shared-ffmpeg-windows.sh [ENV=VAL ...]
+
+This script is intended to be run from an MSYS2 "MSYS2 MinGW 64-bit" shell.
+Recommended example:
+  SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/mingw64 ./build-shared-ffmpeg-windows.sh
+
+Environment variables supported by this script (set before running / from caller):
+  SKIP_MSYS_MINGW=1          -> Skip package-managed install and prefer external MinGW (caller should set EXTERNAL_MINGW_MSYS)
+  EXTERNAL_MINGW_MSYS=/c/mingw64 -> Path to external mingw in MSYS-style (set by caller wrapper when using EXTERNAL_MINGW)
+  ENABLE_NVENC=1             -> Attempt to enable NVENC support (requires NVENC SDK/headers)
+  NVENC_SDK_PATH=...         -> Path to NVENC SDK (optional, used when ENABLE_NVENC=1)
+EOF
+    exit 0
+fi
+
+# Detect MSYS2 MinGW64 and set sensible defaults
+if [ -n "${MSYSTEM:-}" ] && printf '%s
+' "${MSYSTEM}" | grep -qi '^MINGW64'; then
+    echo "Detected MSYS2 MINGW64 (MSYSTEM=${MSYSTEM}); defaulting EXTERNAL_MINGW_MSYS=/mingw64"
+    : "${EXTERNAL_MINGW_MSYS:=/mingw64}"
+fi
+
+# If EXTERNAL_MINGW_MSYS not provided, try common locations
+if [ -z "${EXTERNAL_MINGW_MSYS:-}" ]; then
+    if [ -d "/mingw64/bin" ]; then
+        EXTERNAL_MINGW_MSYS="/mingw64"
+    elif [ -d "/c/msys64/mingw64/bin" ]; then
+        EXTERNAL_MINGW_MSYS="/c/msys64/mingw64"
+    elif [ -d "/c/mingw64/bin" ]; then
+        EXTERNAL_MINGW_MSYS="/c/mingw64"
+    fi
+fi
+
+# Helpful hint when no obvious MSYS2/Mingw detected
+if [ -z "${MSYSTEM:-}" ] && [ -z "${EXTERNAL_MINGW_MSYS:-}" ]; then
+    cat <<'EOF'
+Warning: It looks like you may be running this script outside of MSYS2 MinGW64.
+For best results open "MSYS2 MinGW 64-bit" and run:
+  SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/mingw64 ./build-shared-ffmpeg-windows.sh
+EOF
+fi
 
 FFMPEG_VERSION="6.1.1"
 LIBJPEG_TURBO_VERSION="3.0.4"

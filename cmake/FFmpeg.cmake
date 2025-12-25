@@ -36,7 +36,12 @@ option(USE_SHARED_FFMPEG "Use shared FFmpeg libraries instead of static" OFF)
 
 # Prefer static libraries for FFmpeg unless shared is requested
 if(USE_SHARED_FFMPEG)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES .so)
+    if(WIN32)
+        # On Windows, shared libraries are .dll.a (import libs) or .dll
+        set(CMAKE_FIND_LIBRARY_SUFFIXES .dll.a .dll .lib)
+    else()
+        set(CMAKE_FIND_LIBRARY_SUFFIXES .so)
+    endif()
     message(STATUS "Using shared FFmpeg libraries")
 else()
     set(CMAKE_FIND_STATIC_PREFER ON)

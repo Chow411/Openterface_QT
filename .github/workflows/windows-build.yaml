@@ -163,7 +163,6 @@ jobs:
           Write-Host "Skipping Chocolatey MinGW install; will use MSYS2 MinGW."
 
       - name: Install Qt
-        if: steps.cache-qt.outputs.cache-hit != 'true'
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
@@ -242,6 +241,7 @@ jobs:
           cmake -G "MinGW Makefiles" ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DFFMPEG_PREFIX=C:\ffmpeg-shared ^
+            -DUSE_SHARED_FFMPEG=ON ^
             ${{ env.SOURCE_DIR }}
 
           echo "Building with mingw32-make..."
@@ -265,6 +265,11 @@ jobs:
           copy openterfaceQT.exe ${{ env.PACKAGE_DIR }}\${{ env.EXE_NAME }}
           copy ${{ env.SOURCE_DIR }}\LICENSE ${{ env.PACKAGE_DIR }}
           copy ${{ env.SOURCE_DIR }}\driver\windows\* ${{ env.PACKAGE_DIR }}\driver\windows
+          
+          echo "Copying FFmpeg DLLs..."
+          copy C:\ffmpeg-shared\bin\av*.dll ${{ env.PACKAGE_DIR }}
+          copy C:\ffmpeg-shared\bin\sw*.dll ${{ env.PACKAGE_DIR }}
+          copy C:\ffmpeg-shared\bin\libturbojpeg.dll ${{ env.PACKAGE_DIR }}
           
           echo "Copying translation & keyboard layouts files..."
           copy ${{ env.SOURCE_DIR }}\config\keyboards\*.json ${{ env.PACKAGE_DIR }}\config\keyboards

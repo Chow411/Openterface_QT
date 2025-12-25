@@ -83,24 +83,6 @@ jobs:
           pacman -S --noconfirm --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-nasm mingw-w64-x86_64-make mingw-w64-x86_64-pkgconf mingw-w64-x86_64-zlib mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-libjpeg-turbo perl
           pacman -S --noconfirm --needed git
 
-      - name: Install nv-codec-headers (ffnvcodec) for NVENC
-        shell: bash
-        run: |
-          export PATH=/c/msys64/usr/bin:/c/msys64/mingw64/bin:$PATH
-          echo "Installing nv-codec-headers into /c/ffmpeg-shared (for NVENC support)"
-          mkdir -p /c/ffmpeg-shared
-          rm -rf /c/ffmpeg-shared/nv-codec-headers || true
-          git clone https://github.com/FFmpeg/nv-codec-headers.git /c/ffmpeg-shared/nv-codec-headers
-          cd /c/ffmpeg-shared/nv-codec-headers
-          git fetch --tags || true
-          git checkout n12.0.16.1 || true
-          make PREFIX="/c/ffmpeg-shared"
-          make PREFIX="/c/ffmpeg-shared" install
-          export PKG_CONFIG_PATH="/c/ffmpeg-shared/lib/pkgconfig:$PKG_CONFIG_PATH"
-          echo "Listing /c/ffmpeg-shared/lib/pkgconfig:"
-          ls -la /c/ffmpeg-shared/lib/pkgconfig || true
-          echo "pkg-config can find ffnvcodec:"; pkg-config --exists ffnvcodec && echo OK || (echo NOT_FOUND; cat /c/ffmpeg-shared/lib/pkgconfig/ffnvcodec.pc)
-          
       - name: Install MinGW and CMake
         if: steps.cache-mingw.outputs.cache-hit != 'true'
         run: |

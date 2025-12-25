@@ -77,6 +77,9 @@ echo "Build Directory: ${BUILD_DIR}"
 echo "CPU Cores: ${NUM_CORES}"
 echo "============================================================================"
 echo ""
+# Write a short marker to the Windows filesystem so we can confirm the script started when run under MSYS
+# (use || true to avoid failing the script if /c is not writable)
+echo "FFMPEG_BUILD_SCRIPT_STARTED: $(date)" > /c/ffmpeg_build_started.txt || true
 
 # Prepare/verify required toolchain and utilities (external MinGW + bash)
 # Default to SKIP_MSYS_MINGW=1 (use external MinGW) unless explicitly overridden

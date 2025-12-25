@@ -23,6 +23,9 @@ echo "Download URL: $DOWNLOAD_URL"
 
 # Create install directory if it doesn't exist
 mkdir -p "$LIBUSB_INSTALL_PREFIX"
+# Write a short marker to the Windows filesystem so we can confirm the script started when run under MSYS
+# (use || true to avoid failing the script if /c is not writable)
+echo "LIBUSB_BUILD_SCRIPT_STARTED: $(date)" > /c/libusb_build_started.txt || true
 
 # Download LibUSB source
 echo "Downloading LibUSB $LIBUSB_VERSION..."

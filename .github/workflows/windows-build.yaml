@@ -167,10 +167,19 @@ jobs:
           export MSYSTEM=MINGW64
           # Put MinGW bin first so mingw-w64 tools (gcc, sed, make, etc.) are used instead of MSYS utilities
           export PATH=/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH
-          # Run the build inside a MinGW64 login shell and tee the output inside MSYS so the log file is available on the Windows filesystem
+
+          echo "Running MSYS write test (creates /c/ffmpeg_msys_write_test.txt)..."
+          /c/msys64/mingw64.exe -l -c "echo MSYS_WRITE_TEST > /c/ffmpeg_msys_write_test.txt && ls -la /c/ffmpeg_msys_write_test.txt || true"
+
+          echo "Now running the FFmpeg build inside MSYS (output will be tee'd to /c/ffmpeg_build.log)..."
           /c/msys64/mingw64.exe -l -c "cd build-script && AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/c/msys64/mingw64 ./build-shared-ffmpeg-windows.sh 2>&1 | tee /c/ffmpeg_build.log"
+
+          echo "MSYS run completed - listing /c for ffmpeg files"
+          ls -la /c/ffmpeg_build.log /c/ffmpeg_msys_write_test.txt || true
+
           # Copy the log back to the GitHub workspace so upload artifact step can find it
           cp /c/ffmpeg_build.log "${{ github.workspace }}/ffmpeg_build.log" || true
+          cp /c/ffmpeg_msys_write_test.txt "${{ github.workspace }}/ffmpeg_msys_write_test.txt" || true
 
       - name: Build LibUSB (using MSYS2 MinGW)
         if: steps.cache-libusb.outputs.cache-hit != 'true'
@@ -183,10 +192,19 @@ jobs:
           export MSYS2_ARG_CONV_EXCL="*"
           export MSYSTEM=MINGW64
           export PATH=/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH
-          # Run libusb install inside MSYS and tee to a Windows path
+
+          echo "Running MSYS write test (creates /c/libusb_msys_write_test.txt)..."
+          /c/msys64/mingw64.exe -l -c "echo MSYS_WRITE_TEST > /c/libusb_msys_write_test.txt && ls -la /c/libusb_msys_write_test.txt || true"
+
+          echo "Now running the LibUSB build inside MSYS (output will be tee'd to /c/libusb_build.log)..."
           /c/msys64/mingw64.exe -l -c "cd build-script && ./install-libusb-windows.sh 2>&1 | tee /c/libusb_build.log"
-          # Copy the log back to the GitHub workspace
+
+          echo "MSYS run completed - listing /c for libusb files"
+          ls -la /c/libusb_build.log /c/libusb_msys_write_test.txt || true
+
+          # Copy the logs back to the GitHub workspace
           cp /c/libusb_build.log "${{ github.workspace }}/libusb_build.log" || true
+          cp /c/libusb_msys_write_test.txt "${{ github.workspace }}/libusb_msys_write_test.txt" || true
 
       - name: Upload FFmpeg Build Log
         if: always()

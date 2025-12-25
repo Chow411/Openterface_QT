@@ -98,6 +98,7 @@ if [ "${SKIP_MSYS_MINGW:-1}" = "1" ]; then
     command -v nasm >/dev/null 2>&1 || command -v yasm >/dev/null 2>&1 || { echo "ERROR: nasm or yasm not found on PATH"; MISSING=1; }
     command -v tar >/dev/null 2>&1 || { echo "ERROR: tar not found on PATH"; MISSING=1; }
     command -v wget >/dev/null 2>&1 || command -v curl >/dev/null 2>&1 || { echo "ERROR: wget or curl not found on PATH"; MISSING=1; }
+    command -v git >/dev/null 2>&1 || { echo "ERROR: git not found on PATH (required to auto-install nv-codec-headers). Install via pacman: pacman -S git"; MISSING=1; }
 
     # Additional helpful checks: cmp (diffutils) and make
     command -v cmp >/dev/null 2>&1 || { echo "ERROR: cmp not found on PATH (package: diffutils). Install via pacman: pacman -S diffutils"; MISSING=1; }
@@ -184,10 +185,33 @@ fi
 NVENC_ARG="--disable-nvenc"
 CUDA_FLAGS=""
 
+# Helper to build nv-codec-headers (ffnvcodec) into FFMPEG_INSTALL_PREFIX
+build_ffnvcodec_headers() {
+    echo "Attempting to build nv-codec-headers (ffnvcodec) into ${FFMPEG_INSTALL_PREFIX}..."
+    TMPDIR=$(mktemp -d 2>/dev/null || mktemp -d -t nvcodecheaders)
+    cd "${TMPDIR}"
+    git clone https://github.com/FFmpeg/nv-codec-headers.git
+    cd nv-codec-headers
+    # Try to use a tag compatible with FFmpeg 6.x
+    git fetch --tags 2>/dev/null || true
+    if git rev-list -n 1 n12.0.16.1 >/dev/null 2>&1; then
+        git checkout n12.0.16.1
+    fi
+    make PREFIX="${FFMPEG_INSTALL_PREFIX}" || { echo "ERROR: building nv-codec-headers failed"; cd "${BUILD_DIR}"; rm -rf "${TMPDIR}"; return 1; }
+    make PREFIX="${FFMPEG_INSTALL_PREFIX}" install || { echo "ERROR: installing nv-codec-headers failed"; cd "${BUILD_DIR}"; rm -rf "${TMPDIR}"; return 1; }
+    # Ensure pkg-config can find installed ffnvcodec
+    export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+    cd "${BUILD_DIR}"
+    rm -rf "${TMPDIR}"
+    echo "nv-codec-headers installed into ${FFMPEG_INSTALL_PREFIX}"
+    return 0
+}
+
 # Detection strategy (in order):
 # 1) pkg-config ffnvcodec (packaged headers/libs)
 # 2) NVENC SDK present (nvEncodeAPI.h)
-# If user explicitly sets ENABLE_NVENC=1 we require headers or pkg-config and will fail if missing.
+# 3) If ENABLE_NVENC=1 and AUTO_INSTALL_FFNV=1: attempt to build nv-codec-headers automatically into FFMPEG_INSTALL_PREFIX
+# If user explicitly sets ENABLE_NVENC=1 we require headers or pkg-config and will fail if missing (unless AUTO_INSTALL_FFNV=1 is set and build succeeds).
 if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
     echo "ffnvcodec detected via pkg-config; enabling NVENC/ffnvcodec support"
     NVENC_ARG="--enable-nvenc"
@@ -210,10 +234,30 @@ else
             CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
         fi
     else
+        # Try auto-install if requested
         if [ "${ENABLE_NVENC:-0}" = "1" ]; then
-            echo "ERROR: ENABLE_NVENC=1 but neither ffnvcodec pkg-config nor NVENC SDK headers found (looked at ${NVENC_SDK_PATH})."
-            echo "To build with NVENC, install ffnvcodec dev package or set NVENC_SDK_PATH to the NVIDIA Video Codec SDK root containing include/nvEncodeAPI.h."
-            exit 1
+            if [ "${AUTO_INSTALL_FFNV:-0}" = "1" ]; then
+                echo "AUTO_INSTALL_FFNV=1: attempting to build and install nv-codec-headers into ${FFMPEG_INSTALL_PREFIX}"
+                if build_ffnvcodec_headers; then
+                    if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
+                        echo "ffnvcodec now available after auto-install; enabling NVENC/ffnvcodec support"
+                        NVENC_ARG="--enable-nvenc"
+                        EXTRA_CFLAGS="${EXTRA_CFLAGS} $(pkg-config --cflags ffnvcodec 2>/dev/null || true)"
+                        EXTRA_LDFLAGS="${EXTRA_LDFLAGS} $(pkg-config --libs-only-L ffnvcodec 2>/dev/null || true) $(pkg-config --libs-only-l ffnvcodec 2>/dev/null || true)"
+                        CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-ffnvcodec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
+                    else
+                        echo "ERROR: auto-install completed but pkg-config still cannot find ffnvcodec"
+                        exit 1
+                    fi
+                else
+                    echo "ERROR: auto-install of nv-codec-headers failed"
+                    exit 1
+                fi
+            else
+                echo "ERROR: ENABLE_NVENC=1 but neither ffnvcodec pkg-config nor NVENC SDK headers found (looked at ${NVENC_SDK_PATH})."
+                echo "Set AUTO_INSTALL_FFNV=1 to attempt automatic installation of nv-codec-headers into ${FFMPEG_INSTALL_PREFIX}."
+                exit 1
+            fi
         else
             echo "NVENC/ CUDA not detected; build will proceed without NVENC/CUDA support (dynamic runtime detection at app level remains possible)."
             NVENC_ARG="--disable-nvenc"

@@ -79,8 +79,8 @@ jobs:
           export PATH=/c/msys64/usr/bin:$PATH
           # Update core system and database first (noninteractive)
           pacman -Syu --noconfirm
-          # Install required mingw packages (use pkgconf, not legacy pkg-config)
-          pacman -S --noconfirm --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-nasm mingw-w64-x86_64-make mingw-w64-x86_64-pkgconf mingw-w64-x86_64-zlib mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-libjpeg-turbo
+          # Install required mingw packages (use pkgconf, not legacy pkg-config). Include git for nv-codec-headers build.
+          pacman -S --noconfirm --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-nasm mingw-w64-x86_64-make mingw-w64-x86_64-pkgconf mingw-w64-x86_64-zlib mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-libjpeg-turbo mingw-w64-x86_64-git
 
       - name: Install MinGW and CMake
         if: steps.cache-mingw.outputs.cache-hit != 'true'
@@ -175,8 +175,8 @@ jobs:
           echo "DEBUG: PATH=${PATH}"
           command -v nasm || echo "nasm not found"
           cd build-script
-          # Run the shell script directly inside MSYS2 (preferred over calling the .bat wrapper)
-          SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=${EXTERNAL_MINGW} SKIP_MSYS_MINGW=1  ENABLE_NVENC=1 ./build-shared-ffmpeg-windows.sh
+          # If we want NVENC enabled in CI and prepare ffnvcodec automatically, set AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1
+          AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=${EXTERNAL_MINGW} ./build-shared-ffmpeg-windows.sh
 
       - name: Set up Visual Studio shell
         uses: egor-tensin/vs-shell@v2

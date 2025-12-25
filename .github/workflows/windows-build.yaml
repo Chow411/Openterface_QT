@@ -176,7 +176,7 @@ jobs:
           command -v nasm || echo "nasm not found"
           cd build-script
           # Run the shell script directly inside MSYS2 (preferred over calling the .bat wrapper)
-          SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=${EXTERNAL_MINGW} ./build-shared-ffmpeg-windows.sh
+          SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=${EXTERNAL_MINGW} SKIP_MSYS_MINGW=1  ENABLE_NVENC=1 ./build-shared-ffmpeg-windows.sh
 
       - name: Set up Visual Studio shell
         uses: egor-tensin/vs-shell@v2

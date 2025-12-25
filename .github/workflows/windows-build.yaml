@@ -181,7 +181,7 @@ jobs:
           arch: win64_mingw
           dir: ${{ runner.temp }}
           modules: qtmultimedia qtserialport qtimageformats
-          setup-python: false
+          setup-python: false 
 
       - name: Build Shared FFmpeg (using MSYS2 MinGW)
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'

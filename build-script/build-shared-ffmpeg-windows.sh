@@ -164,8 +164,8 @@ fi
 # Determine optional flags for QSV (libmfx) and NVENC
 # For a shared build we avoid forcing static linking flags
 ENABLE_LIBMFX=""
-EXTRA_CFLAGS="-I${FFMPEG_INSTALL_PREFIX}/include"
-EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lwinpthread"
+EXTRA_CFLAGS="-I/c/ffmpeg-shared/include -I/c/msys64/mingw64/include"
+EXTRA_LDFLAGS="-L/c/ffmpeg-shared/lib -lz -lbz2 -llzma -lwinpthread"
 
 # libmfx (QSV): Only enable if user explicitly requests it via ENABLE_LIBMFX=1 and pkg-config can find it.
 if [ "${ENABLE_LIBMFX:-0}" = "1" ]; then

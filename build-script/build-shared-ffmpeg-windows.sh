@@ -345,6 +345,11 @@ fi
 # Print detection summary for the user
 echo "NVENC detection: NVENC_ARG='${NVENC_ARG}' CUDA_FLAGS='${CUDA_FLAGS}' EXTRA_CFLAGS='${EXTRA_CFLAGS}' EXTRA_LDFLAGS='${EXTRA_LDFLAGS}'"
 
+# If NVENC disabled, remove ffnvcodec.pc to prevent FFmpeg from detecting it
+if [ "${ENABLE_NVENC:-0}" = "0" ]; then
+    rm -f "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig/ffnvcodec.pc"
+fi
+
 echo ""
 
 # Download FFmpeg source
@@ -453,9 +458,9 @@ echo ""
 BUILD_LOG="${BUILD_DIR}/ffmpeg-build.log"
 echo "Build output will be saved to: ${BUILD_LOG}"
 
-make -j2 2>&1 | tee "${BUILD_LOG}"
+make -j2 > "${BUILD_LOG}" 2>&1
 
-if [ ${PIPESTATUS[0]} -ne 0 ]; then
+if [ $? -ne 0 ]; then
     echo "✗ FFmpeg build failed!"
     echo "Build output (last 100 lines):"
     tail -100 "${BUILD_LOG}" || true

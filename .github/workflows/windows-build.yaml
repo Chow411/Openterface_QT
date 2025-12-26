@@ -205,15 +205,11 @@ jobs:
           )
           set "PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%"
           cd /d "${{ env.SOURCE_DIR }}\build-script"
-          if exist "build-shared-ffmpeg-windows.bat" (
-            echo "Using Windows batch script..."
-            call build-shared-ffmpeg-windows.bat > "${{ github.workspace }}\ffmpeg_build.log" 2>&1
-            set BUILD_EXIT_CODE=%ERRORLEVEL%
-          ) else (
-            echo "Using shell script via MSYS2..."
-            C:\msys64\usr\bin\bash.exe -l -c "./build-shared-ffmpeg-windows.sh" > "${{ github.workspace }}\ffmpeg_build.log" 2>&1
-            set BUILD_EXIT_CODE=%ERRORLEVEL%
-          )
+          
+          echo "Using shell script via MSYS2..."
+          C:\msys64\usr\bin\bash.exe -l -c "./build-shared-ffmpeg-windows.sh" > "${{ github.workspace }}\ffmpeg_build.log" 2>&1
+          set BUILD_EXIT_CODE=%ERRORLEVEL%
+          
           echo "FFmpeg build completed with exit code: %BUILD_EXIT_CODE%"
           echo "---- Last 50 lines of FFmpeg build log ----"
           powershell -Command "if (Test-Path '${{ github.workspace }}\ffmpeg_build.log') { Get-Content '${{ github.workspace }}\ffmpeg_build.log' -Tail 50 } else { Write-Host 'No FFmpeg build log found' }"

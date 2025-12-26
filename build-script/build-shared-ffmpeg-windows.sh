@@ -199,9 +199,6 @@ if [ "${ENABLE_NVENC:-0}" = "0" ]; then
 else
     echo "NVENC enabled (ENABLE_NVENC=1); attempting NVENC/CUDA detection..."
 
-else
-    echo "NVENC enabled (ENABLE_NVENC=1); attempting NVENC/CUDA detection..."
-
     # Helper to build nv-codec-headers (ffnvcodec) into FFMPEG_INSTALL_PREFIX
     build_ffnvcodec_headers() {
         echo "Attempting to build nv-codec-headers (ffnvcodec) into ${FFMPEG_INSTALL_PREFIX}..."
@@ -314,8 +311,12 @@ else
                 CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
             fi
         else
-            # Try auto-install if requested
-            if [ "${AUTO_INSTALL_FFNV:-0}" = "1" ]; then
+            # Try auto-install if requested, or automatically when ENABLE_NVENC=1
+            if [ "${AUTO_INSTALL_FFNV:-0}" = "1" ] || [ "${ENABLE_NVENC:-0}" = "1" ]; then
+                if [ "${ENABLE_NVENC:-0}" = "1" ] && [ "${AUTO_INSTALL_FFNV:-0}" = "0" ]; then
+                    echo "ENABLE_NVENC=1 detected but no NVENC dependencies found. Automatically enabling AUTO_INSTALL_FFNV=1..."
+                    AUTO_INSTALL_FFNV=1
+                fi
                 echo "AUTO_INSTALL_FFNV=1: attempting to build and install nv-codec-headers into ${FFMPEG_INSTALL_PREFIX}"
                 if build_ffnvcodec_headers; then
                     if pkg-config --exists ffnvcodec >/dev/null 2>&1; then

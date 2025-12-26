@@ -170,9 +170,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: C:\ffmpeg-shared
-          key: ffmpeg-shared-6.1.1-windows
+          key: ffmpeg-shared-6.1.1-windows-v1
           restore-keys: |
-            ffmpeg-shared-6.1.1-windows
+            ffmpeg-shared-6.1.1-windows-v1
 
       - name: Check Build Scripts Available
         shell: cmd

@@ -294,11 +294,15 @@ jobs:
           echo "Copying FFmpeg DLLs..."
           cp /c/ffmpeg-shared/bin/av*.dll ${{ env.PACKAGE_DIR }}
           cp /c/ffmpeg-shared/bin/sw*.dll ${{ env.PACKAGE_DIR }}
+          cp /c/ffmpeg-shared/bin/postproc-57.dll ${{ env.PACKAGE_DIR }} || echo "Warning: postproc-57.dll not found"
           cp /c/ffmpeg-shared/bin/libturbojpeg.dll ${{ env.PACKAGE_DIR }}
+          echo "Copying LibUSB DLLs..."
+          cp /c/libusb/bin/*.dll ${{ env.PACKAGE_DIR }} || echo "Warning: LibUSB DLLs not found"
           echo "Copying MSYS2 runtime dependencies..."
           cp /ucrt64/bin/libiconv-2.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libiconv-2.dll not found"
           cp /ucrt64/bin/libbz2-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libbz2-1.dll not found"
           cp /ucrt64/bin/liblzma-5.dll ${{ env.PACKAGE_DIR }} || echo "Warning: liblzma-5.dll not found"
+          cp /ucrt64/bin/zlib1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: zlib1.dll not found"
           cp /ucrt64/bin/libwinpthread-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libwinpthread-1.dll not found"
           cp /ucrt64/bin/libgcc_s_seh-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libgcc_s_seh-1.dll not found"
           cp /ucrt64/bin/libstdc++-6.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libstdc++-6.dll not found"

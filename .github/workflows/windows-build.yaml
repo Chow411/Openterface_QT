@@ -91,6 +91,7 @@ jobs:
             mingw-w64-ucrt-x86_64-libmfx
             diffutils
             make
+            libtool
             git
             perl
 
@@ -199,7 +200,7 @@ jobs:
             libusb-1.0.27-windows-v1
 
       - name: Build LibUSB (using MSYS2 UCRT64)
-        if: steps.cache-libusb.outputs.cache-hit != 'true'
+        if: steps.cache-libusb.outputs.cache-hit != 'true' || github.event.inputs.force_rebuild == 'true'
         shell: msys2 {0}
         run: |
           echo "Building LibUSB using MSYS2 UCRT64..."

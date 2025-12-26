@@ -59,10 +59,11 @@ export lt_cv_sys_lib_dlsearch_path_spec=""
 export lt_cv_sys_lib_search_path_spec=""
 
 # Configure with autotools
-echo "Configuring LibUSB with autotools..."
+echo "Configuring LibUSB with autotools (shared build)..."
 CONFIG_LOG="${BUILD_DIR}/libusb-configure.log"
 mkdir -p "${BUILD_DIR}"
-./configure --host=x86_64-w64-mingw32 --prefix="$LIBUSB_INSTALL_PREFIX" --enable-static --disable-shared 2>&1 | tee "${CONFIG_LOG}"
+# Build shared library so we get libusb DLLs for runtime
+./configure --host=x86_64-w64-mingw32 --prefix="$LIBUSB_INSTALL_PREFIX" --enable-shared --disable-static 2>&1 | tee "${CONFIG_LOG}"
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
     echo "✗ LibUSB configure failed! See ${CONFIG_LOG}"
     tail -n 200 "${CONFIG_LOG}" || true
@@ -83,8 +84,9 @@ fi
 echo "Installing LibUSB..."
 make install
 
-echo "LibUSB build and install completed successfully!"
-echo "Installed to: $LIBUSB_INSTALL_PREFIX"
+echo "Installed files in prefix bin and lib (for CI diagnostics):"
+ls -la "${LIBUSB_INSTALL_PREFIX}/bin" || true
+ls -la "${LIBUSB_INSTALL_PREFIX}/lib" || true
 
 echo "LibUSB build and install completed successfully!"
 echo "Installed to: $LIBUSB_INSTALL_PREFIX"

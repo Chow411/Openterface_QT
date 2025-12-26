@@ -210,6 +210,29 @@ jobs:
           set BUILD_EXIT_CODE=%ERRORLEVEL%
           
           echo "FFmpeg build completed with exit code: %BUILD_EXIT_CODE%"
+          if %BUILD_EXIT_CODE% neq 0 (
+            echo "ERROR: FFmpeg build failed with exit code %BUILD_EXIT_CODE%"
+            echo "---- Last 100 lines of FFmpeg build log ----"
+            powershell -Command "if (Test-Path '${{ github.workspace }}\ffmpeg_build.log') { Get-Content '${{ github.workspace }}\ffmpeg_build.log' -Tail 100 } else { Write-Host 'No FFmpeg build log found' }"
+            exit /b %BUILD_EXIT_CODE%
+          ) else (
+            echo "FFmpeg build succeeded"
+            echo "Verifying FFmpeg installation..."
+            if exist "C:\ffmpeg-shared\bin\avcodec-60.dll" (
+              echo "✓ FFmpeg DLLs found"
+            ) else (
+              echo "✗ FFmpeg DLLs missing"
+              dir "C:\ffmpeg-shared\bin" 2>nul || echo "FFmpeg bin directory does not exist"
+              exit /b 1
+            )
+            if exist "C:\ffmpeg-shared\lib\libavcodec.dll.a" (
+              echo "✓ FFmpeg import libraries found"
+            ) else (
+              echo "✗ FFmpeg import libraries missing"
+              dir "C:\ffmpeg-shared\lib" 2>nul || echo "FFmpeg lib directory does not exist"
+              exit /b 1
+            )
+          )
           echo "---- Last 50 lines of FFmpeg build log ----"
           powershell -Command "if (Test-Path '${{ github.workspace }}\ffmpeg_build.log') { Get-Content '${{ github.workspace }}\ffmpeg_build.log' -Tail 50 } else { Write-Host 'No FFmpeg build log found' }"
 
@@ -241,6 +264,14 @@ jobs:
             set BUILD_EXIT_CODE=%ERRORLEVEL%
           )
           echo "LibUSB build completed with exit code: %BUILD_EXIT_CODE%"
+          if %BUILD_EXIT_CODE% neq 0 (
+            echo "ERROR: LibUSB build failed with exit code %BUILD_EXIT_CODE%"
+            echo "---- Last 100 lines of LibUSB build log ----"
+            powershell -Command "if (Test-Path '${{ github.workspace }}\libusb_build.log') { Get-Content '${{ github.workspace }}\libusb_build.log' -Tail 100 } else { Write-Host 'No LibUSB build log found' }"
+            exit /b %BUILD_EXIT_CODE%
+          ) else (
+            echo "LibUSB build succeeded"
+          )
           echo "---- Last 50 lines of LibUSB build log ----"
           powershell -Command "if (Test-Path '${{ github.workspace }}\libusb_build.log') { Get-Content '${{ github.workspace }}\libusb_build.log' -Tail 50 } else { Write-Host 'No LibUSB build log found' }"
 

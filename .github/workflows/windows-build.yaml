@@ -252,7 +252,12 @@ jobs:
         shell: msys2 {0}
         run: |
           echo "Setting up build environment..."
-          export PATH="/ucrt64/bin:$PATH"
+          # Add Qt tools to PATH for MSYS2 environment
+          export PATH="/ucrt64/bin:${{ runner.temp }}/Qt/6.6.3/mingw_64/bin:$PATH"
+          echo "Updated PATH: $PATH"
+          echo "Checking Qt tools availability..."
+          which lupdate || echo "lupdate not found in PATH"
+          which lrelease || echo "lrelease not found in PATH"
           echo "Updating translations with lupdate..."
           lupdate ${{ env.SOURCE_DIR }}/openterfaceQT.pro
           echo "Generating .qm files with lrelease..."

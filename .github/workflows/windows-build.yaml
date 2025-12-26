@@ -40,6 +40,11 @@ on:
         required: false
         type: boolean
         default: false
+      enable_nvenc:
+        description: 'Enable NVIDIA hardware encoding (requires NVIDIA drivers)'
+        required: false
+        type: boolean
+        default: false
 
 defaults:
   run:
@@ -190,8 +195,14 @@ jobs:
           set "EXTERNAL_MINGW=C:\msys64\mingw64"
           set "EXTERNAL_MINGW_MSYS=C:\msys64\mingw64"
           set "SKIP_MSYS_MINGW=1"
-          set "AUTO_INSTALL_FFNV=1"
-          set "ENABLE_NVENC=1"
+          if "${{ github.event.inputs.enable_nvenc }}" == "true" (
+            echo "NVENC enabled by user input"
+            set "AUTO_INSTALL_FFNV=1"
+            set "ENABLE_NVENC=1"
+          ) else (
+            echo "NVENC disabled (use enable_nvenc input to enable)"
+            set "ENABLE_NVENC=0"
+          )
           set "PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%"
           cd /d "${{ env.SOURCE_DIR }}\build-script"
           if exist "build-shared-ffmpeg-windows.bat" (

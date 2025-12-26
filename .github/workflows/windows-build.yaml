@@ -35,6 +35,11 @@ on:
         required: false
         type: boolean
         default: false
+      force_rebuild:
+        description: 'Force rebuild FFmpeg and LibUSB even if cached'
+        required: false
+        type: boolean
+        default: false
 
 defaults:
   run:
@@ -105,9 +110,7 @@ jobs:
           key: choco-packages-windows
           restore-keys: |
             choco-packages-windows
-
-
-
+            
       - name: Update version
         run: |
           if [ "${{ github.event.inputs.increase_version }}" = "true" ]; then
@@ -166,18 +169,43 @@ jobs:
           restore-keys: |
             ffmpeg-shared-6.1.1-windows
 
+      - name: Check Build Scripts Available
+        shell: cmd
+        run: |
+          echo "Checking available build scripts..."
+          cd /d "${{ env.SOURCE_DIR }}"
+          dir build-script\*.bat
+          dir build-script\*.sh
+          echo "MSYS2 installation check..."
+          if exist "C:\msys64\usr\bin\bash.exe" (
+            echo "MSYS2 found at C:\msys64"
+          ) else (
+            echo "MSYS2 not found at expected location"
+          )
+
       - name: Build Shared FFmpeg (using MSYS2 MinGW)
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        shell: bash
+        shell: cmd
         run: |
           echo "Building shared FFmpeg using MSYS2 MinGW..."
-          export EXTERNAL_MINGW=/c/msys64/mingw64
-          export MSYS2_ARG_CONV_EXCL="*"
-          export MSYSTEM=MINGW64
-          # Put MinGW bin first so mingw-w64 tools (gcc, sed, make, etc.) are used instead of MSYS utilities
-          export PATH=/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH
-          # Run the build inside a MinGW64 login shell to ensure correct environment
-          /c/msys64/mingw64.exe -l -c 'cd build-script && AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/c/msys64/mingw64 ./build-shared-ffmpeg-windows.sh' 2>&1 | tee "${{ github.workspace }}/ffmpeg_build.log"
+          set "EXTERNAL_MINGW=C:\msys64\mingw64"
+          set "EXTERNAL_MINGW_MSYS=C:\msys64\mingw64"
+          set "SKIP_MSYS_MINGW=1"
+          set "AUTO_INSTALL_FFNV=1"
+          set "ENABLE_NVENC=1"
+          set "PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%"
+          cd /d "${{ env.SOURCE_DIR }}\build-script"
+          if exist "build-shared-ffmpeg-windows.bat" (
+            echo "Using Windows batch script..."
+            call build-shared-ffmpeg-windows.bat > "${{ github.workspace }}\ffmpeg_build.log" 2>&1
+            set BUILD_EXIT_CODE=%ERRORLEVEL%
+          ) else (
+            echo "Using shell script via MSYS2..."
+            C:\msys64\usr\bin\bash.exe -l -c "./build-shared-ffmpeg-windows.sh" > "${{ github.workspace }}\ffmpeg_build.log" 2>&1
+            set BUILD_EXIT_CODE=%ERRORLEVEL%
+          )
+          echo "FFmpeg build completed with exit code: %BUILD_EXIT_CODE%"
+          echo "---- Last 50 lines of FFmpeg build log ----"
+          powershell -Command "if (Test-Path '${{ github.workspace }}\ffmpeg_build.log') { Get-Content '${{ github.workspace }}\ffmpeg_build.log' -Tail 50 } else { Write-Host 'No FFmpeg build log found' }"
 
       - name: Cache LibUSB
         id: cache-libusb
@@ -189,17 +217,26 @@ jobs:
             libusb-1.0.27-windows
 
       - name: Build LibUSB (using MSYS2 MinGW)
-        if: steps.cache-libusb.outputs.cache-hit != 'true'
-        shell: bash
+        shell: cmd
         run: |
           echo "Building LibUSB using MSYS2 MinGW..."
-          export EXTERNAL_MINGW=/c/msys64/mingw64
-          export EXTERNAL_MINGW_MSYS=/c/msys64/mingw64
-          export SKIP_MSYS_MINGW=1
-          export MSYS2_ARG_CONV_EXCL="*"
-          export MSYSTEM=MINGW64
-          export PATH=/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH
-          /c/msys64/mingw64.exe -l -c 'cd build-script && ./install-libusb-windows.sh' 2>&1 | tee "${{ github.workspace }}/libusb_build.log"
+          set "EXTERNAL_MINGW=C:\msys64\mingw64"
+          set "EXTERNAL_MINGW_MSYS=C:\msys64\mingw64"
+          set "SKIP_MSYS_MINGW=1"
+          set "PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%"
+          cd /d "${{ env.SOURCE_DIR }}\build-script"
+          if exist "install-libusb-windows.bat" (
+            echo "Using Windows batch script..."
+            call install-libusb-windows.bat > "${{ github.workspace }}\libusb_build.log" 2>&1
+            set BUILD_EXIT_CODE=%ERRORLEVEL%
+          ) else (
+            echo "Using shell script via MSYS2..."
+            C:\msys64\usr\bin\bash.exe -l -c "./install-libusb-windows.sh" > "${{ github.workspace }}\libusb_build.log" 2>&1
+            set BUILD_EXIT_CODE=%ERRORLEVEL%
+          )
+          echo "LibUSB build completed with exit code: %BUILD_EXIT_CODE%"
+          echo "---- Last 50 lines of LibUSB build log ----"
+          powershell -Command "if (Test-Path '${{ github.workspace }}\libusb_build.log') { Get-Content '${{ github.workspace }}\libusb_build.log' -Tail 50 } else { Write-Host 'No LibUSB build log found' }"
 
 
       - name: Upload FFmpeg Build Log

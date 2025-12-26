@@ -252,22 +252,30 @@ jobs:
         shell: msys2 {0}
         run: |
           echo "Setting up build environment..."
+          # Convert Windows paths to MSYS2 format
+          SOURCE_DIR_MSYS="/$(echo '${{ env.SOURCE_DIR }}' | sed 's|\\|/|g' | sed 's|:||')"
+          QT_PATH_MSYS="/$(echo '${{ runner.temp }}/Qt/6.6.3/mingw_64/bin' | sed 's|\\|/|g' | sed 's|:||')"
+          
           # Add Qt tools to PATH for MSYS2 environment
-          export PATH="/ucrt64/bin:${{ runner.temp }}/Qt/6.6.3/mingw_64/bin:$PATH"
+          export PATH="/ucrt64/bin:${QT_PATH_MSYS}:$PATH"
           echo "Updated PATH: $PATH"
+          echo "Source directory (MSYS2 format): $SOURCE_DIR_MSYS"
+          
           echo "Checking Qt tools availability..."
           which lupdate || echo "lupdate not found in PATH"
           which lrelease || echo "lrelease not found in PATH"
+          
           echo "Updating translations with lupdate..."
-          lupdate ${{ env.SOURCE_DIR }}/openterfaceQT.pro
+          lupdate "${SOURCE_DIR_MSYS}/openterfaceQT.pro"
           echo "Generating .qm files with lrelease..."
-          lrelease ${{ env.SOURCE_DIR }}/openterfaceQT.pro
+          lrelease "${SOURCE_DIR_MSYS}/openterfaceQT.pro"
+          
           echo "Configuring with CMake..."
           cmake -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DFFMPEG_PREFIX=C:/ffmpeg-shared \
             -DUSE_SHARED_FFMPEG=ON \
-            ${{ env.SOURCE_DIR }}
+            "$SOURCE_DIR_MSYS"
           echo "Building with mingw32-make..."
           mingw32-make -j2
           if [ ! -f openterfaceQT.exe ]; then
@@ -281,15 +289,15 @@ jobs:
           mkdir -p ${{ env.PACKAGE_DIR }}/config/languages
           mkdir -p ${{ env.PACKAGE_DIR }}/config/keyboards
           cp openterfaceQT.exe ${{ env.PACKAGE_DIR }}/${{ env.EXE_NAME }}
-          cp ${{ env.SOURCE_DIR }}/LICENSE ${{ env.PACKAGE_DIR }}
-          cp ${{ env.SOURCE_DIR }}/driver/windows/* ${{ env.PACKAGE_DIR }}/driver/windows/
+          cp "${SOURCE_DIR_MSYS}/LICENSE" ${{ env.PACKAGE_DIR }}
+          cp "${SOURCE_DIR_MSYS}/driver/windows/"* ${{ env.PACKAGE_DIR }}/driver/windows/
           echo "Copying FFmpeg DLLs..."
           cp /c/ffmpeg-shared/bin/av*.dll ${{ env.PACKAGE_DIR }}
           cp /c/ffmpeg-shared/bin/sw*.dll ${{ env.PACKAGE_DIR }}
           cp /c/ffmpeg-shared/bin/libturbojpeg.dll ${{ env.PACKAGE_DIR }}
           echo "Copying translation & keyboard layouts files..."
-          cp ${{ env.SOURCE_DIR }}/config/keyboards/*.json ${{ env.PACKAGE_DIR }}/config/keyboards/
-          cp ${{ env.SOURCE_DIR }}/config/languages/*.qm ${{ env.PACKAGE_DIR }}/config/languages/
+          cp "${SOURCE_DIR_MSYS}/config/keyboards/"*.json ${{ env.PACKAGE_DIR }}/config/keyboards/
+          cp "${SOURCE_DIR_MSYS}/config/languages/"*.qm ${{ env.PACKAGE_DIR }}/config/languages/
           echo "Running windeployqt..."
           cd ${{ env.PACKAGE_DIR }}
           # Note: windeployqt is a Windows executable, so we need to call it from cmd

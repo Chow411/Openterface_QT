@@ -191,121 +191,130 @@ fi
 NVENC_ARG="--disable-nvenc"
 CUDA_FLAGS=""
 
-# Helper to build nv-codec-headers (ffnvcodec) into FFMPEG_INSTALL_PREFIX
-build_ffnvcodec_headers() {
-    echo "Attempting to build nv-codec-headers (ffnvcodec) into ${FFMPEG_INSTALL_PREFIX}..."
-    # Create a temporary working dir (fallback to ${BUILD_DIR} if mktemp fails)
-    TMPDIR=$(mktemp -d 2>/dev/null || true)
-    if [ -z "${TMPDIR}" ] || [ ! -d "${TMPDIR}" ]; then
-        TMPDIR="${BUILD_DIR}/nv-code-headers-tmp.$$"
-        mkdir -p "${TMPDIR}"
-    fi
-    echo "Using temp dir: ${TMPDIR}"
-    cd "${TMPDIR}"
+# Check if NVENC is explicitly disabled
+if [ "${ENABLE_NVENC:-0}" = "0" ]; then
+    echo "NVENC explicitly disabled (ENABLE_NVENC=0 or unset); skipping all NVENC/CUDA detection"
+    NVENC_ARG="--disable-nvenc"
+    CUDA_FLAGS=""
+else
+    echo "NVENC enabled (ENABLE_NVENC=1); attempting NVENC/CUDA detection..."
 
-    git clone https://github.com/FFmpeg/nv-codec-headers.git
-    cd nv-codec-headers
-    # Try to use a tag compatible with FFmpeg 6.x
-    git fetch --tags 2>/dev/null || true
-    if git rev-list -n 1 n12.0.16.1 >/dev/null 2>&1; then
-        git checkout n12.0.16.1
-    fi
+else
+    echo "NVENC enabled (ENABLE_NVENC=1); attempting NVENC/CUDA detection..."
 
-    make PREFIX="${FFMPEG_INSTALL_PREFIX}" || { echo "ERROR: building nv-codec-headers failed"; cd "${BUILD_DIR}"; rm -rf "${TMPDIR}"; return 1; }
-    make PREFIX="${FFMPEG_INSTALL_PREFIX}" install || { echo "ERROR: installing nv-codec-headers failed"; cd "${BUILD_DIR}"; rm -rf "${TMPDIR}"; return 1; }
-
-    # Locate installed .pc file and set PKG_CONFIG_PATH using MSYS-style path
-    find_pc() {
-        # First try MSYS-style path
-        if [ -f "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig/ffnvcodec.pc" ]; then
-            echo "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig"
-            return 0
+    # Helper to build nv-codec-headers (ffnvcodec) into FFMPEG_INSTALL_PREFIX
+    build_ffnvcodec_headers() {
+        echo "Attempting to build nv-codec-headers (ffnvcodec) into ${FFMPEG_INSTALL_PREFIX}..."
+        # Create a temporary working dir (fallback to ${BUILD_DIR} if mktemp fails)
+        TMPDIR=$(mktemp -d 2>/dev/null || true)
+        if [ -z "${TMPDIR}" ] || [ ! -d "${TMPDIR}" ]; then
+            TMPDIR="${BUILD_DIR}/nv-code-headers-tmp.$$"
+            mkdir -p "${TMPDIR}"
         fi
-        # Try Windows-style C:/... path
-        winp=$(echo "${FFMPEG_INSTALL_PREFIX}" | sed -E 's|^/([a-zA-Z])/(.*)|\U\1:/\2|')
-        if [ -f "${winp}/lib/pkgconfig/ffnvcodec.pc" ]; then
-            # Convert to MSYS path
-            drive=$(echo "$winp" | cut -c1 | tr '[:upper:]' '[:lower:]')
-            rest=$(echo "$winp" | sed -E 's|^[A-Za-z]:/(.*)|\1|')
-            echo "/${drive}/${rest}/lib/pkgconfig"
-            return 0
+        echo "Using temp dir: ${TMPDIR}"
+        cd "${TMPDIR}"
+
+        git clone https://github.com/FFmpeg/nv-codec-headers.git
+        cd nv-codec-headers
+        # Try to use a tag compatible with FFmpeg 6.x
+        git fetch --tags 2>/dev/null || true
+        if git rev-list -n 1 n12.0.16.1 >/dev/null 2>&1; then
+            git checkout n12.0.16.1
         fi
-        return 1
-    }
 
-    if pkgdir=$(find_pc); then
-        export PKG_CONFIG_PATH="${pkgdir}:${PKG_CONFIG_PATH:-}"
-        echo "Updated PKG_CONFIG_PATH to include: ${pkgdir}"
-    else
-        echo "WARNING: ffnvcodec.pc not found under ${FFMPEG_INSTALL_PREFIX} (checked MSYS and Windows-style paths)."
-        echo "Contents of ${FFMPEG_INSTALL_PREFIX} (for debug):"
-        ls -la "${FFMPEG_INSTALL_PREFIX}" || true
-    fi
+        make PREFIX="${FFMPEG_INSTALL_PREFIX}" || { echo "ERROR: building nv-codec-headers failed"; cd "${BUILD_DIR}"; rm -rf "${TMPDIR}"; return 1; }
+        make PREFIX="${FFMPEG_INSTALL_PREFIX}" install || { echo "ERROR: installing nv-codec-headers failed"; cd "${BUILD_DIR}"; rm -rf "${TMPDIR}"; return 1; }
 
-    # Quick debug: try pkg-config now; if it fails attempt to copy the .pc into common MSYS pkgconfig dirs
-    if ! pkg-config --exists ffnvcodec >/dev/null 2>&1; then
-        echo "pkg-config cannot find ffnvcodec yet; attempting to copy .pc into known MSYS pkgconfig locations..."
-        PC_SRC="${pkgdir}/ffnvcodec.pc"
-        for dest in "/c/msys64/mingw64/lib/pkgconfig" "/mingw64/lib/pkgconfig" "/c/msys64/usr/lib/pkgconfig"; do
-            if [ -d "$dest" ]; then
-                prefix_dir=$(echo "$dest" | sed -E 's|/lib/pkgconfig$||')
-                echo "Copying $PC_SRC to $dest with prefix=$prefix_dir"
-                sed "s|^prefix=.*|prefix=${prefix_dir}|" "$PC_SRC" > "$dest/ffnvcodec.pc" || continue
-                export PKG_CONFIG_PATH="$dest:${PKG_CONFIG_PATH:-}"
-                echo "Updated PKG_CONFIG_PATH to include: $dest"
-                break
+        # Locate installed .pc file and set PKG_CONFIG_PATH using MSYS-style path
+        find_pc() {
+            # First try MSYS-style path
+            if [ -f "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig/ffnvcodec.pc" ]; then
+                echo "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig"
+                return 0
             fi
-        done
-    fi
+            # Try Windows-style C:/... path
+            winp=$(echo "${FFMPEG_INSTALL_PREFIX}" | sed -E 's|^/([a-zA-Z])/(.*)|\U\1:/\2|')
+            if [ -f "${winp}/lib/pkgconfig/ffnvcodec.pc" ]; then
+                # Convert to MSYS path
+                drive=$(echo "$winp" | cut -c1 | tr '[:upper:]' '[:lower:]')
+                rest=$(echo "$winp" | sed -E 's|^[A-Za-z]:/(.*)|\1|')
+                echo "/${drive}/${rest}/lib/pkgconfig"
+                return 0
+            fi
+            return 1
+        }
 
-    # Final check
-    if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
-        echo "ffnvcodec is now discoverable via pkg-config"
-    else
-        echo "ERROR: auto-install completed but pkg-config still cannot find ffnvcodec"
-        echo "Checked paths: ${PKG_CONFIG_PATH}"
-        echo "Contents of any pkgconfig dirs:"
-        for p in $(echo "${PKG_CONFIG_PATH}" | tr ':' '\n'); do ls -la "$p" 2>/dev/null || true; done
+        if pkgdir=$(find_pc); then
+            export PKG_CONFIG_PATH="${pkgdir}:${PKG_CONFIG_PATH:-}"
+            echo "Updated PKG_CONFIG_PATH to include: ${pkgdir}"
+        else
+            echo "WARNING: ffnvcodec.pc not found under ${FFMPEG_INSTALL_PREFIX} (checked MSYS and Windows-style paths)."
+            echo "Contents of ${FFMPEG_INSTALL_PREFIX} (for debug):"
+            ls -la "${FFMPEG_INSTALL_PREFIX}" || true
+        fi
+
+        # Quick debug: try pkg-config now; if it fails attempt to copy the .pc into common MSYS pkgconfig dirs
+        if ! pkg-config --exists ffnvcodec >/dev/null 2>&1; then
+            echo "pkg-config cannot find ffnvcodec yet; attempting to copy .pc into known MSYS pkgconfig locations..."
+            PC_SRC="${pkgdir}/ffnvcodec.pc"
+            for dest in "/c/msys64/mingw64/lib/pkgconfig" "/mingw64/lib/pkgconfig" "/c/msys64/usr/lib/pkgconfig"; do
+                if [ -d "$dest" ]; then
+                    prefix_dir=$(echo "$dest" | sed -E 's|/lib/pkgconfig$||')
+                    echo "Copying $PC_SRC to $dest with prefix=$prefix_dir"
+                    sed "s|^prefix=.*|prefix=${prefix_dir}|" "$PC_SRC" > "$dest/ffnvcodec.pc" || continue
+                    export PKG_CONFIG_PATH="$dest:${PKG_CONFIG_PATH:-}"
+                    echo "Updated PKG_CONFIG_PATH to include: $dest"
+                    break
+                fi
+            done
+        fi
+
+        # Final check
+        if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
+            echo "ffnvcodec is now discoverable via pkg-config"
+        else
+            echo "ERROR: auto-install completed but pkg-config still cannot find ffnvcodec"
+            echo "Checked paths: ${PKG_CONFIG_PATH}"
+            echo "Contents of any pkgconfig dirs:"
+            for p in $(echo "${PKG_CONFIG_PATH}" | tr ':' '\n'); do ls -la "$p" 2>/dev/null || true; done
+            cd "${BUILD_DIR}"
+            rm -rf "${TMPDIR}"
+            return 1
+        fi
+
         cd "${BUILD_DIR}"
         rm -rf "${TMPDIR}"
-        return 1
-    fi
+        echo "nv-codec-headers installed into ${FFMPEG_INSTALL_PREFIX}"
+        return 0
+    }
 
-    cd "${BUILD_DIR}"
-    rm -rf "${TMPDIR}"
-    echo "nv-codec-headers installed into ${FFMPEG_INSTALL_PREFIX}"
-    return 0
-}
-
-# Detection strategy (in order):
-# 1) pkg-config ffnvcodec (packaged headers/libs)
-# 2) NVENC SDK present (nvEncodeAPI.h)
-# 3) If ENABLE_NVENC=1 and AUTO_INSTALL_FFNV=1: attempt to build nv-codec-headers automatically into FFMPEG_INSTALL_PREFIX
-# If user explicitly sets ENABLE_NVENC=1 we require headers or pkg-config and will fail if missing (unless AUTO_INSTALL_FFNV=1 is set and build succeeds).
-if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
-    echo "ffnvcodec detected via pkg-config; enabling NVENC/ffnvcodec support"
-    NVENC_ARG="--enable-nvenc"
-    # Use pkg-config to get cflags/libs if available
-    EXTRA_CFLAGS="${EXTRA_CFLAGS} $(pkg-config --cflags ffnvcodec 2>/dev/null || true)"
-    EXTRA_LDFLAGS="${EXTRA_LDFLAGS} $(pkg-config --libs-only-L ffnvcodec 2>/dev/null || true) $(pkg-config --libs-only-l ffnvcodec 2>/dev/null || true)"
-    CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-ffnvcodec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
-else
-    # Try NVENC SDK headers if provided by user or found in common locations
-    NVENC_SDK_PATH="${NVENC_SDK_PATH:-/c/Program Files/NVIDIA Video Codec SDK}"
-    if [ -f "${NVENC_SDK_PATH}/include/nvEncodeAPI.h" ]; then
-        echo "NVENC SDK headers found: ${NVENC_SDK_PATH}/include"
+    # Detection strategy (in order):
+    # 1) pkg-config ffnvcodec (packaged headers/libs)
+    # 2) NVENC SDK present (nvEncodeAPI.h)
+    # 3) If AUTO_INSTALL_FFNV=1: attempt to build nv-codec-headers automatically into FFMPEG_INSTALL_PREFIX
+    if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
+        echo "ffnvcodec detected via pkg-config; enabling NVENC/ffnvcodec support"
         NVENC_ARG="--enable-nvenc"
-        EXTRA_CFLAGS="${EXTRA_CFLAGS} -I${NVENC_SDK_PATH}/include"
-        # If ffnvcodec pkg-config is absent we still attempt to enable CUDA decoders, but configure may fail if libraries are missing
-        if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
-            CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-ffnvcodec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
-        else
-            echo "Warning: ffnvcodec pkg-config not found. Enabling CUDA/NVENC may still fail if runtime libraries are missing."
-            CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
-        fi
+        # Use pkg-config to get cflags/libs if available
+        EXTRA_CFLAGS="${EXTRA_CFLAGS} $(pkg-config --cflags ffnvcodec 2>/dev/null || true)"
+        EXTRA_LDFLAGS="${EXTRA_LDFLAGS} $(pkg-config --libs-only-L ffnvcodec 2>/dev/null || true) $(pkg-config --libs-only-l ffnvcodec 2>/dev/null || true)"
+        CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-ffnvcodec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
     else
-        # Try auto-install if requested
-        if [ "${ENABLE_NVENC:-0}" = "1" ]; then
+        # Try NVENC SDK headers if provided by user or found in common locations
+        NVENC_SDK_PATH="${NVENC_SDK_PATH:-/c/Program Files/NVIDIA Video Codec SDK}"
+        if [ -f "${NVENC_SDK_PATH}/include/nvEncodeAPI.h" ]; then
+            echo "NVENC SDK headers found: ${NVENC_SDK_PATH}/include"
+            NVENC_ARG="--enable-nvenc"
+            EXTRA_CFLAGS="${EXTRA_CFLAGS} -I${NVENC_SDK_PATH}/include"
+            # If ffnvcodec pkg-config is absent we still attempt to enable CUDA decoders, but configure may fail if libraries are missing
+            if pkg-config --exists ffnvcodec >/dev/null 2>&1; then
+                CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-ffnvcodec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
+            else
+                echo "Warning: ffnvcodec pkg-config not found. Enabling CUDA/NVENC may still fail if runtime libraries are missing."
+                CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
+            fi
+        else
+            # Try auto-install if requested
             if [ "${AUTO_INSTALL_FFNV:-0}" = "1" ]; then
                 echo "AUTO_INSTALL_FFNV=1: attempting to build and install nv-codec-headers into ${FFMPEG_INSTALL_PREFIX}"
                 if build_ffnvcodec_headers; then
@@ -328,10 +337,6 @@ else
                 echo "Set AUTO_INSTALL_FFNV=1 to attempt automatic installation of nv-codec-headers into ${FFMPEG_INSTALL_PREFIX}."
                 exit 1
             fi
-        else
-            echo "NVENC/ CUDA not detected; build will proceed without NVENC/CUDA support (dynamic runtime detection at app level remains possible)."
-            NVENC_ARG="--disable-nvenc"
-            CUDA_FLAGS=""
         fi
     fi
 fi

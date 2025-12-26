@@ -205,10 +205,8 @@ jobs:
           )
           set "PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%"
           cd /d "${{ env.SOURCE_DIR }}\build-script"
-          
           echo "Using shell script via MSYS2..."
-          cd /d "${{ env.SOURCE_DIR }}\build-script"
-          C:\msys64\usr\bin\bash.exe -l -c "./build-shared-ffmpeg-windows.sh" > "${{ github.workspace }}\ffmpeg_build.log" 2>&1
+          C:\msys64\usr\bin\bash.exe -c "cd '${{ env.SOURCE_DIR }}/build-script' && ./build-shared-ffmpeg-windows.sh" > "${{ github.workspace }}\ffmpeg_build.log" 2>&1
           set BUILD_EXIT_CODE=%ERRORLEVEL%
           
           echo "FFmpeg build completed with exit code: %BUILD_EXIT_CODE%"
@@ -239,7 +237,7 @@ jobs:
             set BUILD_EXIT_CODE=%ERRORLEVEL%
           ) else (
             echo "Using shell script via MSYS2..."
-            C:\msys64\usr\bin\bash.exe -l -c "./install-libusb-windows.sh" > "${{ github.workspace }}\libusb_build.log" 2>&1
+            C:\msys64\usr\bin\bash.exe -c "cd '${{ env.SOURCE_DIR }}/build-script' && ./install-libusb-windows.sh" > "${{ github.workspace }}\libusb_build.log" 2>&1
             set BUILD_EXIT_CODE=%ERRORLEVEL%
           )
           echo "LibUSB build completed with exit code: %BUILD_EXIT_CODE%"

@@ -72,50 +72,31 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install MSYS2
-        run: |
-          if exist "C:\msys64\usr\bin\pacman.exe" (
-            echo "MSYS2 already installed"
-          ) else (
-            echo "Installing MSYS2..."
-            curl -L -o msys2.exe https://github.com/msys2/msys2-installer/releases/download/2023-10-26/msys2-x86_64-20231026.exe
-            msys2.exe --script install_msys2.msys2
-            del msys2.exe
-          )
-
-      - name: Ensure MSYS2 packages installed
-        shell: bash
-        run: |
-          export PATH=/c/msys64/usr/bin:$PATH
-          # Update core system and database first (noninteractive)
-          pacman -Syu --noconfirm
-          # Install required mingw packages (use pkgconf, not legacy pkg-config). Include git and perl for nv-codec-headers build and path normalization.
-          pacman -S --noconfirm --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-nasm mingw-w64-x86_64-make mingw-w64-x86_64-pkgconf mingw-w64-x86_64-zlib mingw-w64-x86_64-bzip2 mingw-w64-x86_64-xz mingw-w64-x86_64-libjpeg-turbo perl
-          pacman -S --noconfirm --needed git
-
-      - name: Install MinGW and CMake
-        if: steps.cache-mingw.outputs.cache-hit != 'true'
-        run: |
-          echo "Installing MinGW-w64 and CMake via MSYS2..."
-          set PATH=C:\msys64\usr\bin;%PATH%
-          pacman -S --needed --noconfirm --overwrite=* mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-libiconv mingw-w64-x86_64-libmfx mingw-w64-x86_64-toolchain
-          echo "Setting up PATH..."
-          echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
+      - name: Setup MSYS2 UCRT64 environment
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: |
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-nasm
+            mingw-w64-ucrt-x86_64-make
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-zlib
+            mingw-w64-ucrt-x86_64-bzip2
+            mingw-w64-ucrt-x86_64-xz
+            mingw-w64-ucrt-x86_64-libjpeg-turbo
+            mingw-w64-ucrt-x86_64-libiconv
+            mingw-w64-ucrt-x86_64-libmfx
+            git
+            perl
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Cache Chocolatey packages
-        id: cache-mingw
-        uses: actions/cache@v4
-        with:
-          path: C:\ProgramData\chocolatey\lib
-          key: choco-packages-windows
-          restore-keys: |
-            choco-packages-windows
-            
       - name: Update version
         run: |
           if [ "${{ github.event.inputs.increase_version }}" = "true" ]; then
@@ -134,26 +115,6 @@ jobs:
         run: |
           git fetch --all --tags -f
 
-      - name: Install Chocolatey and CMake
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "$env:ProgramData\chocolatey\bin\choco.exe")) {
-            Write-Host "Installing Chocolatey..."
-            Set-ExecutionPolicy Bypass -Scope Process -Force
-            iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex
-          } else {
-            Write-Host "Chocolatey already installed"
-          }
-          Write-Host "Installing CMake via Chocolatey..."
-          choco install -y cmake --no-progress
-
-      - name: Install CMake (Chocolatey)
-        if: steps.cache-mingw.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          choco install -y cmake --no-progress
-          Write-Host "Skipping Chocolatey MinGW install; will use MSYS2 MinGW."
-
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -170,9 +131,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: C:\ffmpeg-shared
-          key: ffmpeg-shared-6.1.1-windows-v1
+          key: ffmpeg-shared-6.1.1-windows-v1-${{ hashFiles('.github/workflows/windows-build.yaml') }}
           restore-keys: |
-            ffmpeg-shared-6.1.1-windows-v1
+            ffmpeg-shared-6.1.1-windows-v1-
 
       - name: Check Build Scripts Available
         shell: cmd
@@ -181,106 +142,87 @@ jobs:
           cd /d "${{ env.SOURCE_DIR }}"
           dir build-script\*.bat
           dir build-script\*.sh
-          echo "MSYS2 installation check..."
-          if exist "C:\msys64\usr\bin\bash.exe" (
-            echo "MSYS2 found at C:\msys64"
-          ) else (
-            echo "MSYS2 not found at expected location"
-          )
 
-      - name: Build Shared FFmpeg (using MSYS2 MinGW)
-        shell: cmd
+      - name: Build Shared FFmpeg (using MSYS2 UCRT64)
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: msys2 {0}
         run: |
-          echo "Building shared FFmpeg using MSYS2 MinGW..."
-          set "EXTERNAL_MINGW=C:\msys64\mingw64"
-          set "EXTERNAL_MINGW_MSYS=C:\msys64\mingw64"
-          set "SKIP_MSYS_MINGW=1"
-          if "${{ github.event.inputs.enable_nvenc }}" == "true" (
+          echo "Building shared FFmpeg using MSYS2 UCRT64..."
+          export SKIP_MSYS_MINGW=1
+          export EXTERNAL_MINGW_MSYS="/ucrt64"
+          export FFMPEG_INSTALL_PREFIX="/c/ffmpeg-shared"
+          if [ "${{ github.event.inputs.enable_nvenc }}" = "true" ]; then
             echo "NVENC enabled by user input"
-            set "AUTO_INSTALL_FFNV=1"
-            set "ENABLE_NVENC=1"
-          ) else (
+            export AUTO_INSTALL_FFNV=1
+            export ENABLE_NVENC=1
+          else
             echo "NVENC disabled (use enable_nvenc input to enable)"
-            set "ENABLE_NVENC=0"
-          )
-          set "PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%"
-          cd /d "${{ env.SOURCE_DIR }}\build-script"
-          echo "Using shell script via MSYS2..."
-          C:\msys64\usr\bin\bash.exe -c "cd '${{ env.SOURCE_DIR }}/build-script' && ./build-shared-ffmpeg-windows.sh" > "${{ github.workspace }}\ffmpeg_build.log" 2>&1
-          set BUILD_EXIT_CODE=%ERRORLEVEL%
-          
-          echo "FFmpeg build completed with exit code: %BUILD_EXIT_CODE%"
-          if %BUILD_EXIT_CODE% neq 0 (
-            echo "ERROR: FFmpeg build failed with exit code %BUILD_EXIT_CODE%"
-            echo "---- Last 100 lines of FFmpeg build log ----"
-            powershell -Command "if (Test-Path '${{ github.workspace }}\ffmpeg_build.log') { Get-Content '${{ github.workspace }}\ffmpeg_build.log' -Tail 100 } else { Write-Host 'No FFmpeg build log found' }"
-            exit /b %BUILD_EXIT_CODE%
-          ) else (
-            echo "FFmpeg build succeeded"
-            echo "Verifying FFmpeg installation..."
-            if exist "C:\ffmpeg-shared\bin\avcodec-60.dll" (
-              echo "✓ FFmpeg DLLs found"
-            ) else (
-              echo "✗ FFmpeg DLLs missing"
-              dir "C:\ffmpeg-shared\bin" 2>nul || echo "FFmpeg bin directory does not exist"
-              exit /b 1
-            )
-            if exist "C:\ffmpeg-shared\lib\libavcodec.dll.a" (
-              echo "✓ FFmpeg import libraries found"
-            ) else (
-              echo "✗ FFmpeg import libraries missing"
-              dir "C:\ffmpeg-shared\lib" 2>nul || echo "FFmpeg lib directory does not exist"
-              exit /b 1
-            )
-          )
-          echo "---- Last 50 lines of FFmpeg build log ----"
-          powershell -Command "if (Test-Path '${{ github.workspace }}\ffmpeg_build.log') { Get-Content '${{ github.workspace }}\ffmpeg_build.log' -Tail 50 } else { Write-Host 'No FFmpeg build log found' }"
+            export ENABLE_NVENC=0
+          fi
+          cd "${{ env.SOURCE_DIR }}/build-script"
+          ./build-shared-ffmpeg-windows.sh > "${{ github.workspace }}/ffmpeg_build.log" 2>&1
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "ERROR: FFmpeg build failed!"
+            tail -n 100 "${{ github.workspace }}/ffmpeg_build.log" || true
+            exit $EXIT_CODE
+          fi
+          echo "FFmpeg build succeeded"
+
+      - name: Verify FFmpeg installation
+        shell: msys2 {0}
+        run: |
+          if [ -f "/c/ffmpeg-shared/bin/avcodec-60.dll" ]; then
+            echo "✓ FFmpeg DLLs found"
+          else
+            echo "✗ FFmpeg DLLs missing"
+            ls -la "/c/ffmpeg-shared/bin/" || echo "FFmpeg bin directory does not exist"
+            exit 1
+          fi
+          if [ -f "/c/ffmpeg-shared/lib/libavcodec.dll.a" ]; then
+            echo "✓ FFmpeg import libraries found"
+          else
+            echo "✗ FFmpeg import libraries missing"
+            ls -la "/c/ffmpeg-shared/lib/" || echo "FFmpeg lib directory does not exist"
+            exit 1
+          fi
 
       - name: Cache LibUSB
         id: cache-libusb
         uses: actions/cache@v4
         with:
           path: C:\libusb
-          key: libusb-1.0.27-windows
+          key: libusb-1.0.27-windows-v1
           restore-keys: |
-            libusb-1.0.27-windows
+            libusb-1.0.27-windows-v1
 
-      - name: Build LibUSB (using MSYS2 MinGW)
-        shell: cmd
+      - name: Build LibUSB (using MSYS2 UCRT64)
+        if: steps.cache-libusb.outputs.cache-hit != 'true'
+        shell: msys2 {0}
         run: |
-          echo "Building LibUSB using MSYS2 MinGW..."
-          set "EXTERNAL_MINGW=C:\msys64\mingw64"
-          set "EXTERNAL_MINGW_MSYS=C:\msys64\mingw64"
-          set "SKIP_MSYS_MINGW=1"
-          set "PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%"
-          cd /d "${{ env.SOURCE_DIR }}\build-script"
-          if exist "install-libusb-windows.bat" (
-            echo "Using Windows batch script..."
-            call install-libusb-windows.bat > "${{ github.workspace }}\libusb_build.log" 2>&1
-            set BUILD_EXIT_CODE=%ERRORLEVEL%
-          ) else (
+          echo "Building LibUSB using MSYS2 UCRT64..."
+          export SKIP_MSYS_MINGW=1
+          export EXTERNAL_MINGW_MSYS="/ucrt64"
+          cd "${{ env.SOURCE_DIR }}/build-script"
+          if [ -f "install-libusb-windows.bat" ]; then
+            echo "Using Windows batch script..." >&2
+            exit 1  # Batch scripts won't work in msys2 shell; use .sh instead
+          else
             echo "Using shell script via MSYS2..."
-            C:\msys64\usr\bin\bash.exe -c "cd '${{ env.SOURCE_DIR }}/build-script' && ./install-libusb-windows.sh" > "${{ github.workspace }}\libusb_build.log" 2>&1
-            set BUILD_EXIT_CODE=%ERRORLEVEL%
-          )
-          echo "LibUSB build completed with exit code: %BUILD_EXIT_CODE%"
-          if %BUILD_EXIT_CODE% neq 0 (
-            echo "ERROR: LibUSB build failed with exit code %BUILD_EXIT_CODE%"
-            echo "---- Last 100 lines of LibUSB build log ----"
-            powershell -Command "if (Test-Path '${{ github.workspace }}\libusb_build.log') { Get-Content '${{ github.workspace }}\libusb_build.log' -Tail 100 } else { Write-Host 'No LibUSB build log found' }"
-            exit /b %BUILD_EXIT_CODE%
-          ) else (
-            echo "LibUSB build succeeded"
-          )
-          echo "---- Last 50 lines of LibUSB build log ----"
-          powershell -Command "if (Test-Path '${{ github.workspace }}\libusb_build.log') { Get-Content '${{ github.workspace }}\libusb_build.log' -Tail 50 } else { Write-Host 'No LibUSB build log found' }"
-
+            ./install-libusb-windows.sh > "${{ github.workspace }}/libusb_build.log" 2>&1
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -ne 0 ]; then
+              echo "ERROR: LibUSB build failed!"
+              tail -n 100 "${{ github.workspace }}/libusb_build.log" || true
+              exit $EXIT_CODE
+            fi
+          fi
 
       - name: Upload FFmpeg Build Log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-build-log 
+          name: ffmpeg-build-log
           path: ${{ github.workspace }}/ffmpeg_build.log
           if-no-files-found: warn
 
@@ -299,66 +241,56 @@ jobs:
           if (Test-Path "$env:GITHUB_WORKSPACE\ffmpeg_build.log") { Write-Host "---- FFmpeg tail (last 200 lines) ----"; Get-Content "$env:GITHUB_WORKSPACE\ffmpeg_build.log" -Tail 200 } else { Write-Host "No ffmpeg_build.log" }
           if (Test-Path "$env:GITHUB_WORKSPACE\libusb_build.log") { Write-Host "---- LibUSB tail (last 200 lines) ----"; Get-Content "$env:GITHUB_WORKSPACE\libusb_build.log" -Tail 200 } else { Write-Host "No libusb_build.log" }
 
-      
       - name: Create build directory
-        run: |
-          mkdir ${{ runner.temp }}\build
+        run: mkdir ${{ runner.temp }}\build
 
       - name: Build
         working-directory: ${{ runner.temp }}\build
+        shell: msys2 {0}
         run: |
           echo "Setting up build environment..."
-          set "EXTERNAL_MINGW=C:\msys64\mingw64"
-          set "PATH=C:\msys64\mingw64\bin;%PATH%"
-
+          export PATH="/ucrt64/bin:$PATH"
           echo "Updating translations with lupdate..."
-          lupdate ${{ env.SOURCE_DIR }}\openterfaceQT.pro
-
+          lupdate ${{ env.SOURCE_DIR }}/openterfaceQT.pro
           echo "Generating .qm files with lrelease..."
-          lrelease ${{ env.SOURCE_DIR }}\openterfaceQT.pro
-
+          lrelease ${{ env.SOURCE_DIR }}/openterfaceQT.pro
           echo "Configuring with CMake..."
-          cmake -G "MinGW Makefiles" ^
-            -DCMAKE_BUILD_TYPE=Release ^
-            -DFFMPEG_PREFIX=C:\ffmpeg-shared ^
-            -DUSE_SHARED_FFMPEG=ON ^
+          cmake -G "MinGW Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DFFMPEG_PREFIX=C:/ffmpeg-shared \
+            -DUSE_SHARED_FFMPEG=ON \
             ${{ env.SOURCE_DIR }}
-
           echo "Building with mingw32-make..."
           mingw32-make -j2
-
-          echo "Build directory contents:"
-          dir
-
-          if not exist openterfaceQT.exe (
+          if [ ! -f openterfaceQT.exe ]; then
             echo "Error: Failed to build openterfaceQT.exe"
             exit 1
-          )
-          
-          echo "Creating package directory..."
-          mkdir ${{ env.PACKAGE_DIR }}
-          mkdir ${{ env.PACKAGE_DIR }}\driver
-          mkdir ${{ env.PACKAGE_DIR }}\driver\windows
-          mkdir ${{ env.PACKAGE_DIR }}\config\languages
-          mkdir ${{ env.PACKAGE_DIR }}\config\keyboards
-
-          copy openterfaceQT.exe ${{ env.PACKAGE_DIR }}\${{ env.EXE_NAME }}
-          copy ${{ env.SOURCE_DIR }}\LICENSE ${{ env.PACKAGE_DIR }}
-          copy ${{ env.SOURCE_DIR }}\driver\windows\* ${{ env.PACKAGE_DIR }}\driver\windows
-          
+          fi
+          echo "Build directory contents:"
+          ls -la
+          # ... rest of packaging steps (copy files, etc.)
+          mkdir -p ${{ env.PACKAGE_DIR }}/driver/windows
+          mkdir -p ${{ env.PACKAGE_DIR }}/config/languages
+          mkdir -p ${{ env.PACKAGE_DIR }}/config/keyboards
+          cp openterfaceQT.exe ${{ env.PACKAGE_DIR }}/${{ env.EXE_NAME }}
+          cp ${{ env.SOURCE_DIR }}/LICENSE ${{ env.PACKAGE_DIR }}
+          cp ${{ env.SOURCE_DIR }}/driver/windows/* ${{ env.PACKAGE_DIR }}/driver/windows/
           echo "Copying FFmpeg DLLs..."
-          copy C:\ffmpeg-shared\bin\av*.dll ${{ env.PACKAGE_DIR }}
-          copy C:\ffmpeg-shared\bin\sw*.dll ${{ env.PACKAGE_DIR }}
-          copy C:\ffmpeg-shared\bin\libturbojpeg.dll ${{ env.PACKAGE_DIR }}
-          
+          cp /c/ffmpeg-shared/bin/av*.dll ${{ env.PACKAGE_DIR }}
+          cp /c/ffmpeg-shared/bin/sw*.dll ${{ env.PACKAGE_DIR }}
+          cp /c/ffmpeg-shared/bin/libturbojpeg.dll ${{ env.PACKAGE_DIR }}
           echo "Copying translation & keyboard layouts files..."
-          copy ${{ env.SOURCE_DIR }}\config\keyboards\*.json ${{ env.PACKAGE_DIR }}\config\keyboards
-          copy ${{ env.SOURCE_DIR }}\config\languages\*.qm ${{ env.PACKAGE_DIR }}\config\languages
-          
+          cp ${{ env.SOURCE_DIR }}/config/keyboards/*.json ${{ env.PACKAGE_DIR }}/config/keyboards/
+          cp ${{ env.SOURCE_DIR }}/config/languages/*.qm ${{ env.PACKAGE_DIR }}/config/languages/
           echo "Running windeployqt..."
           cd ${{ env.PACKAGE_DIR }}
+          # Note: windeployqt is a Windows executable, so we need to call it from cmd
+          # We'll switch back to cmd shell for this step
+
+      - name: Run windeployqt (Windows native tool)
+        working-directory: ${{ runner.temp }}\build\${{ env.PACKAGE_DIR }}
+        run: |
           windeployqt ${{ env.EXE_NAME }} --compiler-runtime --multimedia --network
-          
 
       - name: Move build artifacts
         run: move /Y ${{ runner.temp }}\build\${{ env.PACKAGE_DIR }} ${{ env.SOURCE_DIR }}
@@ -381,8 +313,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: openterfaceQT.windows.amd64.installer
-          path: |
-            ${{ env.SOURCE_DIR }}\Output\openterfaceQT.windows.amd64.installer.exe
+          path: ${{ env.SOURCE_DIR }}\Output\openterfaceQT.windows.amd64.installer.exe
           if-no-files-found: error
 
       - name: Commit and push version update

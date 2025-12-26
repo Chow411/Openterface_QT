@@ -155,7 +155,16 @@ jobs:
           arch: win64_mingw
           dir: ${{ runner.temp }}
           modules: qtmultimedia qtserialport qtimageformats
-          setup-python: false 
+          setup-python: false
+
+      - name: Cache FFmpeg (shared)
+        id: cache-ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: C:\ffmpeg-shared
+          key: ffmpeg-shared-6.1.1-windows
+          restore-keys: |
+            ffmpeg-shared-6.1.1-windows
 
       - name: Build Shared FFmpeg (using MSYS2 MinGW)
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
@@ -169,6 +178,15 @@ jobs:
           export PATH=/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH
           # Run the build inside a MinGW64 login shell to ensure correct environment
           /c/msys64/mingw64.exe -l -c 'cd build-script && AUTO_INSTALL_FFNV=1 ENABLE_NVENC=1 SKIP_MSYS_MINGW=1 EXTERNAL_MINGW_MSYS=/c/msys64/mingw64 ./build-shared-ffmpeg-windows.sh' 2>&1 | tee "${{ github.workspace }}/ffmpeg_build.log"
+
+      - name: Cache LibUSB
+        id: cache-libusb
+        uses: actions/cache@v4
+        with:
+          path: C:\libusb
+          key: libusb-1.0.27-windows
+          restore-keys: |
+            libusb-1.0.27-windows
 
       - name: Build LibUSB (using MSYS2 MinGW)
         if: steps.cache-libusb.outputs.cache-hit != 'true'
@@ -207,10 +225,6 @@ jobs:
           if (Test-Path "$env:GITHUB_WORKSPACE\ffmpeg_build.log") { Write-Host "---- FFmpeg tail (last 200 lines) ----"; Get-Content "$env:GITHUB_WORKSPACE\ffmpeg_build.log" -Tail 200 } else { Write-Host "No ffmpeg_build.log" }
           if (Test-Path "$env:GITHUB_WORKSPACE\libusb_build.log") { Write-Host "---- LibUSB tail (last 200 lines) ----"; Get-Content "$env:GITHUB_WORKSPACE\libusb_build.log" -Tail 200 } else { Write-Host "No libusb_build.log" }
 
-      - name: Set up Visual Studio shell
-        uses: egor-tensin/vs-shell@v2
-        with:
-          arch: x64
       
       - name: Create build directory
         run: |

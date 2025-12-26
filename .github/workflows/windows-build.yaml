@@ -206,10 +206,7 @@ jobs:
           export SKIP_MSYS_MINGW=1
           export EXTERNAL_MINGW_MSYS="/ucrt64"
           cd "${{ env.SOURCE_DIR }}/build-script"
-          if [ -f "install-libusb-windows.bat" ]; then
-            echo "Using Windows batch script..." >&2
-            exit 1  # Batch scripts won't work in msys2 shell; use .sh instead
-          else
+          if [ -f "install-libusb-windows.sh" ]; then
             echo "Using shell script via MSYS2..."
             ./install-libusb-windows.sh > "${{ github.workspace }}/libusb_build.log" 2>&1
             EXIT_CODE=$?
@@ -218,6 +215,10 @@ jobs:
               tail -n 100 "${{ github.workspace }}/libusb_build.log" || true
               exit $EXIT_CODE
             fi
+            echo "LibUSB build succeeded"
+          else
+            echo "ERROR: install-libusb-windows.sh not found!"
+            exit 1
           fi
 
       - name: Upload FFmpeg Build Log

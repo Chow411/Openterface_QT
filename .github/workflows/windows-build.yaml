@@ -295,6 +295,13 @@ jobs:
           cp /c/ffmpeg-shared/bin/av*.dll ${{ env.PACKAGE_DIR }}
           cp /c/ffmpeg-shared/bin/sw*.dll ${{ env.PACKAGE_DIR }}
           cp /c/ffmpeg-shared/bin/libturbojpeg.dll ${{ env.PACKAGE_DIR }}
+          echo "Copying MSYS2 runtime dependencies..."
+          cp /ucrt64/bin/libiconv-2.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libiconv-2.dll not found"
+          cp /ucrt64/bin/libbz2-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libbz2-1.dll not found"
+          cp /ucrt64/bin/liblzma-5.dll ${{ env.PACKAGE_DIR }} || echo "Warning: liblzma-5.dll not found"
+          cp /ucrt64/bin/libwinpthread-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libwinpthread-1.dll not found"
+          cp /ucrt64/bin/libgcc_s_seh-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libgcc_s_seh-1.dll not found"
+          cp /ucrt64/bin/libstdc++-6.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libstdc++-6.dll not found"
           echo "Copying translation & keyboard layouts files..."
           cp "${SOURCE_DIR_MSYS}/config/keyboards/"*.json ${{ env.PACKAGE_DIR }}/config/keyboards/
           cp "${SOURCE_DIR_MSYS}/config/languages/"*.qm ${{ env.PACKAGE_DIR }}/config/languages/

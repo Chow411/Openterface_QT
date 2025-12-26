@@ -195,7 +195,7 @@ CUDA_FLAGS=""
 if [ "${ENABLE_NVENC:-0}" = "0" ]; then
     echo "NVENC explicitly disabled (ENABLE_NVENC=0 or unset); skipping all NVENC/CUDA detection"
     NVENC_ARG="--disable-nvenc"
-    CUDA_FLAGS=""
+    CUDA_FLAGS="--disable-cuda --disable-cuvid --disable-nvdec --disable-ffnvcodec"
 else
     echo "NVENC enabled (ENABLE_NVENC=1); attempting NVENC/CUDA detection..."
 
@@ -446,14 +446,14 @@ fi
 # Build FFmpeg
 echo "Step 7/8: Building FFmpeg..."
 echo "This will take 30-60 minutes depending on your CPU..."
-echo "Using ${NUM_CORES} CPU cores for compilation"
+echo "Using 2 CPU cores for compilation (reduced for stability)"
 echo ""
 
 # Capture build output for debugging
 BUILD_LOG="${BUILD_DIR}/ffmpeg-build.log"
 echo "Build output will be saved to: ${BUILD_LOG}"
 
-make -j${NUM_CORES} 2>&1 | tee "${BUILD_LOG}"
+make -j2 2>&1 | tee "${BUILD_LOG}"
 
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
     echo "✗ FFmpeg build failed!"
@@ -469,25 +469,7 @@ mkdir -p "${FFMPEG_INSTALL_PREFIX}"
 echo "Step 8/8: Installing FFmpeg to ${FFMPEG_INSTALL_PREFIX}..."
 make install
 
-echo "✓ Configuration complete"
-echo ""
-
-# Build FFmpeg
-echo "Step 7/8: Building FFmpeg..."
-echo "This will take 30-60 minutes depending on your CPU..."
-echo "Using ${NUM_CORES} CPU cores for compilation"
-echo ""
-
-make -j${NUM_CORES}
-
-echo "✓ Build complete"
-echo ""
-
-# Install FFmpeg
-echo "Step 8/8: Installing FFmpeg to ${FFMPEG_INSTALL_PREFIX}..."
-make install
-
-echo "✓ Installation complete"
+echo "✓ Build and installation complete"
 echo ""
 
 # Verify installation (check for DLLs and import libs for a shared build)

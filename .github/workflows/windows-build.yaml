@@ -220,7 +220,7 @@ jobs:
             echo "Verifying FFmpeg installation..."
             if exist "C:\ffmpeg-shared\bin\avcodec-60.dll" (
               echo "✓ FFmpeg DLLs found"
-            ) else (
+            ) else ( 
               echo "✗ FFmpeg DLLs missing"
               dir "C:\ffmpeg-shared\bin" 2>nul || echo "FFmpeg bin directory does not exist"
               exit /b 1

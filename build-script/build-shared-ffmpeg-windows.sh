@@ -399,6 +399,8 @@ echo "Running: ./configure --prefix='${FFMPEG_INSTALL_PREFIX}' --enable-shared -
 CONFIG_LOG="${BUILD_DIR}/ffmpeg-configure.log"
 echo "Configure output will be saved to: ${CONFIG_LOG}"
 
+# Run configure and capture exit status more reliably
+set +e  # Temporarily disable exit on error
 ./configure \
     --prefix="${FFMPEG_INSTALL_PREFIX}" \
     --arch=x86_64 \
@@ -440,13 +442,25 @@ echo "Configure output will be saved to: ${CONFIG_LOG}"
     --pkg-config-flags="" \
     --extra-cflags="${EXTRA_CFLAGS}" \
     --extra-ldflags="${EXTRA_LDFLAGS}" \
-    2>&1 | tee "${CONFIG_LOG}"
+    > "${CONFIG_LOG}" 2>&1
 
-if [ ${PIPESTATUS[0]} -ne 0 ]; then
-    echo "✗ FFmpeg configure failed! See ${CONFIG_LOG}"
-    tail -n 200 "${CONFIG_LOG}" || true
+CONFIGURE_EXIT_CODE=$?
+set -e  # Re-enable exit on error
+
+# Always show the configure output for debugging
+cat "${CONFIG_LOG}"
+
+if [ $CONFIGURE_EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "✗ FFmpeg configure failed with exit code $CONFIGURE_EXIT_CODE!"
+    echo "Configure log saved to: ${CONFIG_LOG}"
+    echo "Last 50 lines of configure output:"
+    tail -n 50 "${CONFIG_LOG}" || true
     exit 1
 fi
+
+echo ""
+echo "✓ FFmpeg configure completed successfully!"
 
 # Build FFmpeg
 echo "Step 7/8: Building FFmpeg..."

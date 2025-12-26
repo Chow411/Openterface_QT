@@ -90,6 +90,7 @@ jobs:
             mingw-w64-ucrt-x86_64-libiconv
             mingw-w64-ucrt-x86_64-libmfx
             diffutils
+            make
             git
             perl
 

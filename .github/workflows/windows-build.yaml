@@ -199,28 +199,23 @@ jobs:
           restore-keys: |
             libusb-1.0.27-windows-v1
 
-      - name: Build LibUSB (using MSYS2 UCRT64)
+      - name: Install LibUSB via MSYS2
         if: steps.cache-libusb.outputs.cache-hit != 'true' || github.event.inputs.force_rebuild == 'true'
         shell: msys2 {0}
         run: |
-          echo "Building LibUSB using MSYS2 UCRT64..."
-          export SKIP_MSYS_MINGW=1
-          export EXTERNAL_MINGW_MSYS="/ucrt64"
-          cd "${{ env.SOURCE_DIR }}/build-script"
-          if [ -f "install-libusb-windows.sh" ]; then
-            echo "Using shell script via MSYS2..."
-            ./install-libusb-windows.sh > "${{ github.workspace }}/libusb_build.log" 2>&1
-            EXIT_CODE=$?
-            if [ $EXIT_CODE -ne 0 ]; then
-              echo "ERROR: LibUSB build failed!"
-              tail -n 100 "${{ github.workspace }}/libusb_build.log" || true
-              exit $EXIT_CODE
-            fi
-            echo "LibUSB build succeeded"
-          else
-            echo "ERROR: install-libusb-windows.sh not found!"
-            exit 1
-          fi
+          echo "Installing LibUSB via MSYS2 package manager..."
+          pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-libusb
+          echo "Verifying LibUSB installation..."
+          ls -la /ucrt64/bin/*usb* || echo "No LibUSB DLLs found"
+          ls -la /ucrt64/lib/libusb* || echo "No LibUSB libraries found"
+          ls -la /ucrt64/include/libusb* || echo "No LibUSB headers found"
+          # Test that the library can be found
+          pkg-config --exists libusb-1.0 && echo "✓ LibUSB pkg-config found" || echo "✗ LibUSB pkg-config not found"
+          # Create cache directory structure to match expected paths
+          mkdir -p /c/libusb/bin /c/libusb/lib /c/libusb/include
+          cp /ucrt64/bin/*usb*.dll /c/libusb/bin/ 2>/dev/null || echo "No USB DLLs to copy"
+          cp /ucrt64/lib/libusb* /c/libusb/lib/ 2>/dev/null || echo "No USB libs to copy"
+          cp -r /ucrt64/include/libusb* /c/libusb/include/ 2>/dev/null || echo "No USB headers to copy"
 
       - name: Upload FFmpeg Build Log
         if: always()
@@ -298,7 +293,22 @@ jobs:
           cp /c/ffmpeg-shared/bin/postproc-57.dll ${{ env.PACKAGE_DIR }} || echo "Warning: postproc-57.dll not found"
           cp /c/ffmpeg-shared/bin/libturbojpeg.dll ${{ env.PACKAGE_DIR }}
           echo "Copying LibUSB DLLs..."
-          cp /c/libusb/bin/*.dll ${{ env.PACKAGE_DIR }} || echo "Warning: LibUSB DLLs not found"
+          # Copy the correct UCRT64 LibUSB DLL
+          if [ -f "/ucrt64/bin/libusb-1.0.dll" ]; then
+            cp /ucrt64/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}
+            echo "✓ Copied libusb-1.0.dll"
+          elif [ -f "/ucrt64/bin/msys-usb-1.0.dll" ]; then
+            cp /ucrt64/bin/msys-usb-1.0.dll ${{ env.PACKAGE_DIR }}
+            echo "✓ Copied msys-usb-1.0.dll"
+          elif [ -f "/c/libusb/bin/libusb-1.0.dll" ]; then
+            cp /c/libusb/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}
+            echo "✓ Copied libusb-1.0.dll from cache"
+          else
+            echo "✗ No LibUSB DLL found, checking available files:"
+            ls -la /ucrt64/bin/*usb* 2>/dev/null || echo "No USB-related DLLs found in /ucrt64/bin/"
+            ls -la /c/libusb/bin/*.dll 2>/dev/null || echo "No DLLs found in /c/libusb/bin/"
+            exit 1
+          fi
           echo "Copying MSYS2 runtime dependencies..."
           cp /ucrt64/bin/libiconv-2.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libiconv-2.dll not found"
           cp /ucrt64/bin/libbz2-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libbz2-1.dll not found"
@@ -319,6 +329,18 @@ jobs:
         working-directory: ${{ runner.temp }}\build\${{ env.PACKAGE_DIR }}
         run: |
           windeployqt ${{ env.EXE_NAME }} --compiler-runtime --multimedia --network
+
+      - name: Verify DLL dependencies
+        working-directory: ${{ runner.temp }}\build\${{ env.PACKAGE_DIR }}
+        shell: msys2 {0}
+        run: |
+          echo "Verifying copied DLLs..."
+          ls -la *.dll | grep -i usb || echo "No USB DLLs found in package"
+          echo "Checking openterfaceQT.exe dependencies..."
+          ldd openterfaceQT.exe | grep -i usb || echo "No USB dependencies found"
+          echo "All DLLs in package:"
+          ls -la *.dll
+          echo "Verification complete"
 
       - name: Move build artifacts
         run: move /Y ${{ runner.temp }}\build\${{ env.PACKAGE_DIR }} ${{ env.SOURCE_DIR }}

@@ -33,9 +33,69 @@ env:
   VCPKG_KEEP_BUILDTREES: 1
   EXTERNAL_MINGW: C:\mingw64
   VCPKG_MAX_CONCURRENCY: 1
+  # MinGW toolchain controls - ensure major versions match between Ubuntu cross and Windows build
+  MINGW_GCC_MAJOR: '11'
+  MINGW_RELEASE: 'v11.2.0-rev3'
+  MINGW_FILE: 'x86_64-11.2.0-release-posix-seh-rt_v9-rev3.7z'
 
 jobs:
+  build-ffmpeg-cross:
+    name: Build FFmpeg (cross-compile on Ubuntu)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Cache ffmpeg cross build
+        id: cache-ffmpeg-cross
+        uses: actions/cache@v3
+        with:
+          path: |
+            ffmpeg-build-temp
+            ffmpeg-install
+          # include the mingw toolchain tag and expected gcc major in cache key so changes in toolchain invalidate cache
+          key: ffmpeg-cross-${{ runner.os }}-${{ env.MINGW_RELEASE }}-gcc${{ env.MINGW_GCC_MAJOR }}-${{ hashFiles('build-script/**') }}-v1
+          restore-keys: |
+            ffmpeg-cross-
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git make build-essential pkg-config nasm yasm mingw-w64 curl wget tar cmake
+      - name: Verify cross MinGW GCC major version matches expected
+        run: |
+          set -e
+          if ! command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+            echo "ERROR: x86_64-w64-mingw32-gcc not found after installing mingw-w64"
+            exit 1
+          fi
+          ver=$(x86_64-w64-mingw32-gcc -dumpversion)
+          major=${ver%%.*}
+          echo "Found cross MinGW GCC version: ${ver} (major: ${major})"
+          if [ "${major}" != "${MINGW_GCC_MAJOR}" ]; then
+            echo "ERROR: cross MinGW GCC major ${major} does not match expected ${MINGW_GCC_MAJOR}" >&2
+            exit 1
+          fi
+          echo "Cross MinGW GCC major matches expected ${MINGW_GCC_MAJOR}"
+      - name: Run cross build script
+        env:
+          PREFIX: /tmp/ffmpeg-static-windows
+          CROSS_PREFIX: x86_64-w64-mingw32-
+        run: |
+          mkdir -p $PREFIX
+          cd build-script
+          bash build-static-ffmpeg-cross.sh
+      - name: Archive ffmpeg artifact
+        run: |
+          cd /tmp
+          tar -czf ffmpeg-static-windows.tar.gz -C /tmp ffmpeg-static-windows
+      - name: Upload ffmpeg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-static-windows
+          path: /tmp/ffmpeg-static-windows.tar.gz
+
   build:
+    needs: build-ffmpeg-cross
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -96,7 +156,7 @@ jobs:
             D:\vcpkg\installed\x64-mingw-static\lib
             C:\ffmpeg-static\lib
           # Use the build scripts as part of the cache key so changes in scripts invalidate the cache
-          key: ffmpeg-static-${{ runner.os }}-${{ hashFiles('build-script/build-static-ffmpeg-windows.bat', 'build-script/build-static-ffmpeg-windows.sh') }}-v1
+          key: ffmpeg-static-${{ runner.os }}-${{ hashFiles('build-script/build-static-ffmpeg-windows.bat', 'build-script/build-static-ffmpeg-windows.sh', 'build-script/build-static-ffmpeg-cross.sh') }}-v1
           restore-keys: |
             ffmpeg-static-
       - name: Cache vcpkg binary archives & downloads
@@ -119,8 +179,8 @@ jobs:
         run: |
           echo Installing Ninja...
           choco install ninja -y
-          echo Downloading MinGW-w64 static build...
-          curl -L -o mingw-w64.zip https://github.com/cristianadam/mingw-builds/releases/download/v11.2.0-rev3/x86_64-11.2.0-release-posix-seh-rt_v9-rev3.7z
+          echo Downloading MinGW-w64 static build (from ${MINGW_RELEASE})...
+          curl -L -o mingw-w64.zip https://github.com/cristianadam/mingw-builds/releases/download/${{ env.MINGW_RELEASE }}/${{ env.MINGW_FILE }}
           mkdir C:\mingw64_tmp
           7z x mingw-w64.zip -oC:\mingw64_tmp
           move C:\mingw64_tmp\x86_64-11.2.0-release-posix-seh-rt_v9-rev3\* C:\mingw64\
@@ -153,6 +213,18 @@ jobs:
           g++ --version
           where g++
           echo "If g++ is not present, ensure the runner snapshot contains a working MinGW distribution at C:\mingw64"
+      - name: Verify MinGW GCC major version matches expected
+        shell: cmd
+        run: |
+          for /f "delims=" %%a in ('g++ -dumpversion') do set "GCC_VER=%%a"
+          for /f "tokens=1 delims=." %%m in ("%GCC_VER%") do set "GCC_MAJOR=%%m"
+          echo Found MinGW GCC version: %GCC_VER% (major: %GCC_MAJOR%)
+          if not "%GCC_MAJOR%"=="%MINGW_GCC_MAJOR%" (
+            echo ERROR: MinGW GCC major version %GCC_MAJOR% does not match expected %MINGW_GCC_MAJOR%.
+            exit /b 1
+          ) else (
+            echo MinGW GCC major matches expected %MINGW_GCC_MAJOR%.
+          )
 
       - name: Verify MinGW Static Linking Capability
         run: |
@@ -230,82 +302,21 @@ jobs:
         run: |
           echo Checking central vcpkg for OpenSSL static libs and headers...
           if exist "%VCPKG_DIR%\installed\x64-mingw-static\lib\libcrypto.a" (
-            if exist "%VCPKG_DIR%\installed\x64-mingw-static\include\openssl\ssl.h" (
-              echo OpenSSL libraries and headers already present in central vcpkg
-              dir "%VCPKG_DIR%\installed\x64-mingw-static\lib\libcrypto.a"
-              dir "%VCPKG_DIR%\installed\x64-mingw-static\lib\libssl.a"
-              dir "%VCPKG_DIR%\installed\x64-mingw-static\include\openssl"
-            ) else (
-              echo OpenSSL libs found but headers missing, checking repo-local...
-            )
-
-                cmd.exe /C "pushd \"%SOURCE_DIR%\" && \"%VCPKG_DIR%\\vcpkg.exe\" install --triplet=x64-mingw-static --host-triplet=x64-mingw-static --clean-after-build --recurse --debug && popd" && break
-                echo "vcpkg (cmd) install attempt $attempt failed; retrying after sleep..."
-                attempt=$((attempt+1))
-                sleep $((attempt * 5))
-              done
-              if [ $attempt -gt $max_attempts ]; then
-                echo "vcpkg (cmd) install failed after $max_attempts attempts"
-                exit 1
-              fi
-            fi
-          else
-            echo "System packaged toolchain not available. Running vcpkg via cmd.exe from the manifest directory: %SOURCE_DIR%"
-            attempt=1
-            max_attempts=3
-            while [ $attempt -le $max_attempts ]
-            do
-              cmd.exe /C "pushd \"%SOURCE_DIR%\" && \"%VCPKG_DIR%\\vcpkg.exe\" install --triplet=x64-mingw-static --host-triplet=x64-mingw-static --clean-after-build --recurse --debug && popd" && break
-              echo "vcpkg (cmd) install attempt $attempt failed; retrying..."
-              attempt=$((attempt+1))
-              sleep $((attempt * 5))
-            done
-            if [ $attempt -gt $max_attempts ]; then
-              echo "vcpkg install (cmd) failed after $max_attempts attempts"
-              exit 1
-            fi
-          fi
-          echo "vcpkg list (after install):"
-          cmd.exe /C "pushd "%SOURCE_DIR%" && "%VCPKG_DIR%\vcpkg.exe" list && popd"
-      - name: Ensure OpenSSL is available in central vcpkg
+            echo OpenSSL already present in central vcpkg
+          ) else if exist "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\lib\libcrypto.a" (
+            echo Copying repo-local OpenSSL into central vcpkg
+            mkdir "%VCPKG_DIR%\installed\x64-mingw-static\lib" 2>nul || echo "lib dir exists"
+            mkdir "%VCPKG_DIR%\installed\x64-mingw-static\include" 2>nul || echo "include dir exists"
+            xcopy "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\lib\*" "%VCPKG_DIR%\installed\x64-mingw-static\lib\" /Y /I /S
+            xcopy "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\include\*" "%VCPKG_DIR%\installed\x64-mingw-static\include\" /Y /I /S
+          ) else (
+            echo Installing OpenSSL into central vcpkg
+            "%VCPKG_DIR%\vcpkg.exe" install openssl --triplet=x64-mingw-static --clean-after-build --recurse || ( echo "vcpkg install failed" & exit /b 1 )
+          )
+      - name: OpenSSL availability (consolidated)
         shell: cmd
         run: |
-          echo Checking central vcpkg for OpenSSL static libs and headers...
-          if exist "%VCPKG_DIR%\installed\x64-mingw-static\lib\libcrypto.a" (
-            if exist "%VCPKG_DIR%\installed\x64-mingw-static\include\openssl\ssl.h" (
-              echo OpenSSL libraries and headers already present in central vcpkg
-              dir "%VCPKG_DIR%\installed\x64-mingw-static\lib\libcrypto.a"
-              dir "%VCPKG_DIR%\installed\x64-mingw-static\lib\libssl.a"
-              dir "%VCPKG_DIR%\installed\x64-mingw-static\include\openssl"
-            ) else (
-              echo OpenSSL libs found but headers missing, checking repo-local...
-              goto :check_repo_local
-            )
-          ) else (
-            :check_repo_local
-            echo Checking repo-local manifest install...
-            if exist "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\lib\libcrypto.a" (
-              if exist "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\include\openssl\ssl.h" (
-                echo Found repo-local OpenSSL artifacts; copying into central vcpkg
-                mkdir "%VCPKG_DIR%\installed\x64-mingw-static\lib" 2>nul || echo "lib dir exists"
-                mkdir "%VCPKG_DIR%\installed\x64-mingw-static\include" 2>nul || echo "include dir exists"
-                xcopy "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\lib\*" "%VCPKG_DIR%\installed\x64-mingw-static\lib\" /Y /I /S
-                xcopy "%SOURCE_DIR%\vcpkg_installed\x64-mingw-static\include\*" "%VCPKG_DIR%\installed\x64-mingw-static\include\" /Y /I /S
-              ) else (
-                echo Repo-local libs found but headers missing, forcing reinstall
-                goto :force_install
-              )
-            ) else (
-              :force_install
-              echo Forcing OpenSSL reinstall into central vcpkg
-              pushd "%VCPKG_DIR%" && "%VCPKG_DIR%\vcpkg.exe" remove openssl --triplet=x64-mingw-static || echo "No existing install to remove"
-              "%VCPKG_DIR%\vcpkg.exe" install openssl --triplet=x64-mingw-static --clean-after-build --recurse || (
-                echo Failed to install OpenSSL via vcpkg; printing contents for debugging
-                dir "%VCPKG_DIR%\installed\x64-mingw-static" /s
-                exit /b 1
-              ) && popd
-            )
-          )
+          echo OpenSSL availability check already performed in the consolidated step above; skipping duplicate checks
       - name: Verify vcpkg manifest installation and artifact directory
         shell: cmd
         run: |
@@ -342,16 +353,24 @@ jobs:
             echo "Hint: vcpkg install may have failed or installed to a different location. Inspect the vcpkg debug output above."
             exit /b 1
           )
-      - name: Build Static FFmpeg
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        env:
-          SKIP_MSYS_MINGW: '1'
-          EXTERNAL_MINGW: 'C:\\mingw64'
+      - name: Download FFmpeg artifact from Ubuntu build
+        uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-static-windows
+          path: ${{ runner.temp }}\ffmpeg-artifact
+      - name: Extract FFmpeg into C:\ffmpeg-static
+        shell: cmd
         run: |
-          echo "Building static FFmpeg (using external MinGW at %EXTERNAL_MINGW%)..."
-          set PATH=%EXTERNAL_MINGW%\bin;%PATH%
-          cd build-script
-          call build-static-ffmpeg-windows.bat
+          if not exist C:\ffmpeg-static mkdir C:\ffmpeg-static
+          tar -xzf "%RUNNER_TEMP%\ffmpeg-artifact\ffmpeg-static-windows.tar.gz" -C C:\
+      - name: Set FFMPEG_PREFIX for subsequent steps
+        shell: cmd
+        run: |
+          set FFMPEG_PREFIX=C:\ffmpeg-static
+          echo FFMPEG_PREFIX set to %FFMPEG_PREFIX%
+          echo Listing C:\ffmpeg-static\lib and include
+          dir C:\ffmpeg-static\lib || echo "lib folder not found"
+          dir C:\ffmpeg-static\include || echo "include folder not found"
       - name: Verify vcpkg static libraries (with debug output)
         run: |
           set VCPKG_MAX_CONCURRENCY=%VCPKG_MAX_CONCURRENCY%

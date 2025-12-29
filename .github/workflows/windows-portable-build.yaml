@@ -126,6 +126,17 @@ jobs:
             x86_64-w64-mingw32-gcc -dumpversion || true
             x86_64-w64-mingw32-gcc -v 2>&1 || true
             echo "Listing /opt/mingw64/bin:" ; ls -la /opt/mingw64/bin || true
+            # Ensure the new toolchain takes precedence: create symlinks in /usr/local/bin
+            echo "Creating /usr/local/bin symlinks for mingw toolchain"
+            sudo mkdir -p /usr/local/bin
+            for prog in x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++ x86_64-w64-mingw32-ar x86_64-w64-mingw32-gcc-ar x86_64-w64-mingw32-gcc-nm x86_64-w64-mingw32-gcc-ranlib; do
+              if [ -f /opt/mingw64/bin/$prog ]; then
+                sudo ln -sf /opt/mingw64/bin/$prog /usr/local/bin/$prog || true
+              elif [ -f /opt/mingw64/bin/$prog.exe ]; then
+                sudo ln -sf /opt/mingw64/bin/$prog.exe /usr/local/bin/$prog || true
+              fi
+            done
+            echo "Symlinks in /usr/local/bin:" ; ls -la /usr/local/bin | grep x86_64-w64-mingw32 || true
             cd -
             rm -rf "$TMPDIR"
           else

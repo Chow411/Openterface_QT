@@ -89,6 +89,7 @@ jobs:
             mingw-w64-ucrt-x86_64-libjpeg-turbo
             mingw-w64-ucrt-x86_64-libiconv
             mingw-w64-ucrt-x86_64-libmfx
+            mingw-w64-ucrt-x86_64-libusb
             diffutils
             make
             libtool
@@ -199,68 +200,48 @@ jobs:
           restore-keys: |
             libusb-1.0.27-windows-v1
 
-      - name: Install LibUSB via MSYS2
+      - name: Verify and Setup LibUSB
         if: steps.cache-libusb.outputs.cache-hit != 'true' || github.event.inputs.force_rebuild == 'true'
         shell: msys2 {0}
         run: |
-          echo "Installing LibUSB via MSYS2 package manager..."
-          # First, let's see what LibUSB packages are available
-          echo "Searching for available LibUSB packages..."
-          pacman -Ss libusb | head -20 || echo "No libusb packages found in search"
+          echo "Verifying LibUSB installation from MSYS2 setup..."
           
-          # Try to install the correct package
-          echo "Installing LibUSB package..."
-          pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-libusb || {
-            echo "Failed to install mingw-w64-ucrt-x86_64-libusb, trying alternative..."
-            pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-libusb-compat || echo "Alternative package also failed"
+          # Check if LibUSB was installed during MSYS2 setup
+          echo "Checking for LibUSB in UCRT64..."
+          ls -la /ucrt64/bin/*usb* || echo "No USB DLLs found"
+          ls -la /ucrt64/lib/*usb* || echo "No USB libraries found"
+          
+          # Check installed packages
+          pacman -Q | grep -i usb || echo "No USB packages installed"
+          
+          # Verify pkg-config
+          pkg-config --exists libusb-1.0 && echo "✓ LibUSB pkg-config found" || {
+            echo "✗ LibUSB pkg-config not found, trying to install..."
+            pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-libusb
           }
           
-          # Check what was actually installed
-          echo "Checking installed packages..."
-          pacman -Q | grep -i usb || echo "No USB packages found in installed list"
-          
-          echo "Verifying LibUSB installation..."
-          # Check all possible locations for LibUSB files
-          echo "Checking /ucrt64/bin/ for USB files:"
-          ls -la /ucrt64/bin/ | grep -i usb || echo "No USB files in /ucrt64/bin/"
-          echo "Checking /ucrt64/lib/ for USB files:"
-          ls -la /ucrt64/lib/ | grep -i usb || echo "No USB files in /ucrt64/lib/"
-          echo "Checking /ucrt64/include/ for USB files:"
-          ls -la /ucrt64/include/ | grep -i usb || echo "No USB files in /ucrt64/include/"
-          
-          # Check if pkg-config can find it
-          pkg-config --exists libusb-1.0 && echo "✓ LibUSB pkg-config found" || echo "✗ LibUSB pkg-config not found"
-          
-          # Try to find the actual LibUSB DLL files
-          echo "Searching for LibUSB DLL files in entire /ucrt64:"
-          find /ucrt64 -name "*usb*.dll" 2>/dev/null || echo "No USB DLL files found"
-          find /ucrt64 -name "*libusb*" 2>/dev/null || echo "No libusb files found"
-          
-          # Create cache directory structure to match expected paths
+          # Create cache directory structure
           mkdir -p /c/libusb/bin /c/libusb/lib /c/libusb/include
           
-          # Copy any found USB DLL files
-          echo "Attempting to copy LibUSB files to cache..."
-          for dll in $(find /ucrt64 -name "*usb*.dll" 2>/dev/null); do
-            echo "Copying $dll to /c/libusb/bin/"
-            cp "$dll" /c/libusb/bin/
-          done
+          # Copy LibUSB files to cache and create the expected DLL name
+          if [ -f "/ucrt64/bin/libusb-1.0.dll" ]; then
+            echo "✓ Found libusb-1.0.dll, copying to cache..."
+            cp /ucrt64/bin/libusb-1.0.dll /c/libusb/bin/
+            # Create the expected msys-usb-1.0.dll name
+            cp /ucrt64/bin/libusb-1.0.dll /c/libusb/bin/msys-usb-1.0.dll
+            echo "✓ Created msys-usb-1.0.dll from libusb-1.0.dll"
+          else
+            echo "✗ libusb-1.0.dll not found"
+          fi
           
-          # Copy library files
-          for lib in $(find /ucrt64 -name "*libusb*" -type f 2>/dev/null); do
-            if [[ "$lib" == *.a ]] || [[ "$lib" == *.dll.a ]]; then
-              echo "Copying library $lib to /c/libusb/lib/"
-              cp "$lib" /c/libusb/lib/
-            elif [[ "$lib" == *.h ]]; then
-              echo "Copying header $lib to /c/libusb/include/"
-              cp "$lib" /c/libusb/include/
-            fi
-          done
+          # Copy other LibUSB files
+          cp /ucrt64/lib/*usb* /c/libusb/lib/ 2>/dev/null || echo "No USB libs to copy"
+          cp -r /ucrt64/include/libusb* /c/libusb/include/ 2>/dev/null || echo "No USB headers to copy"
           
           # Final verification
-          echo "Final verification of cached LibUSB files:"
-          ls -la /c/libusb/bin/ || echo "No files in cache bin directory"
-          ls -la /c/libusb/lib/ || echo "No files in cache lib directory"
+          echo "Final LibUSB cache contents:"
+          ls -la /c/libusb/bin/ || echo "No files in cache bin"
+          ls -la /c/libusb/lib/ || echo "No files in cache lib"
 
       - name: Upload FFmpeg Build Log
         if: always()
@@ -338,49 +319,53 @@ jobs:
           cp /c/ffmpeg-shared/bin/postproc-57.dll ${{ env.PACKAGE_DIR }} || echo "Warning: postproc-57.dll not found"
           cp /c/ffmpeg-shared/bin/libturbojpeg.dll ${{ env.PACKAGE_DIR }}
           echo "Copying LibUSB DLLs..."
-          # Search for LibUSB DLLs in multiple locations and copy any found
           LIBUSB_FOUND=false
           
-          # Check UCRT64 bin directory for various LibUSB DLL names
-          for dll_name in "libusb-1.0.dll" "msys-usb-1.0.dll" "usb-1.0.dll"; do
-            if [ -f "/ucrt64/bin/$dll_name" ]; then
-              cp "/ucrt64/bin/$dll_name" ${{ env.PACKAGE_DIR }}
-              echo "✓ Copied $dll_name from /ucrt64/bin/"
-              LIBUSB_FOUND=true
-            fi
-          done
-          
-          # Check cache directory
-          if [ -d "/c/libusb/bin" ]; then
-            for dll in /c/libusb/bin/*.dll; do
-              if [ -f "$dll" ]; then
-                cp "$dll" ${{ env.PACKAGE_DIR }}
-                echo "✓ Copied $(basename "$dll") from cache"
-                LIBUSB_FOUND=true
-              fi
-            done
+          # First check cache directory for the expected DLL names
+          if [ -f "/c/libusb/bin/msys-usb-1.0.dll" ]; then
+            cp /c/libusb/bin/msys-usb-1.0.dll ${{ env.PACKAGE_DIR }}
+            echo "✓ Copied msys-usb-1.0.dll from cache"
+            LIBUSB_FOUND=true
+          elif [ -f "/c/libusb/bin/libusb-1.0.dll" ]; then
+            cp /c/libusb/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}
+            # Also create the expected name
+            cp /c/libusb/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}/msys-usb-1.0.dll
+            echo "✓ Copied libusb-1.0.dll and created msys-usb-1.0.dll"
+            LIBUSB_FOUND=true
           fi
           
-          # If still not found, do a comprehensive search
+          # Check UCRT64 directly if cache didn't work
+          if [ "$LIBUSB_FOUND" = "false" ] && [ -f "/ucrt64/bin/libusb-1.0.dll" ]; then
+            cp /ucrt64/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}
+            # Create the expected name
+            cp /ucrt64/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}/msys-usb-1.0.dll
+            echo "✓ Copied libusb-1.0.dll from UCRT64 and created msys-usb-1.0.dll"
+            LIBUSB_FOUND=true
+          fi
+          
+          # Final fallback - comprehensive search
           if [ "$LIBUSB_FOUND" = "false" ]; then
-            echo "⚠ LibUSB DLL not found in standard locations, searching..."
-            # Search for any USB-related DLLs in the entire UCRT64 directory
+            echo "⚠ LibUSB DLL not found in expected locations, searching comprehensively..."
             USB_DLLS=$(find /ucrt64 -name "*usb*.dll" 2>/dev/null)
             if [ -n "$USB_DLLS" ]; then
-              echo "Found USB DLLs via search:"
-              echo "$USB_DLLS"
+              echo "Found USB DLLs: $USB_DLLS"
               for dll in $USB_DLLS; do
-                cp "$dll" ${{ env.PACKAGE_DIR }}
-                echo "✓ Copied $(basename "$dll") from search"
+                dll_name=$(basename "$dll")
+                cp "$dll" ${{ env.PACKAGE_DIR }}/
+                # If it's libusb-1.0.dll, also create the msys version
+                if [ "$dll_name" = "libusb-1.0.dll" ]; then
+                  cp "$dll" ${{ env.PACKAGE_DIR }}/msys-usb-1.0.dll
+                  echo "✓ Created msys-usb-1.0.dll from found $dll_name"
+                fi
+                echo "✓ Copied $dll_name"
                 LIBUSB_FOUND=true
               done
-            else
-              echo "⚠ No LibUSB DLL found anywhere. The application may fail at runtime."
-              echo "Available DLLs in /ucrt64/bin/:"
-              ls -la /ucrt64/bin/*.dll | head -10 || echo "No DLLs found"
-              echo "Continuing build without LibUSB DLL..."
-              # Don't exit with error - let the build continue for now
             fi
+          fi
+          
+          if [ "$LIBUSB_FOUND" = "false" ]; then
+            echo "⚠ No LibUSB DLL found. Application may fail at runtime."
+            echo "Continuing build without LibUSB..."
           fi
           echo "Copying MSYS2 runtime dependencies..."
           cp /ucrt64/bin/libiconv-2.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libiconv-2.dll not found"

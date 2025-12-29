@@ -22,7 +22,7 @@ on:
 
 defaults:
   run:
-    shell: cmd
+    shell: bash
 
 env:
   ARTIFACT: openterfaceQT.windows.amd64.portable.exe
@@ -97,6 +97,9 @@ jobs:
   build:
     needs: build-ffmpeg-cross
     runs-on: windows-2022
+    defaults:
+      run:
+        shell: cmd
     steps:
       - uses: actions/checkout@v4
         with:

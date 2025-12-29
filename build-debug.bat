@@ -175,8 +175,8 @@ rem Try to locate Qt plugin directory via qmake and copy platforms plugin (qwind
 set QT_PLUGIN_DIR=
 for /f "usebackq delims=" %%p in (`qmake -query QT_INSTALL_PLUGINS 2^>nul`) do set QT_PLUGIN_DIR=%%p
 if defined QT_PLUGIN_DIR (
-    echo Copying Qt platform plugins from %QT_PLUGIN_DIR% to %OUTPUT_DIR%\platforms...
-    xcopy /E /Y "%QT_PLUGIN_DIR%\platforms" "%OUTPUT_DIR%\platforms" >nul 2>nul || echo Warning: failed to copy Qt platforms
+    echo Copying Qt platform plugins from %QT_PLUGIN_DIR% to %OUTPUT_DIR%/platforms...
+    xcopy /E /Y "%QT_PLUGIN_DIR%/platforms" "%OUTPUT_DIR%/platforms" >nul 2>nul || echo Warning: failed to copy Qt platforms
 ) else (
     echo Warning: qmake not found or QT not on PATH, platform plugins were not copied. You can set QT_PLUGIN_DIR or add Qt bin to PATH.
 )

@@ -602,6 +602,38 @@ jobs:
           path: ${{ runner.temp }}\openterface_package.zip
           if-no-files-found: warn
 
+      - name: Install NSIS (if missing)
+        shell: pwsh
+        run: |
+          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
+            Write-Host "makensis not found; installing NSIS via Chocolatey..."
+            choco install nsis -y
+          } else {
+            Write-Host "makensis already available"
+          }
+
+      - name: Compile .NSI to .EXE Installer
+        shell: pwsh
+        run: |
+          Write-Host "Compiling NSIS installer..."
+          $pkg = "${{ runner.temp }}\build\${{ env.PACKAGE_DIR }}"
+          if (-not (Test-Path $pkg)) {
+            Write-Host "Package dir not found: $pkg"; exit 1
+          }
+          New-Item -ItemType Directory -Path "${{ env.SOURCE_DIR }}\Output" -Force | Out-Null
+          # Run makensis with defines used by installer script
+          & makensis /DWorkingDir="$pkg" /DMyAppVersion="${{ env.NEW_VERSION }}" /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" /DMyAppURL="${{ vars.MY_APP_URL }}" /DOutputDir="${{ env.SOURCE_DIR }}\Output" /DOutputBaseFileName=openterfaceQT.windows.amd64.installer /DMyAppExeName=${{ env.EXE_NAME }} "${{ env.SOURCE_DIR }}\installer.nsi"
+          if ($LASTEXITCODE -ne 0) { Write-Host "makensis failed with exit code $LASTEXITCODE"; exit $LASTEXITCODE }
+          Write-Host "Installer build completed. Listing Output directory:"
+          Get-ChildItem "${{ env.SOURCE_DIR }}\Output" -Recurse | Select-Object -First 200
+
+      - name: Upload windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: ${{ env.SOURCE_DIR }}\Output\*.exe
+          if-no-files-found: error
+
       - name: Copy package to workspace for inspection (optional)
         shell: pwsh
         run: |

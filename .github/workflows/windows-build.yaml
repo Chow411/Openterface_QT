@@ -89,7 +89,7 @@ jobs:
             mingw-w64-ucrt-x86_64-libjpeg-turbo
             mingw-w64-ucrt-x86_64-libiconv
             mingw-w64-ucrt-x86_64-libmfx
-            mingw-w64-ucrt-x86_64-libusb
+            mingw-w64-x86_64-libusb
             diffutils
             make
             libtool
@@ -204,44 +204,69 @@ jobs:
         if: steps.cache-libusb.outputs.cache-hit != 'true' || github.event.inputs.force_rebuild == 'true'
         shell: msys2 {0}
         run: |
-          echo "Verifying LibUSB installation from MSYS2 setup..."
+          echo "Setting up LibUSB for Qt/MinGW compatibility..."
           
-          # Check if LibUSB was installed during MSYS2 setup
-          echo "Checking for LibUSB in UCRT64..."
-          ls -la /ucrt64/bin/*usb* || echo "No USB DLLs found"
-          ls -la /ucrt64/lib/*usb* || echo "No USB libraries found"
+          # First check if MinGW LibUSB was installed
+          echo "Checking MinGW LibUSB installation..."
+          ls -la /mingw64/bin/*usb* || echo "No MinGW LibUSB DLLs found"
+          ls -la /mingw64/lib/*usb* || echo "No MinGW LibUSB libraries found"
+          
+          # Also check UCRT64 as backup
+          echo "Checking UCRT64 LibUSB installation..."
+          ls -la /ucrt64/bin/*usb* || echo "No UCRT64 LibUSB DLLs found"
+          ls -la /ucrt64/lib/*usb* || echo "No UCRT64 LibUSB libraries found"
           
           # Check installed packages
           pacman -Q | grep -i usb || echo "No USB packages installed"
           
-          # Verify pkg-config
-          pkg-config --exists libusb-1.0 && echo "✓ LibUSB pkg-config found" || {
-            echo "✗ LibUSB pkg-config not found, trying to install..."
-            pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-libusb
+          # Verify pkg-config for both MinGW and UCRT64
+          echo "Checking pkg-config..."
+          PKG_CONFIG_PATH="/mingw64/lib/pkgconfig:/ucrt64/lib/pkgconfig:$PKG_CONFIG_PATH" pkg-config --exists libusb-1.0 && echo "✓ LibUSB pkg-config found" || {
+            echo "✗ LibUSB pkg-config not found, trying to install MinGW version..."
+            pacman -S --needed --noconfirm mingw-w64-x86_64-libusb
           }
           
           # Create cache directory structure
           mkdir -p /c/libusb/bin /c/libusb/lib /c/libusb/include
           
-          # Copy LibUSB files to cache and create the expected DLL name
-          if [ -f "/ucrt64/bin/libusb-1.0.dll" ]; then
-            echo "✓ Found libusb-1.0.dll, copying to cache..."
+          # Priority: MinGW LibUSB (better Qt compatibility) > UCRT64 LibUSB
+          LIBUSB_FOUND=false
+          
+          # Try MinGW version first (better ABI compatibility with Qt)
+          if [ -f "/mingw64/bin/libusb-1.0.dll" ]; then
+            echo "✓ Found MinGW libusb-1.0.dll (preferred for Qt compatibility)"
+            cp /mingw64/bin/libusb-1.0.dll /c/libusb/bin/
+            cp /mingw64/bin/libusb-1.0.dll /c/libusb/bin/msys-usb-1.0.dll
+            echo "✓ Created msys-usb-1.0.dll from MinGW libusb-1.0.dll"
+            LIBUSB_FOUND=true
+            
+            # Copy MinGW runtime dependencies that might be needed
+            cp /mingw64/bin/libgcc_s_dw2-1.dll /c/libusb/bin/ 2>/dev/null || echo "MinGW libgcc_s_dw2-1.dll not found"
+            cp /mingw64/bin/libwinpthread-1.dll /c/libusb/bin/ 2>/dev/null || echo "MinGW libwinpthread-1.dll not found"
+            
+          elif [ -f "/ucrt64/bin/libusb-1.0.dll" ]; then
+            echo "⚠ Using UCRT64 libusb-1.0.dll (may have ABI compatibility issues)"
             cp /ucrt64/bin/libusb-1.0.dll /c/libusb/bin/
-            # Create the expected msys-usb-1.0.dll name
             cp /ucrt64/bin/libusb-1.0.dll /c/libusb/bin/msys-usb-1.0.dll
-            echo "✓ Created msys-usb-1.0.dll from libusb-1.0.dll"
+            echo "✓ Created msys-usb-1.0.dll from UCRT64 libusb-1.0.dll"
+            LIBUSB_FOUND=true
           else
-            echo "✗ libusb-1.0.dll not found"
+            echo "✗ No LibUSB DLL found in MinGW64 or UCRT64"
           fi
           
-          # Copy other LibUSB files
-          cp /ucrt64/lib/*usb* /c/libusb/lib/ 2>/dev/null || echo "No USB libs to copy"
-          cp -r /ucrt64/include/libusb* /c/libusb/include/ 2>/dev/null || echo "No USB headers to copy"
+          # Copy library and header files
+          cp /mingw64/lib/*usb* /c/libusb/lib/ 2>/dev/null || cp /ucrt64/lib/*usb* /c/libusb/lib/ 2>/dev/null || echo "No USB libs to copy"
+          cp -r /mingw64/include/libusb* /c/libusb/include/ 2>/dev/null || cp -r /ucrt64/include/libusb* /c/libusb/include/ 2>/dev/null || echo "No USB headers to copy"
           
           # Final verification
           echo "Final LibUSB cache contents:"
           ls -la /c/libusb/bin/ || echo "No files in cache bin"
-          ls -la /c/libusb/lib/ || echo "No files in cache lib"
+          
+          if [ "$LIBUSB_FOUND" = "true" ]; then
+            echo "✓ LibUSB setup completed successfully"
+          else
+            echo "✗ LibUSB setup failed"
+          fi
 
       - name: Upload FFmpeg Build Log
         if: always()
@@ -321,51 +346,72 @@ jobs:
           echo "Copying LibUSB DLLs..."
           LIBUSB_FOUND=false
           
-          # First check cache directory for the expected DLL names
+          # Priority 1: Check cache for MinGW-compatible LibUSB
           if [ -f "/c/libusb/bin/msys-usb-1.0.dll" ]; then
             cp /c/libusb/bin/msys-usb-1.0.dll ${{ env.PACKAGE_DIR }}
             echo "✓ Copied msys-usb-1.0.dll from cache"
             LIBUSB_FOUND=true
           elif [ -f "/c/libusb/bin/libusb-1.0.dll" ]; then
             cp /c/libusb/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}
-            # Also create the expected name
             cp /c/libusb/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}/msys-usb-1.0.dll
-            echo "✓ Copied libusb-1.0.dll and created msys-usb-1.0.dll"
+            echo "✓ Copied libusb-1.0.dll and created msys-usb-1.0.dll from cache"
             LIBUSB_FOUND=true
           fi
           
-          # Check UCRT64 directly if cache didn't work
-          if [ "$LIBUSB_FOUND" = "false" ] && [ -f "/ucrt64/bin/libusb-1.0.dll" ]; then
+          # Priority 2: Check MinGW64 directly (best ABI compatibility with Qt)
+          if [ "$LIBUSB_FOUND" = "false" ] && [ -f "/mingw64/bin/libusb-1.0.dll" ]; then
+            cp /mingw64/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}
+            cp /mingw64/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}/msys-usb-1.0.dll
+            echo "✓ Copied MinGW libusb-1.0.dll and created msys-usb-1.0.dll (best compatibility)"
+            
+            # Copy MinGW runtime dependencies to prevent ABI mismatches
+            cp /mingw64/bin/libgcc_s_dw2-1.dll ${{ env.PACKAGE_DIR }} 2>/dev/null || echo "MinGW libgcc_s_dw2-1.dll not needed"
+            cp /mingw64/bin/libwinpthread-1.dll ${{ env.PACKAGE_DIR }} 2>/dev/null && echo "✓ Copied MinGW pthread" || echo "MinGW pthread not needed"
+            LIBUSB_FOUND=true
+            
+          # Priority 3: Check UCRT64 (may have ABI compatibility issues)
+          elif [ "$LIBUSB_FOUND" = "false" ] && [ -f "/ucrt64/bin/libusb-1.0.dll" ]; then
             cp /ucrt64/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}
-            # Create the expected name
             cp /ucrt64/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}/msys-usb-1.0.dll
-            echo "✓ Copied libusb-1.0.dll from UCRT64 and created msys-usb-1.0.dll"
+            echo "⚠ Using UCRT64 libusb-1.0.dll (potential ABI compatibility issue with Qt/MinGW)"
             LIBUSB_FOUND=true
           fi
           
-          # Final fallback - comprehensive search
+          # Copy additional MinGW runtime DLLs that may be needed for LibUSB compatibility
+          if [ "$LIBUSB_FOUND" = "true" ]; then
+            echo "Ensuring runtime compatibility..."
+            # Note: Qt is built with MinGW, so we may need MinGW runtimes even with UCRT64 LibUSB
+            for dll in libgcc_s_dw2-1.dll libwinpthread-1.dll; do
+              if [ -f "/mingw64/bin/$dll" ] && [ ! -f "${{ env.PACKAGE_DIR }}/$dll" ]; then
+                cp "/mingw64/bin/$dll" ${{ env.PACKAGE_DIR }} && echo "✓ Copied MinGW runtime $dll"
+              fi
+            done
+          fi
+          
+          # Final comprehensive search if still not found
           if [ "$LIBUSB_FOUND" = "false" ]; then
-            echo "⚠ LibUSB DLL not found in expected locations, searching comprehensively..."
-            USB_DLLS=$(find /ucrt64 -name "*usb*.dll" 2>/dev/null)
+            echo "⚠ LibUSB DLL not found in preferred locations, searching comprehensively..."
+            USB_DLLS=$(find /mingw64 /ucrt64 -name "*usb*.dll" 2>/dev/null | head -5)
             if [ -n "$USB_DLLS" ]; then
               echo "Found USB DLLs: $USB_DLLS"
               for dll in $USB_DLLS; do
                 dll_name=$(basename "$dll")
                 cp "$dll" ${{ env.PACKAGE_DIR }}/
-                # If it's libusb-1.0.dll, also create the msys version
                 if [ "$dll_name" = "libusb-1.0.dll" ]; then
                   cp "$dll" ${{ env.PACKAGE_DIR }}/msys-usb-1.0.dll
                   echo "✓ Created msys-usb-1.0.dll from found $dll_name"
                 fi
-                echo "✓ Copied $dll_name"
+                echo "✓ Copied $dll_name from $(dirname "$dll")"
                 LIBUSB_FOUND=true
               done
             fi
           fi
           
           if [ "$LIBUSB_FOUND" = "false" ]; then
-            echo "⚠ No LibUSB DLL found. Application may fail at runtime."
-            echo "Continuing build without LibUSB..."
+            echo "✗ LibUSB DLL not found. Application will likely fail at runtime."
+            echo "This may cause heap corruption errors (c0000374)."
+          else
+            echo "✓ LibUSB DLL setup completed"
           fi
           echo "Copying MSYS2 runtime dependencies..."
           cp /ucrt64/bin/libiconv-2.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libiconv-2.dll not found"
@@ -392,12 +438,73 @@ jobs:
         working-directory: ${{ runner.temp }}\build\${{ env.PACKAGE_DIR }}
         shell: msys2 {0}
         run: |
-          echo "Verifying copied DLLs..."
-          ls -la *.dll | grep -i usb || echo "No USB DLLs found in package"
-          echo "Checking openterfaceQT.exe dependencies..."
-          ldd openterfaceQT.exe | grep -i usb || echo "No USB dependencies found"
-          echo "All DLLs in package:"
+          echo "=== DLL Dependency Analysis ==="
+          echo "Checking all DLLs in package..."
           ls -la *.dll
+          
+          echo ""
+          echo "=== Checking openterfaceQT.exe dependencies ==="
+          if command -v objdump >/dev/null 2>&1; then
+            echo "Using objdump to check dependencies:"
+            objdump -p openterfaceQT.exe | grep -i "DLL Name"
+          fi
+          
+          echo ""
+          echo "=== Checking for LibUSB dependencies ==="
+          ldd openterfaceQT.exe | grep -i usb || echo "No USB dependencies found in ldd output"
+          
+          echo ""
+          echo "=== Runtime Library Compatibility Check ==="
+          # Check for potential ABI conflicts
+          echo "Checking Qt DLLs..."
+          ls -la Qt*.dll | head -5 || echo "No Qt DLLs found"
+          
+          echo "Checking MSYS2 runtime DLLs..."
+          for dll in libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
+            if [ -f "$dll" ]; then
+              echo "✓ Found $dll"
+              # Check DLL info using objdump
+              if command -v objdump >/dev/null 2>&1; then
+                echo "  Architecture: $(objdump -f "$dll" | grep "^architecture" || echo "unknown")"
+              fi
+            else
+              echo "✗ Missing $dll"
+            fi
+          done
+          
+          echo ""
+          echo "=== LibUSB DLL Analysis ==="
+          for dll in libusb-1.0.dll msys-usb-1.0.dll; do
+            if [ -f "$dll" ]; then
+              echo "✓ Found $dll"
+              if command -v objdump >/dev/null 2>&1; then
+                echo "  Architecture: $(objdump -f "$dll" | grep "^architecture" || echo "unknown")"
+                echo "  Imports: $(objdump -p "$dll" | grep -i "DLL Name" | wc -l) DLLs"
+              fi
+            else
+              echo "✗ Missing $dll"
+            fi
+          done
+          
+          echo ""
+          echo "=== Potential ABI Compatibility Issues ==="
+          # Check if we're mixing different compiler runtimes
+          echo "Checking for mixed runtime libraries..."
+          
+          # Check for both UCRT64 and MinGW libraries
+          echo "UCRT64 DLLs:"
+          ls -la lib*-*.dll 2>/dev/null | grep -v Qt || echo "No UCRT64 pattern DLLs found"
+          
+          echo "Qt DLLs:"
+          ls -la Qt*.dll 2>/dev/null | head -3 || echo "No Qt DLLs found"
+          
+          echo ""
+          echo "=== Recommendation ==="
+          echo "If the application crashes with heap corruption (c0000374):"
+          echo "1. Ensure all DLLs use the same runtime (UCRT64 vs MinGW)"
+          echo "2. Check for missing or mismatched Qt platform plugins"
+          echo "3. Verify LibUSB is compatible with the Qt/MinGW runtime"
+          echo ""
           echo "Verification complete"
 
       - name: Move build artifacts

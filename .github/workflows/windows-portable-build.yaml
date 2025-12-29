@@ -117,69 +117,48 @@ jobs:
             fi
             echo "Contents of /opt/mingw64:" || true
             sudo ls -la /opt/mingw64 || true
-            # Decide how to use the extracted toolchain. Prefer a native Linux cross-compiler if present.
-            if [ -x /opt/mingw64/bin/x86_64-w64-mingw32-gcc ]; then
-              echo "Native Linux cross-compiler found in /opt/mingw64/bin"
+
+            # Try to find a native ELF x86_64-w64-mingw32-gcc in the extracted tree that matches the required major.
+            FOUND_NATIVE=""
+            for cand in /opt/mingw64/bin/x86_64-w64-mingw32-gcc*; do
+              if [ -f "$cand" ]; then
+                echo "Inspecting $cand"
+                file_out=$(file -b "$cand" || true)
+                echo "$cand file: $file_out"
+                if echo "$file_out" | grep -qi 'elf'; then
+                  ver=$("$cand" -dumpversion 2>/dev/null || true)
+                  major=$(printf '%s' "$ver" | sed -E 's/^([0-9]+).*/\1/' || true)
+                  echo "$cand reports version $ver (major $major)"
+                  if [ "$major" = "${MINGW_GCC_MAJOR}" ]; then
+                    FOUND_NATIVE="$cand"
+                    break
+                  fi
+                fi
+              fi
+            done
+
+            if [ -n "$FOUND_NATIVE" ]; then
+              echo "Found suitable native cross compiler: $FOUND_NATIVE"
               echo "PATH=/opt/mingw64/bin:$PATH" >> $GITHUB_ENV
               export PATH=/opt/mingw64/bin:$PATH
-              echo "Using /opt/mingw64 toolchain"
               CROSS_PREFIX="/opt/mingw64/bin/x86_64-w64-mingw32-"
-              # Create symlinks in /usr/local/bin for convenience
+              # Create convenience symlinks for found native tools
               sudo mkdir -p /usr/local/bin
               for prog in x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++ x86_64-w64-mingw32-ar x86_64-w64-mingw32-gcc-ar x86_64-w64-mingw32-gcc-nm x86_64-w64-mingw32-gcc-ranlib; do
-                if [ -x /opt/mingw64/bin/$prog ]; then
-                  sudo ln -sf /opt/mingw64/bin/$prog /usr/local/bin/$prog || true
+                if [ -x "/opt/mingw64/bin/$prog" ]; then
+                  sudo ln -sf "/opt/mingw64/bin/$prog" /usr/local/bin/$prog || true
                 fi
               done
             else
-              # No native cross-compiler found; download the prebuilt mingw toolchain (posix build) and install to /opt/mingw64
-              echo "No native cross-compiler found under /opt/mingw64/bin; downloading prebuilt toolchain ${MINGW_RELEASE}/${MINGW_FILE}"
-              curl -L -o mingw-w64.7z "https://github.com/cristianadam/mingw-builds/releases/download/${MINGW_RELEASE}/${MINGW_FILE}"
-              7z x mingw-w64.7z
-              # Move extracted files to /opt/mingw64 (replace if exists). Handle archives that don't create a single top-level directory.
-              echo "Locating extracted directory..."
-              shopt -s nullglob
-              candidates=(x86_64-* mingw* *)
-              shopt -u nullglob
-              EXTRACT_DIR=""
-              for d in "${candidates[@]}"; do
-                if [ -d "$d" ]; then
-                  # prefer directories containing a bin/ subdir
-                  if [ -d "$d/bin" ]; then
-                    EXTRACT_DIR="$d"
-                    break
-                  fi
-                  # otherwise take the first directory found
-                  EXTRACT_DIR="$d"
-                  break
-                fi
+              echo "No native ELF cross-compiler matching GCC major ${MINGW_GCC_MAJOR} was found under /opt/mingw64/bin."
+              echo "Listing candidates and types:" || true
+              for cand in /opt/mingw64/bin/x86_64-w64-mingw32-gcc*; do
+                if [ -f "$cand" ]; then echo "$cand -> $(file -b "$cand" || true)"; fi
               done
-              if [ -z "$EXTRACT_DIR" ]; then
-                echo "No top-level directory found; moving all extracted content into /opt/mingw64"
-                sudo rm -rf /opt/mingw64 || true
-                sudo mkdir -p /opt/mingw64
-                sudo mv ./* /opt/mingw64 || true
-              else
-                echo "Found extracted directory: $EXTRACT_DIR"
-                sudo rm -rf /opt/mingw64 || true
-                sudo mkdir -p /opt/mingw64
-                # move contents of EXTRACT_DIR into /opt/mingw64 so /opt/mingw64/bin exists
-                if sudo mv "$EXTRACT_DIR"/* /opt/mingw64/ 2>/dev/null; then
-                  echo "Moved contents of $EXTRACT_DIR into /opt/mingw64"
-                  sudo rm -rf "$EXTRACT_DIR" || true
-                else
-                  echo "mv failed, falling back to copy"
-                  sudo cp -a "$EXTRACT_DIR"/. /opt/mingw64/ || true
-                  sudo rm -rf "$EXTRACT_DIR" || true
-                fi
-              fi
-              echo "Contents of /opt/mingw64:" || true
-              sudo ls -la /opt/mingw64 || true
-              # Add to PATH for subsequent steps
+              echo "Adding /opt/mingw64/bin to PATH (may contain Windows binaries) and proceeding — the subsequent verify step will fail if the system compiler doesn't match the expected major." >&2
               echo "PATH=/opt/mingw64/bin:$PATH" >> $GITHUB_ENV
               export PATH=/opt/mingw64/bin:$PATH
               CROSS_PREFIX="/opt/mingw64/bin/x86_64-w64-mingw32-"
-              echo "Using downloaded toolchain under /opt/mingw64"
             fi
 
             # Debug: show which compiler will be used and its reported version

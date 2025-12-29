@@ -128,6 +128,7 @@ jobs:
         run: echo "${{ env.MINGW_ROOT }}\bin" >> $GITHUB_PATH
 
       - name: Build Qt statically from source
+        shell: cmd
         run: |
           call "build-script\build-static-qt-from-source.bat" "${{ env.SOURCE_DIR }}"
         env:
@@ -160,6 +161,7 @@ jobs:
         run: echo "${{ env.MINGW_ROOT }}\bin" >> $GITHUB_PATH
 
       - name: Build FFmpeg statically
+        shell: cmd
         run: |
           call "build-script\build-static-ffmpeg-windows.bat"
         env:
@@ -222,6 +224,7 @@ jobs:
           python-version: '3.11'
 
       - name: Configure CMake (Static Build)
+        shell: cmd
         run: |
           mkdir build && cd build
           cmake .. ^
@@ -237,6 +240,7 @@ jobs:
           CXX: g++
 
       - name: Build project
+        shell: cmd
         run: |
           cd build
           mingw32-make -j$(nproc)

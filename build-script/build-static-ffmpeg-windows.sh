@@ -10,10 +10,12 @@
 set -e  # Exit on error
 set -u  # Exit on undefined variable
 
+MODE="${1:-full}"
+
 # Configuration
 # Environment variables supported by this script (set before running / from caller):
-#   SKIP_MSYS_MINGW=1          -> Skip package-managed install and prefer external MinGW (caller should set EXTERNAL_MINGW_MSYS) 
-#   EXTERNAL_MINGW_MSYS=/c/mingw64 -> Path to external mingw in MSYS-style (set by caller wrapper when using EXTERNAL_MINGW)
+#   SKIP_PACKAGE_MINGW=1          -> Skip package-managed install and prefer external MinGW (caller should set EXTERNAL_MINGW_POSIX) 
+#   EXTERNAL_MINGW_POSIX=/c/mingw64 -> Path to external mingw in POSIX-style (set by caller wrapper when using EXTERNAL_MINGW)
 #   ENABLE_NVENC=1             -> Attempt to enable NVENC support (requires NVENC SDK/headers)
 #   NVENC_SDK_PATH=...         -> Path to NVENC SDK (optional, used when ENABLE_NVENC=1)
 
@@ -39,12 +41,12 @@ echo "==========================================================================
 echo ""
 
 # Prepare/verify required toolchain and utilities (external MinGW + bash)
-# Default to SKIP_MSYS_MINGW=1 (use external MinGW) unless explicitly overridden
-if [ "${SKIP_MSYS_MINGW:-1}" = "1" ]; then
-    echo "Step 1/8: SKIP_MSYS_MINGW set (or default) - using external MinGW build environment"
-    echo "External MinGW (msys style): ${EXTERNAL_MINGW_MSYS:-/c/mingw64}"
+# Default to SKIP_PACKAGE_MINGW=1 (use external MinGW) unless explicitly overridden
+if [ "${SKIP_PACKAGE_MINGW:-1}" = "1" ]; then
+    echo "Step 1/8: SKIP_PACKAGE_MINGW set (or default) - using external MinGW build environment"
+    echo "External MinGW (posix style): ${EXTERNAL_MINGW_POSIX:-/c/mingw64}"
     # Prepend external mingw to PATH so the toolchain is used
-    EXTERNAL_MINGW_BIN="${EXTERNAL_MINGW_MSYS:-/c/mingw64}/bin"
+    EXTERNAL_MINGW_BIN="${EXTERNAL_MINGW_POSIX:-/c/mingw64}/bin"
     if [ -d "${EXTERNAL_MINGW_BIN}" ]; then
         export PATH="${EXTERNAL_MINGW_BIN}:$PATH"
         echo "PATH updated to prefer external MinGW: ${EXTERNAL_MINGW_BIN}"
@@ -66,8 +68,8 @@ if [ "${SKIP_MSYS_MINGW:-1}" = "1" ]; then
         exit 1
     fi
 else
-    echo "ERROR: SKIP_MSYS_MINGW is not set to 1. Automated package-managed installation was removed from this script."
-    echo "Please run this script with SKIP_MSYS_MINGW=1 (the default) and provide an external MinGW toolchain (set EXTERNAL_MINGW or ensure /c/mingw64 exists)."    exit 1
+    echo "ERROR: SKIP_PACKAGE_MINGW is not set to 1. Automated package-managed installation was removed from this script."
+    echo "Please run this script with SKIP_PACKAGE_MINGW=1 (the default) and provide an external MinGW toolchain (set EXTERNAL_MINGW or ensure /c/mingw64 exists)."    exit 1
 fi
 
 # Choose CMake generator for external MinGW
@@ -308,6 +310,14 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
 
 echo "✓ Configuration complete"
 echo ""
+
+if [ "$MODE" = "configure" ]; then
+
+    echo "Configuration complete. Exiting for separate build."
+
+    exit 0
+
+fi
 
 # Build FFmpeg
 echo "Step 7/8: Building FFmpeg..."

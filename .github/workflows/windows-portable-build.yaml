@@ -57,10 +57,37 @@ jobs:
           key: ffmpeg-cross-${{ runner.os }}-${{ env.MINGW_RELEASE }}-gcc${{ env.MINGW_GCC_MAJOR }}-${{ hashFiles('build-script/**') }}-v1
           restore-keys: |
             ffmpeg-cross-
-      - name: Install dependencies
+      - name: Install dependencies and ensure cross MinGW
         run: |
           sudo apt-get update
-          sudo apt-get install -y git make build-essential pkg-config nasm yasm mingw-w64 curl wget tar cmake
+          sudo apt-get install -y git make build-essential pkg-config nasm yasm mingw-w64 curl wget tar cmake p7zip-full
+          # Check installed cross compiler version
+          if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+            ver=$(x86_64-w64-mingw32-gcc -dumpversion)
+            major=${ver%%.*}
+            echo "Detected cross MinGW GCC version: ${ver} (major: ${major})"
+          else
+            major=none
+            echo "No x86_64-w64-mingw32-gcc found"
+          fi
+          if [ "${major}" != "${MINGW_GCC_MAJOR}" ]; then
+            echo "Desired MinGW GCC major ${MINGW_GCC_MAJOR} not present, installing prebuilt toolchain ${MINGW_RELEASE}"
+            TMPDIR=/tmp/mingw-install
+            mkdir -p "$TMPDIR"
+            cd "$TMPDIR"
+            curl -L -o mingw-w64.7z "https://github.com/cristianadam/mingw-builds/releases/download/${MINGW_RELEASE}/${MINGW_FILE}"
+            7z x mingw-w64.7z
+            # move extracted folder to /opt/mingw64 (replace if exists)
+            sudo rm -rf /opt/mingw64 || true
+            sudo mv x86_64-* /opt/mingw64
+            # Add to PATH for subsequent steps
+            echo "/opt/mingw64/bin" | sudo tee -a $GITHUB_PATH
+            export PATH=/opt/mingw64/bin:$PATH
+            cd -
+            rm -rf "$TMPDIR"
+          else
+            echo "Using system mingw-w64 with GCC ${ver}"
+          fi
       - name: Verify cross MinGW GCC major version matches expected
         run: |
           set -e

@@ -2,7 +2,7 @@ name: Build / Openterface Windows Portable (Static)
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main, "dev_1223_portable_build" ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:

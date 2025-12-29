@@ -49,8 +49,8 @@ jobs:
       - name: Install NASM (required by FFmpeg)
         shell: powershell
         run: |
+          $env:chocolateyInstallRefreshEnv = 'false'
           choco install nasm -y
-          refreshenv
 
       - name: Bootstrap vcpkg
         run: |

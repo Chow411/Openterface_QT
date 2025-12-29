@@ -63,8 +63,9 @@ jobs:
           sudo apt-get install -y git make build-essential pkg-config nasm yasm mingw-w64 curl wget tar cmake p7zip-full
           # Check installed cross compiler version
           if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
-            ver=$(x86_64-w64-mingw32-gcc -dumpversion)
-            major=${ver%%.*}
+            ver=$(x86_64-w64-mingw32-gcc -dumpversion 2>/dev/null || true)
+            # extract leading numeric major (handles values like "10-win32")
+            major=$(printf '%s' "$ver" | sed -E 's/^([0-9]+).*/\1/')
             echo "Detected cross MinGW GCC version: ${ver} (major: ${major})"
           else
             major=none
@@ -103,13 +104,26 @@ jobs:
             else
               echo "Found extracted directory: $EXTRACT_DIR"
               sudo rm -rf /opt/mingw64 || true
-              sudo mv "$EXTRACT_DIR" /opt/mingw64
+              sudo mkdir -p /opt/mingw64
+              # move contents of EXTRACT_DIR into /opt/mingw64 so /opt/mingw64/bin exists
+              if sudo mv "$EXTRACT_DIR"/* /opt/mingw64/ 2>/dev/null; then
+                echo "Moved contents of $EXTRACT_DIR into /opt/mingw64"
+                sudo rm -rf "$EXTRACT_DIR" || true
+              else
+                echo "mv failed, falling back to copy"
+                sudo cp -a "$EXTRACT_DIR"/. /opt/mingw64/ || true
+                sudo rm -rf "$EXTRACT_DIR" || true
+              fi
             fi
             echo "Contents of /opt/mingw64:" || true
             sudo ls -la /opt/mingw64 || true
             # Add to PATH for subsequent steps
             echo "/opt/mingw64/bin" | sudo tee -a $GITHUB_PATH
             export PATH=/opt/mingw64/bin:$PATH
+            # Debug: show which compiler will be used and its reported version
+            echo "Which x86_64-w64-mingw32-gcc: $(command -v x86_64-w64-mingw32-gcc || true)"
+            x86_64-w64-mingw32-gcc -dumpversion || true
+            x86_64-w64-mingw32-gcc -v 2>&1 || true
             cd -
             rm -rf "$TMPDIR"
           else
@@ -122,8 +136,8 @@ jobs:
             echo "ERROR: x86_64-w64-mingw32-gcc not found after installing mingw-w64"
             exit 1
           fi
-          ver=$(x86_64-w64-mingw32-gcc -dumpversion)
-          major=${ver%%.*}
+          ver=$(x86_64-w64-mingw32-gcc -dumpversion 2>/dev/null || true)
+          major=$(printf '%s' "$ver" | sed -E 's/^([0-9]+).*/\1/')
           echo "Found cross MinGW GCC version: ${ver} (major: ${major})"
           if [ "${major}" != "${MINGW_GCC_MAJOR}" ]; then
             echo "ERROR: cross MinGW GCC major ${major} does not match expected ${MINGW_GCC_MAJOR}" >&2

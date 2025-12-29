@@ -38,7 +38,7 @@ env:
   MINGW_RELEASE: 'v11.2.0-rev3'
   MINGW_FILE: 'x86_64-11.2.0-release-posix-seh-rt_v9-rev3.7z'
   # Optional override: if set, this URL will be used to download the prebuilt mingw toolchain
-  MINGW_DOWNLOAD_URL: 'https://github.com/niXman/mingw-builds-binaries/releases/download/11.2.0-rt_v9-rev0/x86_64-11.2.0-release-posix-seh-rt_v9-rev0.7z' 
+  MINGW_DOWNLOAD_URL: 'https://github.com/cristianadam/mingw-builds/releases/download/v11.2.0-rev3/x86_64-11.2.0-release-posix-seh-rt_v9-rev3.7z' 
 
 jobs:
   build-ffmpeg-cross:
@@ -47,7 +47,7 @@ jobs:
     env:
       CROSS_TRIPLE: x86_64-w64-mingw32
       # URL to a prebuilt native ELF mingw-w64 GCC 11 toolchain archive (tarball/.7z). Must contain an ELF x86_64-w64-mingw32-gcc-11 binary
-      MINGW_NATIVE_URL: 'https://github.com/niXman/mingw-builds-binaries/releases/download/11.2.0-rt_v9-rev0/x86_64-11.2.0-release-linux-posix-seh-rt_v9-rev0.tar.xz'
+      MINGW_NATIVE_URL: 'https://github.com/cristianadam/mingw-builds/releases/download/v11.2.0-rev3/x86_64-11.2.0-release-linux-posix-seh-rt_v9-rev3.7z'
     steps:
       - uses: actions/checkout@v4
         with:

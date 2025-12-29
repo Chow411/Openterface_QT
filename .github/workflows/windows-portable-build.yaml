@@ -117,29 +117,37 @@ jobs:
             fi
             echo "Contents of /opt/mingw64:" || true
             sudo ls -la /opt/mingw64 || true
-            # Add to PATH for subsequent steps
-            # Prepend /opt/mingw64/bin to PATH for subsequent steps
-            echo "PATH=/opt/mingw64/bin:$PATH" >> $GITHUB_ENV
-            export PATH=/opt/mingw64/bin:$PATH
+            # Decide how to use the extracted toolchain. Prefer a native Linux cross-compiler if present.
+            if [ -x /opt/mingw64/bin/x86_64-w64-mingw32-gcc ]; then
+              echo "Native Linux cross-compiler found in /opt/mingw64/bin"
+              echo "PATH=/opt/mingw64/bin:$PATH" >> $GITHUB_ENV
+              export PATH=/opt/mingw64/bin:$PATH
+              echo "Using /opt/mingw64 toolchain"
+              CROSS_PREFIX="/opt/mingw64/bin/x86_64-w64-mingw32-"
+              # Create symlinks in /usr/local/bin for convenience
+              sudo mkdir -p /usr/local/bin
+              for prog in x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++ x86_64-w64-mingw32-ar x86_64-w64-mingw32-gcc-ar x86_64-w64-mingw32-gcc-nm x86_64-w64-mingw32-gcc-ranlib; do
+                if [ -x /opt/mingw64/bin/$prog ]; then
+                  sudo ln -sf /opt/mingw64/bin/$prog /usr/local/bin/$prog || true
+                fi
+              done
+            else
+              # Extracted files appear to be Windows .exe toolchain or no native cross compiler found.
+              echo "No native cross-compiler found under /opt/mingw64/bin; attempting to install apt package mingw-w64"
+              sudo apt-get update
+              # Install native Linux cross-toolchain packages
+              sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64 || true
+              CROSS_PREFIX="/usr/bin/x86_64-w64-mingw32-"
+              echo "Using system mingw-w64 installed via apt"
+            fi
+
             # Debug: show which compiler will be used and its reported version
             echo "Which x86_64-w64-mingw32-gcc: $(command -v x86_64-w64-mingw32-gcc || true)"
             x86_64-w64-mingw32-gcc -dumpversion || true
             x86_64-w64-mingw32-gcc -v 2>&1 || true
-            echo "Listing /opt/mingw64/bin:" ; ls -la /opt/mingw64/bin || true
-            # Ensure the new toolchain takes precedence: create symlinks in /usr/local/bin
-            echo "Creating /usr/local/bin symlinks for mingw toolchain"
-            sudo mkdir -p /usr/local/bin
-            for prog in x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++ x86_64-w64-mingw32-ar x86_64-w64-mingw32-gcc-ar x86_64-w64-mingw32-gcc-nm x86_64-w64-mingw32-gcc-ranlib; do
-              if [ -f /opt/mingw64/bin/$prog ]; then
-                sudo ln -sf /opt/mingw64/bin/$prog /usr/local/bin/$prog || true
-              elif [ -f /opt/mingw64/bin/$prog.exe ]; then
-                sudo ln -sf /opt/mingw64/bin/$prog.exe /usr/local/bin/$prog || true
-              fi
-            done
-            echo "Symlinks in /usr/local/bin:" ; ls -la /usr/local/bin | grep x86_64-w64-mingw32 || true
-            # Ensure build scripts use the installed toolchain explicitly
-            echo "CROSS_PREFIX=/opt/mingw64/bin/x86_64-w64-mingw32-" >> $GITHUB_ENV
-            export CROSS_PREFIX=/opt/mingw64/bin/x86_64-w64-mingw32-
+            echo "Listing toolchain bin folder if present:" ; ls -la /opt/mingw64/bin || true
+            echo "CROSS_PREFIX=${CROSS_PREFIX}" >> $GITHUB_ENV
+            export CROSS_PREFIX=${CROSS_PREFIX}
             cd -
             rm -rf "$TMPDIR"
           else

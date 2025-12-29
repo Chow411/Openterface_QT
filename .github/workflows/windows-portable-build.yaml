@@ -137,6 +137,9 @@ jobs:
               fi
             done
             echo "Symlinks in /usr/local/bin:" ; ls -la /usr/local/bin | grep x86_64-w64-mingw32 || true
+            # Ensure build scripts use the installed toolchain explicitly
+            echo "CROSS_PREFIX=/opt/mingw64/bin/x86_64-w64-mingw32-" >> $GITHUB_ENV
+            export CROSS_PREFIX=/opt/mingw64/bin/x86_64-w64-mingw32-
             cd -
             rm -rf "$TMPDIR"
           else
@@ -154,8 +157,18 @@ jobs:
             echo "ERROR: x86_64-w64-mingw32-gcc not found after installing mingw-w64"
             exit 1
           fi
-          ver=$(x86_64-w64-mingw32-gcc -dumpversion 2>/dev/null || true)
-          major=$(printf '%s' "$ver" | sed -E 's/^([0-9]+).*/\1/')
+          # Prefer the installed toolchain under /opt/mingw64 if present
+          if [ -x /opt/mingw64/bin/x86_64-w64-mingw32-gcc ]; then
+            ver=$(/opt/mingw64/bin/x86_64-w64-mingw32-gcc -dumpversion 2>/dev/null || true)
+            echo "Using /opt/mingw64 compiler: /opt/mingw64/bin/x86_64-w64-mingw32-gcc"
+          elif command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+            ver=$(x86_64-w64-mingw32-gcc -dumpversion 2>/dev/null || true)
+            echo "Using system compiler: $(command -v x86_64-w64-mingw32-gcc)"
+          else
+            ver=
+            echo "No x86_64-w64-mingw32-gcc found"
+          fi
+          major=$(printf '%s' "$ver" | sed -E 's/^([0-9]+).*/\1/') || true
           echo "Found cross MinGW GCC version: ${ver} (major: ${major})"
           if [ "${major}" != "${MINGW_GCC_MAJOR}" ]; then
             echo "ERROR: cross MinGW GCC major ${major} does not match expected ${MINGW_GCC_MAJOR}" >&2

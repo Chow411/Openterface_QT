@@ -77,9 +77,36 @@ jobs:
             cd "$TMPDIR"
             curl -L -o mingw-w64.7z "https://github.com/cristianadam/mingw-builds/releases/download/${MINGW_RELEASE}/${MINGW_FILE}"
             7z x mingw-w64.7z
-            # move extracted folder to /opt/mingw64 (replace if exists)
-            sudo rm -rf /opt/mingw64 || true
-            sudo mv x86_64-* /opt/mingw64
+            # Move extracted files to /opt/mingw64 (replace if exists). Handle archives that don't create a single top-level directory.
+            echo "Locating extracted directory..."
+            shopt -s nullglob
+            candidates=(x86_64-* mingw* *)
+            shopt -u nullglob
+            EXTRACT_DIR=""
+            for d in "${candidates[@]}"; do
+              if [ -d "$d" ]; then
+                # prefer directories containing a bin/ subdir
+                if [ -d "$d/bin" ]; then
+                  EXTRACT_DIR="$d"
+                  break
+                fi
+                # otherwise take the first directory found
+                EXTRACT_DIR="$d"
+                break
+              fi
+            done
+            if [ -z "$EXTRACT_DIR" ]; then
+              echo "No top-level directory found; moving all extracted content into /opt/mingw64"
+              sudo rm -rf /opt/mingw64 || true
+              sudo mkdir -p /opt/mingw64
+              sudo mv ./* /opt/mingw64 || true
+            else
+              echo "Found extracted directory: $EXTRACT_DIR"
+              sudo rm -rf /opt/mingw64 || true
+              sudo mv "$EXTRACT_DIR" /opt/mingw64
+            fi
+            echo "Contents of /opt/mingw64:" || true
+            sudo ls -la /opt/mingw64 || true
             # Add to PATH for subsequent steps
             echo "/opt/mingw64/bin" | sudo tee -a $GITHUB_PATH
             export PATH=/opt/mingw64/bin:$PATH

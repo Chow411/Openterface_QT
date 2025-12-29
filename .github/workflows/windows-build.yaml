@@ -77,23 +77,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup MSYS2 UCRT64 environment
+      - name: Setup MSYS2 MinGW64 environment
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: MINGW64
           update: true
           install: |
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-nasm
-            mingw-w64-ucrt-x86_64-make
-            mingw-w64-ucrt-x86_64-pkgconf
-            mingw-w64-ucrt-x86_64-zlib
-            mingw-w64-ucrt-x86_64-bzip2
-            mingw-w64-ucrt-x86_64-xz
-            mingw-w64-ucrt-x86_64-libjpeg-turbo
-            mingw-w64-ucrt-x86_64-libiconv
-            mingw-w64-ucrt-x86_64-libmfx
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-nasm
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-bzip2
+            mingw-w64-x86_64-xz
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-libiconv
+            mingw-w64-x86_64-libmfx
             mingw-w64-x86_64-libusb
             diffutils
             make
@@ -152,13 +152,13 @@ jobs:
           dir build-script\*.bat
           dir build-script\*.sh
 
-      - name: Build Shared FFmpeg (using MSYS2 UCRT64)
+      - name: Build Shared FFmpeg (using MSYS2 MinGW64)
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: |
-          echo "Building shared FFmpeg using MSYS2 UCRT64..."
+          echo "Building shared FFmpeg using MSYS2 MinGW64..."
           export SKIP_MSYS_MINGW=1
-          export EXTERNAL_MINGW_MSYS="/ucrt64"
+          export EXTERNAL_MINGW_MSYS="/mingw64"
           export FFMPEG_INSTALL_PREFIX="/c/ffmpeg-shared"
           if [ "${{ github.event.inputs.enable_nvenc }}" = "true" ]; then
             echo "NVENC enabled by user input"
@@ -216,17 +216,17 @@ jobs:
           ls -la /mingw64/bin/*usb* || echo "No MinGW LibUSB DLLs found"
           ls -la /mingw64/lib/*usb* || echo "No MinGW LibUSB libraries found"
           
-          # Also check UCRT64 as backup
-          echo "Checking UCRT64 LibUSB installation..."
-          ls -la /ucrt64/bin/*usb* || echo "No UCRT64 LibUSB DLLs found"
-          ls -la /ucrt64/lib/*usb* || echo "No UCRT64 LibUSB libraries found"
+          # MinGW64 is primary; no UCRT64 backup checks
+          echo "Checking MinGW64 LibUSB installation..."
+          ls -la /mingw64/bin/*usb* || echo "No MinGW LibUSB DLLs found"
+          ls -la /mingw64/lib/*usb* || echo "No MinGW LibUSB libraries found"
           
           # Check installed packages
           pacman -Q | grep -i usb || echo "No USB packages installed"
           
-          # Verify pkg-config for both MinGW and UCRT64
+          # Verify pkg-config for MinGW64
           echo "Checking pkg-config..."
-          PKG_CONFIG_PATH="/mingw64/lib/pkgconfig:/ucrt64/lib/pkgconfig:$PKG_CONFIG_PATH" pkg-config --exists libusb-1.0 && echo "✓ LibUSB pkg-config found" || {
+          PKG_CONFIG_PATH="/mingw64/lib/pkgconfig:$PKG_CONFIG_PATH" pkg-config --exists libusb-1.0 && echo "✓ LibUSB pkg-config found" || {
             echo "✗ LibUSB pkg-config not found, trying to install MinGW version..."
             pacman -S --needed --noconfirm mingw-w64-x86_64-libusb
           }
@@ -234,7 +234,7 @@ jobs:
           # Create cache directory structure
           mkdir -p /c/libusb/bin /c/libusb/lib /c/libusb/include
           
-          # Priority: MinGW LibUSB (better Qt compatibility) > UCRT64 LibUSB
+          # Priority: MinGW LibUSB (better Qt compatibility)
           LIBUSB_FOUND=false
           
           # Try MinGW version first (better ABI compatibility with Qt)
@@ -249,19 +249,13 @@ jobs:
             cp /mingw64/bin/libgcc_s_dw2-1.dll /c/libusb/bin/ 2>/dev/null || echo "MinGW libgcc_s_dw2-1.dll not found"
             cp /mingw64/bin/libwinpthread-1.dll /c/libusb/bin/ 2>/dev/null || echo "MinGW libwinpthread-1.dll not found"
             
-          elif [ -f "/ucrt64/bin/libusb-1.0.dll" ]; then
-            echo "⚠ Using UCRT64 libusb-1.0.dll (may have ABI compatibility issues)"
-            cp /ucrt64/bin/libusb-1.0.dll /c/libusb/bin/
-            cp /ucrt64/bin/libusb-1.0.dll /c/libusb/bin/msys-usb-1.0.dll
-            echo "✓ Created msys-usb-1.0.dll from UCRT64 libusb-1.0.dll"
-            LIBUSB_FOUND=true
           else
-            echo "✗ No LibUSB DLL found in MinGW64 or UCRT64"
+            echo "✗ No LibUSB DLL found in MinGW64"
           fi
           
           # Copy library and header files
-          cp /mingw64/lib/*usb* /c/libusb/lib/ 2>/dev/null || cp /ucrt64/lib/*usb* /c/libusb/lib/ 2>/dev/null || echo "No USB libs to copy"
-          cp -r /mingw64/include/libusb* /c/libusb/include/ 2>/dev/null || cp -r /ucrt64/include/libusb* /c/libusb/include/ 2>/dev/null || echo "No USB headers to copy"
+          cp /mingw64/lib/*usb* /c/libusb/lib/ 2>/dev/null || echo "No USB libs to copy"
+          cp -r /mingw64/include/libusb* /c/libusb/include/ 2>/dev/null || echo "No USB headers to copy"
           
           # Final verification
           echo "Final LibUSB cache contents:"
@@ -309,7 +303,7 @@ jobs:
           QT_PATH_MSYS="/$(echo '${{ runner.temp }}/Qt/6.6.3/mingw_64/bin' | sed 's|\\|/|g' | sed 's|:||')"
           
           # Add Qt tools to PATH for MSYS2 environment
-          export PATH="/ucrt64/bin:${QT_PATH_MSYS}:$PATH"
+          export PATH="/mingw64/bin:${QT_PATH_MSYS}:$PATH"
           echo "Updated PATH: $PATH"
           echo "Source directory (MSYS2 format): $SOURCE_DIR_MSYS"
           
@@ -374,18 +368,13 @@ jobs:
             cp /mingw64/bin/libwinpthread-1.dll ${{ env.PACKAGE_DIR }} 2>/dev/null && echo "✓ Copied MinGW pthread" || echo "MinGW pthread not needed"
             LIBUSB_FOUND=true
             
-          # Priority 3: Check UCRT64 (may have ABI compatibility issues)
-          elif [ "$LIBUSB_FOUND" = "false" ] && [ -f "/ucrt64/bin/libusb-1.0.dll" ]; then
-            cp /ucrt64/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}
-            cp /ucrt64/bin/libusb-1.0.dll ${{ env.PACKAGE_DIR }}/msys-usb-1.0.dll
-            echo "⚠ Using UCRT64 libusb-1.0.dll (potential ABI compatibility issue with Qt/MinGW)"
-            LIBUSB_FOUND=true
+          # No UCRT64 fallback (MinGW64 only)
           fi
           
           # Copy additional MinGW runtime DLLs that may be needed for LibUSB compatibility
           if [ "$LIBUSB_FOUND" = "true" ]; then
             echo "Ensuring runtime compatibility..."
-            # Note: Qt is built with MinGW, so we may need MinGW runtimes even with UCRT64 LibUSB
+            # Note: Qt is built with MinGW, so ensure MinGW runtimes are present when using LibUSB
             for dll in libgcc_s_dw2-1.dll libwinpthread-1.dll; do
               if [ -f "/mingw64/bin/$dll" ] && [ ! -f "${{ env.PACKAGE_DIR }}/$dll" ]; then
                 cp "/mingw64/bin/$dll" ${{ env.PACKAGE_DIR }} && echo "✓ Copied MinGW runtime $dll"
@@ -396,7 +385,7 @@ jobs:
           # Final comprehensive search if still not found
           if [ "$LIBUSB_FOUND" = "false" ]; then
             echo "⚠ LibUSB DLL not found in preferred locations, searching comprehensively..."
-            USB_DLLS=$(find /mingw64 /ucrt64 -name "*usb*.dll" 2>/dev/null | head -5)
+            USB_DLLS=$(find /mingw64 -name "*usb*.dll" 2>/dev/null | head -5)
             if [ -n "$USB_DLLS" ]; then
               echo "Found USB DLLs: $USB_DLLS"
               for dll in $USB_DLLS; do
@@ -419,13 +408,13 @@ jobs:
             echo "✓ LibUSB DLL setup completed"
           fi
           echo "Copying MSYS2 runtime dependencies..."
-          cp /ucrt64/bin/libiconv-2.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libiconv-2.dll not found"
-          cp /ucrt64/bin/libbz2-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libbz2-1.dll not found"
-          cp /ucrt64/bin/liblzma-5.dll ${{ env.PACKAGE_DIR }} || echo "Warning: liblzma-5.dll not found"
-          cp /ucrt64/bin/zlib1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: zlib1.dll not found"
-          cp /ucrt64/bin/libwinpthread-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libwinpthread-1.dll not found"
-          cp /ucrt64/bin/libgcc_s_seh-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libgcc_s_seh-1.dll not found"
-          cp /ucrt64/bin/libstdc++-6.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libstdc++-6.dll not found"
+          cp /mingw64/bin/libiconv-2.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libiconv-2.dll not found"
+          cp /mingw64/bin/libbz2-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libbz2-1.dll not found"
+          cp /mingw64/bin/liblzma-5.dll ${{ env.PACKAGE_DIR }} || echo "Warning: liblzma-5.dll not found"
+          cp /mingw64/bin/zlib1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: zlib1.dll not found"
+          cp /mingw64/bin/libwinpthread-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libwinpthread-1.dll not found"
+          cp /mingw64/bin/libgcc_s_seh-1.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libgcc_s_seh-1.dll not found"
+          cp /mingw64/bin/libstdc++-6.dll ${{ env.PACKAGE_DIR }} || echo "Warning: libstdc++-6.dll not found"
           echo "Copying translation & keyboard layouts files..."
           cp "${SOURCE_DIR_MSYS}/config/keyboards/"*.json ${{ env.PACKAGE_DIR }}/config/keyboards/
           cp "${SOURCE_DIR_MSYS}/config/languages/"*.qm ${{ env.PACKAGE_DIR }}/config/languages/
@@ -496,12 +485,12 @@ jobs:
           # Check if we're mixing different compiler runtimes
           echo "Checking for mixed runtime libraries..."
           
-          # Check for both UCRT64 and MinGW libraries
-          echo "UCRT64 DLLs:"
-          ls -la /ucrt64/bin/*.dll 2>/dev/null | head -10 || echo "No UCRT64 DLLs found"
-          
+          # Check for MinGW libraries only
           echo "MinGW64 DLLs:"
           ls -la /mingw64/bin/*.dll 2>/dev/null | head -10 || echo "No MinGW64 DLLs found"
+          
+          echo "Qt DLLs:"
+          ls -la Qt*.dll 2>/dev/null | head -3 || echo "No Qt DLLs found"
           
           echo "Qt DLLs:"
           ls -la Qt*.dll 2>/dev/null | head -3 || echo "No Qt DLLs found"

@@ -33,7 +33,7 @@ env:
   VCPKG_KEEP_BUILDTREES: 1
   EXTERNAL_MINGW: C:\mingw64
   VCPKG_MAX_CONCURRENCY: 1
-  # MinGW toolchain controls - ensure major versions match between Ubuntu cross and Windows build
+  # MinGW toolchain controls - ensure major versions match for native Windows builds
   MINGW_GCC_MAJOR: '11'
   MINGW_RELEASE: 'v11.2.0-rev3'
   MINGW_FILE: 'x86_64-11.2.0-release-posix-seh-rt_v9-rev3.7z'
@@ -41,175 +41,8 @@ env:
   MINGW_DOWNLOAD_URL: 'https://github.com/cristianadam/mingw-builds/releases/download/v11.2.0-rev3/x86_64-11.2.0-release-posix-seh-rt_v9-rev3.7z' 
 
 jobs:
-  build-ffmpeg-cross:
-    name: Build FFmpeg (cross-compile on Ubuntu)
-    runs-on: ubuntu-22.04
-    env:
-      CROSS_TRIPLE: x86_64-w64-mingw32
-      # URL to a prebuilt native ELF mingw-w64 GCC 11 toolchain archive (tarball/.7z). Must contain an ELF x86_64-w64-mingw32-gcc-11 binary
-      MINGW_NATIVE_URL: 'https://github.com/cristianadam/mingw-builds/releases/download/v11.2.0-rev3/x86_64-11.2.0-release-posix-seh-rt_v9-rev3.7z'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Cache ffmpeg cross build
-        id: cache-ffmpeg-cross
-        uses: actions/cache@v3
-        with:
-          path: |
-            ffmpeg-build-temp
-            ffmpeg-install
-          # include the mingw toolchain tag and expected gcc major in cache key so changes in toolchain invalidate cache
-          key: ffmpeg-cross-${{ runner.os }}-${{ env.MINGW_RELEASE }}-gcc${{ env.MINGW_GCC_MAJOR }}-${{ hashFiles('build-script/**') }}-v1
-          restore-keys: |
-            ffmpeg-cross-
-      - name: Prepare native MinGW toolchain from prebuilt tarball and verify
-        run: |
-          set -euo pipefail
-
-          # Ensure basic build deps
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full tar xz-utils || true
-
-          if [ -z """${MINGW_NATIVE_URL}""" ]; then
-            echo "ERROR: MINGW_NATIVE_URL is not set. Provide a URL to a prebuilt native ELF mingw-w64 GCC 11 tarball in the workflow env." >&2
-            exit 1
-          fi
-
-          echo "Downloading native mingw toolchain from: ${MINGW_NATIVE_URL}"
-          TMPDIR=/tmp/mingw-native
-          rm -rf "$TMPDIR" || true
-          mkdir -p "$TMPDIR"
-          cd "$TMPDIR"
-
-          FNAME=$(basename "${MINGW_NATIVE_URL}")
-          curl -L -o "$FNAME" "${MINGW_NATIVE_URL}"
-
-          # Support .tar.gz, .tar.xz, .tar.bz2, and .7z
-          case "$FNAME" in
-            *.tar.gz|*.tgz)
-              tar -xzf "$FNAME" ;;
-            *.tar.xz|*.txz)
-              tar -xJf "$FNAME" ;;
-            *.tar.bz2|*.tbz2)
-              tar -xjf "$FNAME" ;;
-            *.7z)
-              7z x "$FNAME" ;;
-            *)
-              echo "Unknown archive format: $FNAME" >&2; exit 1 ;;
-          esac
-
-          # Move extracted files into /opt/mingw64
-          echo "Locating extracted directory and moving into /opt/mingw64..."
-          shopt -s nullglob || true
-          candidates=(x86_64-* mingw* *)
-          EXTRACT_DIR=""
-          for d in "${candidates[@]}"; do
-            if [ -d "$d" ]; then
-              if [ -d "$d/bin" ]; then
-                EXTRACT_DIR="$d"
-                break
-              fi
-            fi
-          done
-          if [ -z "$EXTRACT_DIR" ]; then
-            echo "No top-level directory found; moving all extracted content into /opt/mingw64"
-            sudo rm -rf /opt/mingw64 || true
-            sudo mkdir -p /opt/mingw64
-            sudo mv ./* /opt/mingw64 || true
-          else
-            echo "Found extracted directory: $EXTRACT_DIR"
-            sudo rm -rf /opt/mingw64 || true
-            sudo mkdir -p /opt/mingw64
-            sudo mv "$EXTRACT_DIR"/* /opt/mingw64/ || true
-          fi
-
-          echo "Contents of /opt/mingw64:" || true
-          sudo ls -la /opt/mingw64 || true
-
-          # Find candidate native gcc and verify ELF + version
-          FOUND_NATIVE=""
-          for cand in /opt/mingw64/bin/x86_64-w64-mingw32-gcc*; do
-            if [ -f "$cand" ]; then
-              echo "Inspecting $cand"
-              file_out=$(file -b "$cand" || true)
-              echo "$cand file: $file_out"
-              if echo "$file_out" | grep -qi 'elf'; then
-                ver=$("$cand" -dumpversion 2>/dev/null || true)
-                major=$(printf '%s' "$ver" | sed -E 's/^([0-9]+).*/\1/' || true)
-                echo "$cand reports version $ver (major $major)"
-                if [ "$major" = "${MINGW_GCC_MAJOR}" ]; then
-                  FOUND_NATIVE="$cand"
-                  break
-                fi
-              fi
-            fi
-          done
-
-          if [ -n "$FOUND_NATIVE" ]; then
-            echo "Found suitable native cross compiler: $FOUND_NATIVE"
-            echo "PATH=/opt/mingw64/bin:$PATH" >> $GITHUB_ENV
-            echo "CROSS_PREFIX=/opt/mingw64/bin/x86_64-w64-mingw32-" >> $GITHUB_ENV
-            export PATH=/opt/mingw64/bin:$PATH
-            export CROSS_PREFIX=/opt/mingw64/bin/x86_64-w64-mingw32-
-          else
-            echo "ERROR: Provided prebuilt toolchain did not contain an ELF x86_64-w64-mingw32-gcc-11 binary."
-            echo "Please provide a native ELF toolchain tarball containing x86_64-w64-mingw32-gcc version ${MINGW_GCC_MAJOR}." >&2
-            exit 1
-          fi
-
-          cd -
-          rm -rf "$TMPDIR" || true
-      - name: Verify cross MinGW GCC major version matches expected
-        run: |
-          set -e
-          # Debug: show which compiler is currently on PATH and details
-          echo "Debug: which x86_64-w64-mingw32-gcc: $(command -v x86_64-w64-mingw32-gcc || true)"
-          x86_64-w64-mingw32-gcc -dumpversion || true
-          x86_64-w64-mingw32-gcc -v 2>&1 || true
-          echo "Contents of /opt/mingw64/bin:" ; ls -la /opt/mingw64/bin || true
-          if ! command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
-            echo "ERROR: x86_64-w64-mingw32-gcc not found after installing mingw-w64"
-            exit 1
-          fi
-          # Prefer the installed toolchain under /opt/mingw64 if present
-          if [ -x /opt/mingw64/bin/x86_64-w64-mingw32-gcc ]; then
-            ver=$(/opt/mingw64/bin/x86_64-w64-mingw32-gcc -dumpversion 2>/dev/null || true)
-            echo "Using /opt/mingw64 compiler: /opt/mingw64/bin/x86_64-w64-mingw32-gcc"
-          elif command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
-            ver=$(x86_64-w64-mingw32-gcc -dumpversion 2>/dev/null || true)
-            echo "Using system compiler: $(command -v x86_64-w64-mingw32-gcc)"
-          else
-            ver=
-            echo "No x86_64-w64-mingw32-gcc found"
-          fi
-          major=$(printf '%s' "$ver" | sed -E 's/^([0-9]+).*/\1/') || true
-          echo "Found cross MinGW GCC version: ${ver} (major: ${major})"
-          if [ "${major}" != "${MINGW_GCC_MAJOR}" ]; then
-            echo "ERROR: cross MinGW GCC major ${major} does not match expected ${MINGW_GCC_MAJOR}" >&2
-            exit 1
-          fi
-          echo "Cross MinGW GCC major matches expected ${MINGW_GCC_MAJOR}"
-      - name: Run cross build script
-        env:
-          PREFIX: /tmp/ffmpeg-static-windows
-          CROSS_PREFIX: x86_64-w64-mingw32-
-        run: |
-          mkdir -p $PREFIX
-          cd build-script
-          bash build-static-ffmpeg-cross.sh
-      - name: Archive ffmpeg artifact
-        run: |
-          cd /tmp
-          tar -czf ffmpeg-static-windows.tar.gz -C /tmp ffmpeg-static-windows
-      - name: Upload ffmpeg artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ffmpeg-static-windows
-          path: /tmp/ffmpeg-static-windows.tar.gz
-
-  build:
-    needs: build-ffmpeg-cross
+  setup-env:
+    name: Setup Environment (MinGW, vcpkg, Python)
     runs-on: windows-2022
     defaults:
       run:
@@ -219,14 +52,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Cache Qt Build
-        id: cache-qt
-        uses: actions/cache@v3
-        with:
-          path: C:\Qt6
-          key: qt-6.6.3-mingw-windows-static-vcpkg
-          restore-keys: |
-            qt-6.6.3-mingw-windows-static-
       - name: Cache MinGW, Ninja and assembly packages
         id: cache-mingw
         uses: actions/cache@v3
@@ -261,21 +86,6 @@ jobs:
           key: vcpkg-x64-mingw-static-openssl-ffmpeg-zlib-v1
           restore-keys: |
             vcpkg-x64-mingw-static-
-              
-      - name: Cache FFmpeg Build
-        id: cache-ffmpeg
-        uses: actions/cache@v3
-        with:
-          # FFmpeg installation may end up inside the repo's vcpkg (D:\vcpkg\installed) or
-          # the standalone static build script installs to C:\ffmpeg-static (seen in logs).
-          # Cache both locations so restore can hit regardless of which target was used.
-          path: |
-            D:\vcpkg\installed\x64-mingw-static\lib
-            C:\ffmpeg-static\lib
-          # Use the build scripts as part of the cache key so changes in scripts invalidate the cache
-          key: ffmpeg-static-${{ runner.os }}-${{ hashFiles('build-script/build-static-ffmpeg-windows.bat', 'build-script/build-static-ffmpeg-windows.sh', 'build-script/build-static-ffmpeg-cross.sh') }}-v1
-          restore-keys: |
-            ffmpeg-static-
       - name: Cache vcpkg binary archives & downloads
         id: cache-vcpkg-archives
         uses: actions/cache@v3
@@ -322,7 +132,6 @@ jobs:
             echo "yasm not found on PATH, installing via choco"
             choco install yasm -y || echo "yasm install failed"
           )
-      # We no longer use packaged MSYS-style toolchains in CI; prefer the external MinGW packaged in the workflow (C:\mingw64)
       - name: Ensure external MinGW on PATH
         run: |
           echo "Adding external MinGW to PATH"
@@ -470,24 +279,6 @@ jobs:
             echo "Hint: vcpkg install may have failed or installed to a different location. Inspect the vcpkg debug output above."
             exit /b 1
           )
-      - name: Download FFmpeg artifact from Ubuntu build
-        uses: actions/download-artifact@v4
-        with:
-          name: ffmpeg-static-windows
-          path: ${{ runner.temp }}\ffmpeg-artifact
-      - name: Extract FFmpeg into C:\ffmpeg-static
-        shell: cmd
-        run: |
-          if not exist C:\ffmpeg-static mkdir C:\ffmpeg-static
-          tar -xzf "%RUNNER_TEMP%\ffmpeg-artifact\ffmpeg-static-windows.tar.gz" -C C:\
-      - name: Set FFMPEG_PREFIX for subsequent steps
-        shell: cmd
-        run: |
-          set FFMPEG_PREFIX=C:\ffmpeg-static
-          echo FFMPEG_PREFIX set to %FFMPEG_PREFIX%
-          echo Listing C:\ffmpeg-static\lib and include
-          dir C:\ffmpeg-static\lib || echo "lib folder not found"
-          dir C:\ffmpeg-static\include || echo "include folder not found"
       - name: Verify vcpkg static libraries (with debug output)
         run: |
           set VCPKG_MAX_CONCURRENCY=%VCPKG_MAX_CONCURRENCY%
@@ -518,17 +309,100 @@ jobs:
             echo ERROR: Library folder not found in either %LIB_DIR% or %REPO_LIB_DIR% && exit /b 1
           )
           echo All static libraries present.
-      - name: Dump ffmpeg buildtrees folder on failure
-        if: failure()
-        run: |
-          echo Dumping full buildtrees directory for ffmpeg
-          dir D:\vcpkg\buildtrees\ffmpeg /s
-          echo Done dumping
+
+  build-qt:
+    name: Build Qt Statically
+    runs-on: windows-2022
+    needs: setup-env
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cache Qt Build
+        id: cache-qt
+        uses: actions/cache@v3
+        with:
+          path: C:\Qt6
+          key: qt-6.6.3-mingw-windows-static-vcpkg
+          restore-keys: |
+            qt-6.6.3-mingw-windows-static-
       - name: Build Qt Statically (if not cached) - using external MinGW
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
           REM Pass SOURCE_DIR explicitly to the script to ensure the batch sees the repo root
           call build-script/build-static-qt-from-source.bat "%SOURCE_DIR%"
+      - name: Upload Qt Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-static
+          path: C:\Qt6
+
+  build-ffmpeg:
+    name: Build FFmpeg Statically
+    runs-on: windows-2022
+    needs: setup-env
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cache FFmpeg Build
+        id: cache-ffmpeg
+        uses: actions/cache@v3
+        with:
+          path: |
+            C:\ffmpeg-static\lib
+          key: ffmpeg-static-${{ runner.os }}-${{ hashFiles('build-script/build-static-ffmpeg-windows.bat', 'build-script/build-static-ffmpeg-windows.sh') }}-v1
+          restore-keys: |
+            ffmpeg-static-
+      - name: Build FFmpeg Statically (native Windows)
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        run: |
+          set EXTERNAL_MINGW=C:\mingw64
+          call build-script\build-static-ffmpeg-windows.bat
+      - name: Upload FFmpeg Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-static
+          path: C:\ffmpeg-static
+
+  build-project:
+    name: Build Openterface Project
+    runs-on: windows-2022
+    needs: [build-qt, build-ffmpeg]
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Qt Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qt-static
+          path: C:\Qt6
+      - name: Download FFmpeg Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-static
+          path: C:\ffmpeg-static
+      - name: Set FFMPEG_PREFIX for subsequent steps
+        shell: cmd
+        run: |
+          set FFMPEG_PREFIX=C:\ffmpeg-static
+          echo FFMPEG_PREFIX set to %FFMPEG_PREFIX%
+          echo Listing C:\ffmpeg-static\lib and include
+          dir C:\ffmpeg-static\lib || echo "lib folder not found"
+          dir C:\ffmpeg-static\include || echo "include folder not found"
       - name: Create Build Directory
         run: |
           mkdir "%RUNNER_TEMP%\build"

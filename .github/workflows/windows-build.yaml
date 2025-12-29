@@ -558,3 +558,25 @@ jobs:
           path: ${{ github.workspace }}\dll_info
           if-no-files-found: warn
 
+      - name: Inspect Output and package directories
+        shell: pwsh
+        run: |
+          Write-Host "Listing Output directory: $env:SOURCE_DIR\Output"
+          if (Test-Path "$env:SOURCE_DIR\Output") { Get-ChildItem "$env:SOURCE_DIR\Output" -Recurse -Force | Select-Object -First 200 } else { Write-Host "Output directory not found" }
+          Write-Host "Listing package directory: $env:SOURCE_DIR\$env:PACKAGE_DIR"
+          if (Test-Path "$env:SOURCE_DIR\$env:PACKAGE_DIR") { Get-ChildItem "$env:SOURCE_DIR\$env:PACKAGE_DIR" -Recurse -Force | Select-Object -First 200 } else { Write-Host "Package directory not found" }
+
+      - name: Upload Output folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-folder
+          path: ${{ env.SOURCE_DIR }}\Output
+          if-no-files-found: warn
+
+      - name: Upload package-online folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-online
+          path: ${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}
+          if-no-files-found: warn
+

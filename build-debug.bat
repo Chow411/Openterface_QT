@@ -161,6 +161,34 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+rem After successful build, copy FFmpeg DLLs and Qt platform plugins when using shared FFmpeg
+if "%USE_SHARED%"=="1" (
+    echo Copying FFmpeg shared DLLs to %OUTPUT_DIR%...
+    xcopy /Y "%FFMPEG_PREFIX%\bin\avcodec-*.dll" "%OUTPUT_DIR%\" >nul 2>nul || echo Warning: avcodec DLLs not found
+    xcopy /Y "%FFMPEG_PREFIX%\bin\avformat-*.dll" "%OUTPUT_DIR%\" >nul 2>nul || echo Warning: avformat DLLs not found
+    xcopy /Y "%FFMPEG_PREFIX%\bin\avutil-*.dll" "%OUTPUT_DIR%\" >nul 2>nul || echo Warning: avutil DLLs not found
+    xcopy /Y "%FFMPEG_PREFIX%\bin\avdevice-*.dll" "%OUTPUT_DIR%\" >nul 2>nul || echo Warning: avdevice DLLs not found
+    xcopy /Y "%FFMPEG_PREFIX%\bin\sw*.dll" "%OUTPUT_DIR%\" >nul 2>nul || echo Warning: sw*.dll not found
+)
+
+rem Try to locate Qt plugin directory via qmake and copy platforms plugin (qwindows)
+set QT_PLUGIN_DIR=
+for /f "usebackq delims=" %%p in (`qmake -query QT_INSTALL_PLUGINS 2^>nul`) do set QT_PLUGIN_DIR=%%p
+if defined QT_PLUGIN_DIR (
+    echo Copying Qt platform plugins from %QT_PLUGIN_DIR% to %OUTPUT_DIR%\platforms...
+    xcopy /E /Y "%QT_PLUGIN_DIR%\platforms" "%OUTPUT_DIR%\platforms" >nul 2>nul || echo Warning: failed to copy Qt platforms
+) else (
+    echo Warning: qmake not found or QT not on PATH, platform plugins were not copied. You can set QT_PLUGIN_DIR or add Qt bin to PATH.
+)
+
+rem Copy MinGW runtime DLLs that may be required for Qt/platform plugin compatibility
+for %%d in (libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll) do (
+    if exist "%MINGW_PATH%\bin\%%d" (
+        echo Copying %%d to %OUTPUT_DIR%...
+        xcopy /Y "%MINGW_PATH%\bin\%%d" "%OUTPUT_DIR%\" >nul 2>nul || echo Warning: couldn't copy %%d
+    )
+)
+
 echo.
 echo ============================================================================
 echo Build completed successfully!

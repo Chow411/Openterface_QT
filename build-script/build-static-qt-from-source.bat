@@ -4,18 +4,23 @@ REM To install OpenTerface QT with static OpenSSL support, you can run this scri
 setlocal enabledelayedexpansion
 
 REM Accept optional first argument as SOURCE_DIR (so CI can pass an explicit path)
-REM Usage: build-static-qt-from-source.bat [<SOURCE_DIR>]
+REM Usage: build-static-qt-from-source.bat [<SOURCE_DIR>] [<VCPKG_ROOT>]
 if "%~1"=="" (
     set "SOURCE_DIR=%cd%"
 ) else (
     set "SOURCE_DIR=%~1"
 )
 
+if "%~2"=="" (
+    if not defined VCPKG_ROOT set "VCPKG_ROOT=C:\vcpkg"
+) else (
+    set "VCPKG_ROOT=%~2"
+)
+
 REM Set paths
 set "QT_SOURCE=C:\Qt6-source"
 set "QT_INSTALL=C:\Qt6"
 set "MINGW_PATH=C:\mingw64"
-if not defined VCPKG_ROOT set "VCPKG_ROOT=D:\vcpkg"
 set "OPENSSL_ROOT=%VCPKG_ROOT%\installed\x64-mingw-static"
 
 REM Configuration

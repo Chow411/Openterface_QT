@@ -20,6 +20,15 @@ echo "FFmpeg: ${FFMPEG_VERSION}, libjpeg-turbo: ${LIBJPEG_TURBO_VERSION}"
 echo "Prefix: ${PREFIX}, Cross: ${CROSS_PREFIX}, Cores: ${NUM_CORES}"
 echo "============================================================================"
 
+# Detect environment and give actionable message if run on Windows/cmd
+if ! command -v apt-get >/dev/null 2>&1 && ! command -v apt >/dev/null 2>&1; then
+  echo "ERROR: apt/apt-get not found in PATH. This script is intended to run on Ubuntu (CI runner, WSL, or Docker)." >&2
+  echo "If you're on Windows, run via WSL or Docker. Example WSL command:" >&2
+  echo "  wsl -d ubuntu-22.04 -- bash -lc 'cd /mnt/c/your/path/to/repo && PREFIX=/tmp/ffmpeg-static-windows CROSS_PREFIX=x86_64-w64-mingw32- bash build-script/build-static-ffmpeg-cross.sh'" >&2
+  echo "Or run the provided helper: build-script/run-cross-build.ps1 (PowerShell) which will use WSL or Docker if available." >&2
+  exit 1
+fi
+
 # Ensure toolchain present
 for tool in ${CROSS_PREFIX}gcc ${CROSS_PREFIX}ar ${CROSS_PREFIX}nm ${CROSS_PREFIX}ranlib ${CROSS_PREFIX}strip; do
   if ! command -v "$tool" >/dev/null 2>&1; then

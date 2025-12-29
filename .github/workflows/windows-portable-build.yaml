@@ -54,7 +54,13 @@ jobs:
 
       - name: Bootstrap vcpkg
         run: |
-          git clone https://github.com/microsoft/vcpkg.git "${{ env.VCPKG_ROOT }}"
+          if not exist "${{ env.VCPKG_ROOT }}\.git" (
+            git clone https://github.com/microsoft/vcpkg.git "${{ env.VCPKG_ROOT }}"
+          ) else (
+            cd "${{ env.VCPKG_ROOT }}"
+            git fetch --all --tags
+            git reset --hard origin/HEAD
+          )
           "${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat"
 
       - name: Cache vcpkg installed packages

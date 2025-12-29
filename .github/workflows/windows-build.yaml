@@ -35,31 +35,6 @@ on:
         required: false
         type: boolean
         default: false
-      force_rebuild:
-        description: 'Force rebuild FFmpeg and LibUSB even if cached'
-        required: false
-        type: boolean
-        default: false
-      enable_nvenc:
-        description: 'Enable NVIDIA hardware encoding (requires NVIDIA drivers)'
-        required: false
-        type: boolean
-        default: false
-      enable_qsv:
-        description: 'Enable Intel QSV hardware acceleration (requires libmfx)'
-        required: false
-        type: boolean
-        default: false
-      auto_install_ffnv:
-        description: 'Attempt to auto-install NV codec headers for NVENC (set to true to try)'
-        required: false
-        type: boolean
-        default: false
-      collect_debug:
-        description: 'Collect debug artifacts (build debug, run under gdb, collect dll info)'
-        required: false
-        type: boolean
-        default: false
 
 defaults:
   run:
@@ -182,23 +157,9 @@ jobs:
             export ENABLE_NVENC=0
           fi
 
-          # Auto-install NV codec headers when explicitly requested or when NVENC is enabled
-          if [ "${{ github.event.inputs.auto_install_ffnv }}" = "true" ] || [ "${{ github.event.inputs.enable_nvenc }}" = "true" ]; then
-            echo "Auto-install for NV codec headers enabled"
-            export AUTO_INSTALL_FFNV=1
-          else
-            export AUTO_INSTALL_FFNV=0
-          fi
+          export AUTO_INSTALL_FFNV=1
 
-          # QSV / libmfx control
-          if [ "${{ github.event.inputs.enable_qsv }}" = "true" ]; then
-            echo "QSV (libmfx) requested by user input; ensuring MinGW libmfx is available"
-            pacman -S --needed --noconfirm mingw-w64-x86_64-libmfx || echo "pacman libmfx install failed or not available"
-            export ENABLE_LIBMFX=1
-          else
-            echo "QSV (libmfx) disabled (use enable_qsv input to enable)"
-            export ENABLE_LIBMFX=0
-          fi
+          export ENABLE_LIBMFX=1
 
           cd "${{ env.SOURCE_DIR }}/build-script"
           ./build-shared-ffmpeg-windows.sh > "${{ github.workspace }}/ffmpeg_build.log" 2>&1

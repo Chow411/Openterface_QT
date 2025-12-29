@@ -177,7 +177,7 @@ EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lwinpthread"
 if [ "${ENABLE_LIBMFX:-0}" = "1" ]; then
     if pkg-config --exists libmfx; then
         echo "libmfx found via pkg-config; enabling QSV (libmfx)"
-        ENABLE_LIBMFX="--enable-libmfx"
+        ENABLE_LIBMFX="--enable-libmfx --enable-decoder=mjpeg_qsv"
     else
         echo "ERROR: ENABLE_LIBMFX=1 but libmfx not found via pkg-config. Install headers/libs or unset ENABLE_LIBMFX."
         exit 1

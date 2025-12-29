@@ -43,7 +43,7 @@ jobs:
     name: Build FFmpeg (cross-compile on Ubuntu)
     runs-on: ubuntu-22.04
     container:
-      image: multiarch/crossbuild:latest
+      image: dockcross/linux-x64:20251011-8b9ace4
       options: --user root
     env:
       CROSS_TRIPLE: x86_64-w64-mingw32

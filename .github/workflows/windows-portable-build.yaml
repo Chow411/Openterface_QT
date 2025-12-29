@@ -130,11 +130,11 @@ jobs:
       - name: Build Qt statically from source
         shell: cmd
         run: |
+          set VCPKG_ROOT=${{ env.VCPKG_ROOT }}
           call "build-script\build-static-qt-from-source.bat" "${{ env.SOURCE_DIR }}"
         env:
           MINGW_ROOT: ${{ env.MINGW_ROOT }}
           QT_PREFIX: ${{ env.QT_PREFIX }}
-          VCPKG_ROOT: ${{ env.VCPKG_ROOT }}
 
       - name: Upload Qt artifact
         uses: actions/upload-artifact@v4
@@ -157,6 +157,12 @@ jobs:
         with:
           name: build-environment
           path: C:\
+
+      - name: Install NASM (required by FFmpeg)
+        shell: powershell
+        run: |
+          $env:chocolateyInstallRefreshEnv = 'false'
+          choco install nasm -y
 
       - name: Add MinGW to PATH
         run: echo "${{ env.MINGW_ROOT }}\bin" >> $GITHUB_PATH

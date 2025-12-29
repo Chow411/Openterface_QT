@@ -42,6 +42,11 @@ jobs:
   build-ffmpeg-cross:
     name: Build FFmpeg (cross-compile on Ubuntu)
     runs-on: ubuntu-22.04
+    container:
+      image: multiarch/crossbuild:latest
+      options: --user root
+    env:
+      CROSS_TRIPLE: x86_64-w64-mingw32
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,19 +62,31 @@ jobs:
           key: ffmpeg-cross-${{ runner.os }}-${{ env.MINGW_RELEASE }}-gcc${{ env.MINGW_GCC_MAJOR }}-${{ hashFiles('build-script/**') }}-v1
           restore-keys: |
             ffmpeg-cross-
-      - name: Install dependencies and ensure cross MinGW
+      - name: Install dependencies and verify cross toolchain (container)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git make build-essential pkg-config nasm yasm mingw-w64 curl wget tar cmake p7zip-full
-          # Check installed cross compiler version
-          if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
-            ver=$(x86_64-w64-mingw32-gcc -dumpversion 2>/dev/null || true)
-            # extract leading numeric major (handles values like "10-win32")
-            major=$(printf '%s' "$ver" | sed -E 's/^([0-9]+).*/\1/')
-            echo "Detected cross MinGW GCC version: ${ver} (major: ${major})"
+          apt-get update
+          apt-get install -y git make build-essential pkg-config nasm yasm curl wget tar cmake p7zip-full || true
+
+          # Verify cross compiler presence inside the container
+          echo "Checking cross compiler in container (CROSS_TRIPLE=${CROSS_TRIPLE})"
+          if command -v ${CROSS_TRIPLE}-gcc >/dev/null 2>&1; then
+            ver=$(${CROSS_TRIPLE}-gcc -dumpversion 2>/dev/null || true)
+            major=$(printf '%s' "$ver" | sed -E 's/^([0-9]+).*/\1/' || true)
+            echo "Detected ${CROSS_TRIPLE}-gcc version: ${ver} (major: ${major})"
           else
+            ver=''
             major=none
-            echo "No x86_64-w64-mingw32-gcc found"
+            echo "No ${CROSS_TRIPLE}-gcc found in container"
+          fi
+
+          # If the container already has GCC 11, use it and set CROSS_PREFIX
+          if [ "${major}" = "${MINGW_GCC_MAJOR}" ]; then
+            echo "Native GCC ${MINGW_GCC_MAJOR} cross-compiler available in container"
+            echo "PATH=/usr/bin:$PATH" >> $GITHUB_ENV
+            echo "CROSS_PREFIX=/usr/bin/${CROSS_TRIPLE}-" >> $GITHUB_ENV
+            export CROSS_PREFIX=/usr/bin/${CROSS_TRIPLE}-
+          else
+            echo "Container does not contain ${MINGW_GCC_MAJOR}. Attempting to install or fall back to downloaded toolchain (download may contain Windows binaries and will not provide an ELF gcc)."
           fi
           if [ "${major}" != "${MINGW_GCC_MAJOR}" ]; then
             echo "Desired MinGW GCC major ${MINGW_GCC_MAJOR} not present. Attempting to install a native GCC ${MINGW_GCC_MAJOR} cross-compiler via apt"

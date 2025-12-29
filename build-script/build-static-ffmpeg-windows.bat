@@ -23,15 +23,15 @@ REM   NVENC_SDK_PATH=...          -> Path to NVENC SDK when ENABLE_NVENC=1 (opti
 
 
 REM Colors for output (Windows console codes)
-echo [92m============================================================================[0m
-echo [92mFFmpeg Static Build Script for Windows[0m
-echo [92m============================================================================[0m
+echo ================================================================================
+echo FFmpeg Static Build Script for Windows
+echo ================================================================================
 
 REM NOTE: This wrapper prefers using a bash on PATH (e.g., Git Bash) and an external MinGW (EXTERNAL_MINGW). Set SKIP_MSYS_MINGW=1 to prefer an external toolchain.
 
 REM Check if build script exists
 if not exist "%SCRIPT_DIR%build-static-ffmpeg-windows.sh" (
-    echo [91mError: Build script not found at %SCRIPT_DIR%build-static-ffmpeg-windows.sh[0m
+    echo Error: Build script not found at %SCRIPT_DIR%build-static-ffmpeg-windows.sh
     exit /b 1
 )
 
@@ -41,8 +41,8 @@ set SCRIPT_PATH_MSYS=%SCRIPT_PATH:\=/%
 set SCRIPT_PATH_MSYS=%SCRIPT_PATH_MSYS::=%
 set SCRIPT_PATH_MSYS=/%SCRIPT_PATH_MSYS%
 
-echo [92mLaunching bash and external MinGW environment (using external toolchain)...[0m
-echo [93mThis will take some time (30-60 minutes depending on your system)[0m
+echo Launching bash and external MinGW environment (using external toolchain)...
+echo This will take some time (30-60 minutes depending on your system)
 echo.
 
 REM If EXTERNAL_MINGW is provided, convert it to POSIX-style path and pass it into the bash invocation
@@ -52,33 +52,33 @@ if defined EXTERNAL_MINGW (
     set EXTM_MSYS=%EXTM:\=/%
     set EXTM_MSYS=%EXTM_MSYS::=%
     set EXTM_MSYS=/%EXTM_MSYS%
-    echo [93mUsing external MinGW: %EXTERNAL_MINGW% (msys path: %EXTM_MSYS%)[0m
+    echo Using external MinGW: %EXTERNAL_MINGW% (msys path: %EXTM_MSYS%)
     where bash >nul 2>&1
     if %errorlevel% equ 0 (
-        echo [92mFound bash on PATH - invoking build script with external MinGW[0m
+        echo Found bash on PATH - invoking build script with external MinGW
         REM Pass environment variables through to the bash command so the script can pick them up
         bash -lc "EXTERNAL_MINGW_MSYS=%EXTM_MSYS% SKIP_MSYS_MINGW=1 bash '%SCRIPT_PATH_MSYS%'"
     ) else (
-        echo [91mError: bash.exe not found on PATH. Install Git for Windows or ensure bash is available.[0m
+        echo Error: bash.exe not found on PATH. Install Git for Windows or ensure bash is available.
         exit /b 1
     )
 ) else (
     REM No EXTERNAL_MINGW specified — attempt to run the script with bash on PATH (non-MS Y S usage)
     where bash >nul 2>&1
     if %errorlevel% equ 0 (
-        echo [92mFound bash on PATH - invoking build script using system bash[0m
+        echo Found bash on PATH - invoking build script using system bash
         bash -lc "bash '%SCRIPT_PATH_MSYS%'"
     ) else (
-        echo [91mError: bash.exe not found on PATH and EXTERNAL_MINGW not set; please install Git for Windows (bash) or set EXTERNAL_MINGW to use an external MinGW.[0m
+        echo Error: bash.exe not found on PATH and EXTERNAL_MINGW not set; please install Git for Windows (bash) or set EXTERNAL_MINGW to use an external MinGW.
         exit /b 1
     )
 )
 
 if %errorlevel% equ 0 (
     echo.
-    echo [92m============================================================================[0m
-    echo [92mFFmpeg build completed successfully![0m
-    echo [92m============================================================================[0m
+    echo ================================================================================
+    echo FFmpeg build completed successfully!
+    echo ================================================================================
     echo Installation directory: %FFMPEG_INSTALL_PREFIX%
     echo.
     echo To use this FFmpeg build in your project, set the environment variable:
@@ -86,15 +86,16 @@ if %errorlevel% equ 0 (
     echo.
     echo Or in CMake:
     echo   cmake -DFFMPEG_PREFIX=%FFMPEG_INSTALL_PREFIX% ...
-    echo [92m============================================================================[0m
+    echo ================================================================================
 ) else (
     echo.
-    echo [91m============================================================================[0m
-    echo [91mFFmpeg build failed![0m
-    echo [91m============================================================================[0m
+    echo ================================================================================
+    echo FFmpeg build failed!
+    echo ================================================================================
     echo Check the output above for errors
-    echo [91m============================================================================[0m
+    echo ================================================================================
     exit /b 1
+)
 fi
 
 exit /b 0

@@ -93,7 +93,6 @@ jobs:
           name: build-environment
           path: |
             ${{ env.MINGW_ROOT }}
-            ${{ env.VCPKG_ROOT }}
           retention-days: 1
 
   build-qt:
@@ -110,6 +109,20 @@ jobs:
         with:
           name: build-environment
           path: C:\
+
+      - name: Setup vcpkg
+        shell: cmd
+        run: |
+          if not exist "${{ env.VCPKG_ROOT }}\.git" (
+            git clone https://github.com/microsoft/vcpkg.git "${{ env.VCPKG_ROOT }}"
+          ) else (
+            cd "${{ env.VCPKG_ROOT }}"
+            git fetch --all --tags
+            git reset --hard origin/HEAD
+          )
+          if not exist "${{ env.VCPKG_ROOT }}\vcpkg.exe" (
+            "${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat"
+          )
 
       - name: Add MinGW to PATH
         run: echo "${{ env.MINGW_ROOT }}\bin" >> $GITHUB_PATH
@@ -173,6 +186,20 @@ jobs:
         with:
           name: build-environment
           path: C:\
+
+      - name: Setup vcpkg
+        shell: cmd
+        run: |
+          if not exist "${{ env.VCPKG_ROOT }}\.git" (
+            git clone https://github.com/microsoft/vcpkg.git "${{ env.VCPKG_ROOT }}"
+          ) else (
+            cd "${{ env.VCPKG_ROOT }}"
+            git fetch --all --tags
+            git reset --hard origin/HEAD
+          )
+          if not exist "${{ env.VCPKG_ROOT }}\vcpkg.exe" (
+            "${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat"
+          )
 
       - name: Download Qt artifact
         uses: actions/download-artifact@v4

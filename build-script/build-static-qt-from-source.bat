@@ -15,7 +15,7 @@ REM Set paths
 set "QT_SOURCE=C:\Qt6-source"
 set "QT_INSTALL=C:\Qt6"
 set "MINGW_PATH=C:\mingw64"
-set "VCPKG_ROOT=D:\vcpkg"
+if not defined VCPKG_ROOT set "VCPKG_ROOT=D:\vcpkg"
 set "OPENSSL_ROOT=%VCPKG_ROOT%\installed\x64-mingw-static"
 
 REM Configuration

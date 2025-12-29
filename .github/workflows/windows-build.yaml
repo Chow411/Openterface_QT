@@ -45,6 +45,11 @@ on:
         required: false
         type: boolean
         default: false
+      collect_debug:
+        description: 'Collect debug artifacts (build debug, run under gdb, collect dll info)'
+        required: false
+        type: boolean
+        default: false
 
 defaults:
   run:
@@ -440,13 +445,13 @@ jobs:
         run: |
           echo "=== DLL Dependency Analysis ==="
           echo "Checking all DLLs in package..."
-          ls -la *.dll
+          ls -la *.dll || true
           
           echo ""
           echo "=== Checking openterfaceQT.exe dependencies ==="
           if command -v objdump >/dev/null 2>&1; then
             echo "Using objdump to check dependencies:"
-            objdump -p openterfaceQT.exe | grep -i "DLL Name"
+            objdump -p openterfaceQT.exe | grep -i "DLL Name" || true
           fi
           
           echo ""
@@ -460,7 +465,7 @@ jobs:
           ls -la Qt*.dll | head -5 || echo "No Qt DLLs found"
           
           echo "Checking MSYS2 runtime DLLs..."
-          for dll in libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
+          for dll in libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll libgcc_s_dw2-1.dll; do
             if [ -f "$dll" ]; then
               echo "✓ Found $dll"
               # Check DLL info using objdump
@@ -493,69 +498,63 @@ jobs:
           
           # Check for both UCRT64 and MinGW libraries
           echo "UCRT64 DLLs:"
-          ls -la lib*-*.dll 2>/dev/null | grep -v Qt || echo "No UCRT64 pattern DLLs found"
+          ls -la /ucrt64/bin/*.dll 2>/dev/null | head -10 || echo "No UCRT64 DLLs found"
+          
+          echo "MinGW64 DLLs:"
+          ls -la /mingw64/bin/*.dll 2>/dev/null | head -10 || echo "No MinGW64 DLLs found"
           
           echo "Qt DLLs:"
           ls -la Qt*.dll 2>/dev/null | head -3 || echo "No Qt DLLs found"
           
           echo ""
+          echo "=== Debug Diagnostics (optional) ==="
+          if [ "${{ github.event.inputs.collect_debug }}" = "true" ]; then
+            echo "Collecting debug build and gdb backtrace..."
+            mkdir -p ${RUNNER_TEMP}/build-debug
+            cd ${RUNNER_TEMP}/build-debug
+            cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug -DFFMPEG_PREFIX=C:/ffmpeg-shared -DUSE_SHARED_FFMPEG=ON "${{ env.SOURCE_DIR_MSYS }}"
+            mingw32-make -j2 || echo "Debug build failed"
+            if [ -f openterfaceQT.exe ]; then
+              echo "Running gdb to capture backtrace..."
+              gdb --batch -ex "set pagination 0" -ex "run" -ex "thread apply all bt full" --args ./openterfaceQT.exe > "${{ github.workspace }}/gdb_bt.log" 2>&1 || true
+            else
+              echo "Debug executable not found; skipping gdb run"
+            fi
+            echo "Collecting objdump info for package DLLs..."
+            mkdir -p "${{ github.workspace }}/dll_info"
+            for f in *.dll ${RUNNER_TEMP}/build-debug/*.dll ${RUNNER_TEMP}/build/${{ env.PACKAGE_DIR }}/*.dll ${RUNNER_TEMP}/build/${{ env.PACKAGE_DIR }}/*/*.dll; do
+              if [ -f "$f" ]; then
+                base=$(basename "$f")
+                objdump -p "$f" > "${{ github.workspace }}/dll_info/${base}.objdump.txt" 2>&1 || true
+              fi
+            done
+          else
+            echo "collect_debug not enabled; skipping debug diagnostics"
+          fi
+          
+          echo ""
           echo "=== Recommendation ==="
           echo "If the application crashes with heap corruption (c0000374):"
-          echo "1. Ensure all DLLs use the same runtime (UCRT64 vs MinGW)"
+          echo "1. Ensure all DLLs use the same runtime (MinGW64 preferred for Qt)"
           echo "2. Check for missing or mismatched Qt platform plugins"
           echo "3. Verify LibUSB is compatible with the Qt/MinGW runtime"
+          echo "4. Run the application under gdb to collect a backtrace (enable collect_debug input)"
           echo ""
           echo "Verification complete"
 
-      - name: Move build artifacts
-        run: move /Y ${{ runner.temp }}\build\${{ env.PACKAGE_DIR }} ${{ env.SOURCE_DIR }}
-
-      - name: Compile .NSI to .EXE Installer
-        run: |
-          echo "Compiling NSIS installer..."
-          mkdir ${{ env.SOURCE_DIR }}\Output
-          dir ${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}
-          makensis /DWorkingDir="${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}" ^
-                   /DMyAppVersion="${{ env.VERSION_FOR_INNO }}" ^
-                   /DMyAppPublisher="${{ vars.MY_APP_PUBLISHER }}" ^
-                   /DMyAppURL="${{ vars.MY_APP_URL }}" ^
-                   /DOutputDir="${{ env.SOURCE_DIR }}\Output" ^
-                   /DOutputBaseFileName=openterfaceQT.windows.amd64.installer ^
-                   /DMyAppExeName=${{ env.EXE_NAME }} ^
-                   installer.nsi
-
-      - name: Save build artifacts
+      - name: Upload gdb backtrace
+        if: github.event.inputs.collect_debug == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: openterfaceQT.windows.amd64.installer
-          path: ${{ env.SOURCE_DIR }}\Output\openterfaceQT.windows.amd64.installer.exe
-          if-no-files-found: error
+          name: gdb-backtrace
+          path: ${{ github.workspace }}\gdb_bt.log
+          if-no-files-found: warn
 
-      - name: Commit and push version update
-        if: success() && (github.event.inputs.increase_version == 'true' || github.event.inputs.increase_major == 'true' || github.event.inputs.increase_minor == 'true')
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add resources/version.h
-          git commit -m "Bump version to ${{ env.NEW_VERSION }}" -a || echo "No changes to commit"
-          
-          git pull --rebase https://${{ env.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git ${{ github.ref }}
-          git push https://${{ env.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-      - name: Trigger other workflows
-        if: success() && (github.event.inputs.increase_version == 'true' || github.event.inputs.increase_major == 'true' || github.event.inputs.increase_minor == 'true')
-        uses: actions/github-script@v6
+      - name: Upload DLL info (objdump outputs)
+        if: github.event.inputs.collect_debug == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const workflows = ['linux-build.yaml','windows-portable-build.yaml'];
-            for (const workflow of workflows) {
-              await github.rest.actions.createWorkflowDispatch({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: workflow,
-                ref: context.ref
-              });
-            }
+          name: dll-info
+          path: ${{ github.workspace }}\dll_info
+          if-no-files-found: warn
+

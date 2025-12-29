@@ -118,12 +118,14 @@ jobs:
             echo "Contents of /opt/mingw64:" || true
             sudo ls -la /opt/mingw64 || true
             # Add to PATH for subsequent steps
-            echo "/opt/mingw64/bin" | sudo tee -a $GITHUB_PATH
+            # Prepend /opt/mingw64/bin to PATH for subsequent steps
+            echo "PATH=/opt/mingw64/bin:$PATH" >> $GITHUB_ENV
             export PATH=/opt/mingw64/bin:$PATH
             # Debug: show which compiler will be used and its reported version
             echo "Which x86_64-w64-mingw32-gcc: $(command -v x86_64-w64-mingw32-gcc || true)"
             x86_64-w64-mingw32-gcc -dumpversion || true
             x86_64-w64-mingw32-gcc -v 2>&1 || true
+            echo "Listing /opt/mingw64/bin:" ; ls -la /opt/mingw64/bin || true
             cd -
             rm -rf "$TMPDIR"
           else
@@ -132,6 +134,11 @@ jobs:
       - name: Verify cross MinGW GCC major version matches expected
         run: |
           set -e
+          # Debug: show which compiler is currently on PATH and details
+          echo "Debug: which x86_64-w64-mingw32-gcc: $(command -v x86_64-w64-mingw32-gcc || true)"
+          x86_64-w64-mingw32-gcc -dumpversion || true
+          x86_64-w64-mingw32-gcc -v 2>&1 || true
+          echo "Contents of /opt/mingw64/bin:" ; ls -la /opt/mingw64/bin || true
           if ! command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
             echo "ERROR: x86_64-w64-mingw32-gcc not found after installing mingw-w64"
             exit 1

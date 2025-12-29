@@ -53,6 +53,7 @@ jobs:
           choco install nasm -y
 
       - name: Bootstrap vcpkg
+        shell: cmd
         run: |
           if not exist "${{ env.VCPKG_ROOT }}\.git" (
             git clone https://github.com/microsoft/vcpkg.git "${{ env.VCPKG_ROOT }}"

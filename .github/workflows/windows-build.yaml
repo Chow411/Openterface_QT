@@ -577,6 +577,41 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: package-online
-          path: ${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}
+          # Upload from the actual build directory (runner temp) where the package is created
+          path: ${{ runner.temp }}\build\${{ env.PACKAGE_DIR }}
           if-no-files-found: warn
+
+      - name: Zip package and upload zip
+        shell: pwsh
+        run: |
+          $src = "${{ runner.temp }}\build\${{ env.PACKAGE_DIR }}"
+          $zip = "${{ runner.temp }}\openterface_package.zip"
+          if (Test-Path $src) {
+            Remove-Item -Force $zip -ErrorAction SilentlyContinue || true
+            Compress-Archive -Path "$src\*" -DestinationPath $zip -Force
+            Write-Host "Created $zip"
+          } else {
+            Write-Host "Package dir not found: $src"
+            exit 0
+          }
+
+      - name: Upload package zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: openterface-package-zip
+          path: ${{ runner.temp }}\openterface_package.zip
+          if-no-files-found: warn
+
+      - name: Copy package to workspace for inspection (optional)
+        shell: pwsh
+        run: |
+          $src = "${{ runner.temp }}\build\${{ env.PACKAGE_DIR }}"
+          $dst = "${{ env.SOURCE_DIR }}\${{ env.PACKAGE_DIR }}"
+          if (Test-Path $src) {
+            Remove-Item -Recurse -Force $dst -ErrorAction SilentlyContinue || true
+            Copy-Item -Recurse -Force $src $dst
+            Write-Host "Copied package to workspace: $dst"
+          } else {
+            Write-Host "Package dir not found: $src"
+          }
 

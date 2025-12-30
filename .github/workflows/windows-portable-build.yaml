@@ -310,6 +310,8 @@ jobs:
           echo "Listing /c/Qt6 and /c/ffmpeg-static"
           ls /c/Qt6 || echo "/c/Qt6 not found"
           ls /c/ffmpeg-static || echo "/c/ffmpeg-static not found"
+          echo "Listing /c/msys64/mingw64/lib for dependencies***************************************************"
+          ls /c/msys64/mingw64/lib || echo "/c/msys64/mingw64/lib not found"
 
       - name: Debug locate Qt CMake config
         shell: powershell
@@ -333,7 +335,6 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
         env:
-          MINGW_PATH: ${{ env.MINGW_ROOT }}
           CC: gcc
           CXX: g++
 

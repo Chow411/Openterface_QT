@@ -142,6 +142,12 @@ jobs:
           path: ${{ env.QT_PREFIX }}
           retention-days: 1
 
+      - name: Save Qt cache
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.QT_PREFIX }}
+          key: qt-6.6.3-msys2-mingw64-windows-static-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
+
   build-ffmpeg:
     name: Build FFmpeg (Static)
     needs: setup-env
@@ -198,6 +204,12 @@ jobs:
           name: ffmpeg-static
           path: ${{ env.FFMPEG_PREFIX }}
           retention-days: 1
+
+      - name: Save FFmpeg cache
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.FFMPEG_PREFIX }}
+          key: ffmpeg-static-msys2-mingw64-windows-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
 
   build-project:
     name: Build Main Project (Static & Portable)

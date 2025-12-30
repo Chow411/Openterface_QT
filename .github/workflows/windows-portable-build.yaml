@@ -9,6 +9,7 @@ on:
 
 env:
   MINGW_ROOT: C:\\mingw64
+  OPENSSL_ROOT: C:\\mingw64\\lib
   QT_PREFIX: C:\\Qt6
   FFMPEG_PREFIX: C:\\ffmpeg-static
   SOURCE_DIR: D:\\a\\openterface\\openterface
@@ -117,7 +118,7 @@ jobs:
           MINGW_ROOT: ${{ env.MINGW_ROOT }}
           QT_PREFIX: ${{ env.QT_PREFIX }}
           EXTERNAL_MINGW: ${{ env.MINGW_ROOT }}
-          OPENSSL_ROOT: ${{ env.MINGW_ROOT }}
+          OPENSSL_ROOT: ${{ env.OPENSSL_ROOT }}
 
       - name: Upload Qt artifact
         uses: actions/upload-artifact@v4

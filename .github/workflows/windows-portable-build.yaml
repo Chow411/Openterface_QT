@@ -125,14 +125,10 @@ jobs:
       - name: Build Qt statically from source
         if: steps.check-qt-cache.outputs.cache-hit == 'false'
         shell: msys2 {0}
+        
         run: |
           ./build-script/build-static-qt-from-source.sh
-        env:
-          MINGW_ROOT: ${{ env.MINGW_ROOT }}
-          QT_PREFIX: ${{ env.QT_PREFIX }}
-          EXTERNAL_MINGW: ${{ env.MINGW_ROOT }}
-          OPENSSL_ROOT: ${{ env.OPENSSL_ROOT }}
-
+        
       - name: Upload Qt artifact
         uses: actions/upload-artifact@v4
         with:
@@ -243,7 +239,6 @@ jobs:
             mingw-w64-x86_64-libmfx
             mingw-w64-x86_64-libjpeg-turbo
             mingw-w64-x86_64-libiconv
-            mingw-w64-x86_64-zlib
             diffutils
             make
             libtool
@@ -338,6 +333,7 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
         env:
+          MINGW_PATH: ${{ env.MINGW_ROOT }}
           CC: gcc
           CXX: g++
 

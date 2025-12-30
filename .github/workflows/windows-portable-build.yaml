@@ -263,13 +263,7 @@ jobs:
           path: C:\
           if-no-files-found: warn
 
-      - name: Check Qt artifact presence
-        id: check-qt-artifact
-        run: |
-          if (Test-Path "${{ env.QT_PREFIX }}") { echo "qt-artifact-present=true" >> $GITHUB_OUTPUT } else { echo "qt-artifact-present=false" >> $GITHUB_OUTPUT }
-
-      - name: Restore Qt cache (if artifact missing)
-        if: steps.check-qt-artifact.outputs.qt-artifact-present == 'false'
+      - name: Restore Qt cache
         id: restore-qt
         uses: actions/cache@v4
         with:
@@ -277,7 +271,6 @@ jobs:
           key: qt-6.6.3-msys2-mingw64-windows-static-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
 
       - name: Show Qt cache restore result
-        if: steps.check-qt-artifact.outputs.qt-artifact-present == 'false'
         run: |
           echo "qt-cache-hit=${{ steps.restore-qt.outputs.cache-hit }}"
 
@@ -294,13 +287,7 @@ jobs:
           path: C:\
           if-no-files-found: warn
 
-      - name: Check FFmpeg artifact presence
-        id: check-ffmpeg-artifact
-        run: |
-          if (Test-Path "${{ env.FFMPEG_PREFIX }}") { echo "ffmpeg-artifact-present=true" >> $GITHUB_OUTPUT } else { echo "ffmpeg-artifact-present=false" >> $GITHUB_OUTPUT }
-
-      - name: Restore FFmpeg cache (if artifact missing)
-        if: steps.check-ffmpeg-artifact.outputs.ffmpeg-artifact-present == 'false'
+      - name: Restore FFmpeg cache
         id: restore-ffmpeg
         uses: actions/cache@v4
         with:
@@ -308,7 +295,6 @@ jobs:
           key: ffmpeg-static-msys2-mingw64-windows-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
 
       - name: Show FFmpeg cache restore result
-        if: steps.check-ffmpeg-artifact.outputs.ffmpeg-artifact-present == 'false'
         run: |
           echo "ffmpeg-cache-hit=${{ steps.restore-ffmpeg.outputs.cache-hit }}"
 

@@ -303,8 +303,6 @@ jobs:
       - name: Configure CMake (Static Build)
         shell: msys2 {0}
         run: |
-          ls \c\\ffmpeg-static
-          ls \c\\qt-static
           mkdir build && cd build
           cmake .. \
             -G "MinGW Makefiles" \

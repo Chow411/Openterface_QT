@@ -155,7 +155,7 @@ jobs:
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
 
       - name: Build FFmpeg statically
-        shell: bash
+        shell: msys2 {0}
         run: |
           ./build-script/build-static-ffmpeg-windows.sh
         env:

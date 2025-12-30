@@ -327,6 +327,22 @@ jobs:
       - name: Configure CMake (Static Build)
         shell: msys2 {0}
         run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm mingw-w64-x86_64-gcc \
+            mingw-w64-x86_64-cmake \
+            mingw-w64-x86_64-make \
+            mingw-w64-x86_64-nasm \
+            mingw-w64-x86_64-yasm \
+            mingw-w64-x86_64-zlib \
+            mingw-w64-x86_64-bzip2 \
+            mingw-w64-x86_64-xz \
+            mingw-w64-x86_64-openssl \
+            mingw-w64-x86_64-libmfx \
+            mingw-w64-x86_64-libjpeg-turbo \
+            mingw-w64-x86_64-libiconv
+          
+          ls /c/msys64/mingw64/lib || echo "/c/msys64/mingw64/lib not found"
+
           mkdir build && cd build
           cmake .. \
             -G "MinGW Makefiles" \

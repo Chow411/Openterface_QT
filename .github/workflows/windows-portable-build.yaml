@@ -251,16 +251,34 @@ jobs:
         run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
 
       - name: Download Qt artifact
+        if: needs.setup-env.outputs.qt-cache-hit == 'false'
         uses: actions/download-artifact@v4
         with:
           name: qt-static
-          path: C:\
+          path: C:\temp
 
       - name: Download FFmpeg artifact
+        if: needs.setup-env.outputs.ffmpeg-cache-hit == 'false'
         uses: actions/download-artifact@v4
         with:
           name: ffmpeg-static
-          path: C:\
+          path: C:\temp
+
+      - name: Move Qt to correct location
+        if: needs.setup-env.outputs.qt-cache-hit == 'false'
+        shell: msys2 {0}
+        run: |
+          if [ -d /c/temp/qt-static/Qt6 ]; then
+            mv /c/temp/qt-static/Qt6 /c/Qt6
+          fi
+
+      - name: Move FFmpeg to correct location
+        if: needs.setup-env.outputs.ffmpeg-cache-hit == 'false'
+        shell: msys2 {0}
+        run: |
+          if [ -d /c/temp/ffmpeg-static/ffmpeg-static ]; then
+            mv /c/temp/ffmpeg-static/ffmpeg-static /c/ffmpeg-static
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5

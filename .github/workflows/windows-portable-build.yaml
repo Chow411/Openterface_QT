@@ -341,14 +341,23 @@ jobs:
             mingw-w64-x86_64-libjpeg-turbo \
             mingw-w64-x86_64-libiconv
           
-          ls /c/msys64/mingw64/lib || echo "/c/msys64/mingw64/lib not found"
-          ls ${{ env.MINGW_ROOT }} || echo "${{ env.MINGW_ROOT }} not found"
+          # Convert Windows-style $MINGW_ROOT to msys path and debug
+          MSYS_MINGW_PATH=$(cygpath -u "$MINGW_ROOT")
+          echo "MSYS_MINGW_PATH=$MSYS_MINGW_PATH"
+          ls "$MSYS_MINGW_PATH/lib" || echo "$MSYS_MINGW_PATH/lib not found"
 
+          # Ensure a clean build dir
+          rm -rf build
           mkdir build && cd build
+
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
+            -DCMAKE_LIBRARY_PATH="${MSYS_MINGW_PATH}/lib" \
+            -DCMAKE_INCLUDE_PATH="${MSYS_MINGW_PATH}/include" \
+            -DZLIB_LIBRARY="${MSYS_MINGW_PATH}/lib/libz.a" \
+            -DZLIB_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
         env:
@@ -358,8 +367,6 @@ jobs:
       - name: Build project
         shell: msys2 {0}
         run: |
-          MINGW_UNIX_ROOT=$(cygpath -u "$MINGW_ROOT")
-          export PATH="${MINGW_UNIX_ROOT}/bin:$PATH"
           cd build
           mingw32-make VERBOSE=1 -j$(nproc)
 

@@ -47,6 +47,13 @@ jobs:
             mingw-w64-x86_64-xz
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-libmfx
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-libiconv
+            diffutils
+            make
+            libtool
+            git
+            perl
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
@@ -112,6 +119,13 @@ jobs:
             mingw-w64-x86_64-xz
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-libmfx
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-libiconv
+            diffutils
+            make
+            libtool
+            git
+            perl
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
@@ -159,6 +173,13 @@ jobs:
             mingw-w64-x86_64-xz
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-libmfx
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-libiconv
+            diffutils
+            make
+            libtool
+            git
+            perl
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
@@ -205,6 +226,13 @@ jobs:
             mingw-w64-x86_64-xz
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-libmfx
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-libiconv
+            diffutils
+            make
+            libtool
+            git
+            perl
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV

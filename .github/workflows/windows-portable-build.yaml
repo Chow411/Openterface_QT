@@ -84,14 +84,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.QT_PREFIX }}
-          key: qt-6.6.3-msys2-mingw64-windows-static-${{ hashFiles('build-script/build-static-qt-from-source.bat') }}
+          key: qt-6.6.3-msys2-mingw64-windows-static-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
 
       - name: Cache FFmpeg static build
         id: cache-ffmpeg
         uses: actions/cache@v4
         with:
           path: ${{ env.FFMPEG_PREFIX }}
-          key: ffmpeg-static-msys2-mingw64-windows-${{ hashFiles('build-script/build-static-ffmpeg-windows.bat') }}
+          key: ffmpeg-static-msys2-mingw64-windows-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
 
   build-qt:
     name: Build Qt 6.6.3 (Static)
@@ -131,9 +131,9 @@ jobs:
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
 
       - name: Build Qt statically from source
-        shell: cmd
+        shell: msys2 {0}
         run: |
-          call "build-script\build-static-qt-from-source.sh" "${{ env.SOURCE_DIR }}"
+          ./build-script/build-static-qt-from-source.sh "${{ env.SOURCE_DIR }}"
         env:
           MINGW_ROOT: ${{ env.MINGW_ROOT }}
           QT_PREFIX: ${{ env.QT_PREFIX }}

@@ -387,7 +387,7 @@ echo "This will take 30-60 minutes depending on your CPU..."
 echo "Using ${NUM_CORES} CPU cores for compilation"
 echo ""
 
-make -j${NUM_CORES}
+mingw32-make -j${NUM_CORES} || make -j${NUM_CORES}
 
 echo "✓ Build complete"
 echo ""

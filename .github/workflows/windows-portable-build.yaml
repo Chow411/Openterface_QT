@@ -358,7 +358,8 @@ jobs:
       - name: Build project
         shell: msys2 {0}
         run: |
-          export PATH=/mingw64/bin:$PATH
+          MINGW_UNIX_ROOT=$(cygpath -u "$MINGW_ROOT")
+          export PATH="${MINGW_UNIX_ROOT}/bin:$PATH"
           cd build
           mingw32-make VERBOSE=1 -j$(nproc)
 

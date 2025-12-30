@@ -315,6 +315,17 @@ jobs:
           ls /c/Qt6 || echo "/c/Qt6 not found"
           ls /c/ffmpeg-static || echo "/c/ffmpeg-static not found"
 
+      - name: Debug locate Qt CMake config
+        shell: powershell
+        run: >
+          Write-Host "Looking for Qt*Config.cmake under C:\\Qt6";
+          if (Test-Path "C:\\Qt6") {
+            Get-ChildItem -Path C:\\Qt6 -Recurse -Filter 'Qt*Config.cmake' -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName };
+            if (-not (Get-ChildItem -Path C:\\Qt6 -Recurse -Filter 'Qt*Config.cmake' -ErrorAction SilentlyContinue)) { Write-Host "No QtConfig files found under C:\\Qt6" };
+            Write-Host "Listing C:\\Qt6\lib\cmake (if present):";
+            if (Test-Path "C:\\Qt6\\lib\\cmake") { Get-ChildItem "C:\\Qt6\\lib\\cmake" -Recurse | ForEach-Object { Write-Host $_.FullName } } else { Write-Host "C:\\Qt6\\lib\\cmake not found" }
+          } else { Write-Host "C:\\Qt6 not found" }
+
       - name: Configure CMake (Static Build)
         shell: msys2 {0}
         run: |

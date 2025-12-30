@@ -341,10 +341,16 @@ jobs:
             mingw-w64-x86_64-libjpeg-turbo \
             mingw-w64-x86_64-libiconv
           
-          # Convert Windows-style $MINGW_ROOT to msys path and debug
-          MSYS_MINGW_PATH=$(cygpath -u "$MINGW_ROOT")
+          # Convert Windows-style $MINGW_ROOT to msys path and debug (fallback to /mingw64 if empty)
+          if [ -n "$MINGW_ROOT" ]; then
+            MSYS_MINGW_PATH=$(cygpath -u "$MINGW_ROOT" 2>/dev/null || echo "$MINGW_ROOT")
+          else
+            MSYS_MINGW_PATH="/mingw64"
+          fi
+          echo "MINGW_ROOT (raw)='$MINGW_ROOT'"
           echo "MSYS_MINGW_PATH=$MSYS_MINGW_PATH"
           ls "$MSYS_MINGW_PATH/lib" || echo "$MSYS_MINGW_PATH/lib not found"
+          ls /mingw64/lib || echo "/mingw64/lib not found"
 
           # Export pkg-config path so find modules use correct pkgconfigs
           export PKG_CONFIG_PATH="${MSYS_MINGW_PATH}/lib/pkgconfig:${MSYS_MINGW_PATH}/share/pkgconfig"

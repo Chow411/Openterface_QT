@@ -83,7 +83,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check Qt cache status
+        id: check-qt-cache
+        run: echo "cache-hit=${{ needs.setup-env.outputs.qt-cache-hit }}" >> $GITHUB_OUTPUT
+
       - name: Setup MSYS2
+        if: steps.check-qt-cache.outputs.cache-hit == 'false'
         id: setup-msys2
         uses: msys2/setup-msys2@v2
         with:
@@ -110,14 +115,12 @@ jobs:
             perl
 
       - name: Set MINGW_ROOT
+        if: steps.check-qt-cache.outputs.cache-hit == 'false'
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
 
       - name: Set OPENSSL_ROOT
+        if: steps.check-qt-cache.outputs.cache-hit == 'false'
         run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
-
-      - name: Check Qt cache status
-        id: check-qt-cache
-        run: echo "cache-hit=${{ needs.setup-env.outputs.qt-cache-hit }}" >> $GITHUB_OUTPUT
 
       - name: Build Qt statically from source
         if: steps.check-qt-cache.outputs.cache-hit == 'false'
@@ -151,7 +154,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check FFmpeg cache status
+        id: check-ffmpeg-cache
+        run: echo "cache-hit=${{ needs.setup-env.outputs.ffmpeg-cache-hit }}" >> $GITHUB_OUTPUT
+
       - name: Setup MSYS2
+        if: steps.check-ffmpeg-cache.outputs.cache-hit == 'false'
         id: setup-msys2
         uses: msys2/setup-msys2@v2
         with:
@@ -177,14 +185,12 @@ jobs:
             perl
 
       - name: Set MINGW_ROOT
+        if: steps.check-ffmpeg-cache.outputs.cache-hit == 'false'
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
 
       - name: Set OPENSSL_ROOT
+        if: steps.check-ffmpeg-cache.outputs.cache-hit == 'false'
         run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
-
-      - name: Check FFmpeg cache status
-        id: check-ffmpeg-cache
-        run: echo "cache-hit=${{ needs.setup-env.outputs.ffmpeg-cache-hit }}" >> $GITHUB_OUTPUT
 
       - name: Build FFmpeg statically
         if: steps.check-ffmpeg-cache.outputs.cache-hit == 'false'
@@ -254,12 +260,38 @@ jobs:
         with:
           name: qt-static
           path: C:\
+          if-no-files-found: warn
+
+      - name: Check Qt artifact presence
+        id: check-qt-artifact
+        run: |
+          if (Test-Path "${{ env.QT_PREFIX }}") { echo "qt-artifact-present=true" >> $GITHUB_OUTPUT } else { echo "qt-artifact-present=false" >> $GITHUB_OUTPUT }
+
+      - name: Restore Qt cache (if artifact missing)
+        if: steps.check-qt-artifact.outputs.qt-artifact-present == 'false'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.QT_PREFIX }}
+          key: qt-6.6.3-msys2-mingw64-windows-static-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
 
       - name: Download FFmpeg artifact
         uses: actions/download-artifact@v4
         with:
           name: ffmpeg-static
           path: C:\
+          if-no-files-found: warn
+
+      - name: Check FFmpeg artifact presence
+        id: check-ffmpeg-artifact
+        run: |
+          if (Test-Path "${{ env.FFMPEG_PREFIX }}") { echo "ffmpeg-artifact-present=true" >> $GITHUB_OUTPUT } else { echo "ffmpeg-artifact-present=false" >> $GITHUB_OUTPUT }
+
+      - name: Restore FFmpeg cache (if artifact missing)
+        if: steps.check-ffmpeg-artifact.outputs.ffmpeg-artifact-present == 'false'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.FFMPEG_PREFIX }}
+          key: ffmpeg-static-msys2-mingw64-windows-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
 
       - name: Set up Python
         uses: actions/setup-python@v5

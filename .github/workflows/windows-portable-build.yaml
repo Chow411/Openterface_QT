@@ -274,7 +274,7 @@ jobs:
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="/c/Qt6;/c/ffmpeg-static" \
+            -DCMAKE_PREFIX_PATH="/c/qt-static/Qt6;/c/ffmpeg-static" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
         env:

@@ -148,14 +148,7 @@ jobs:
           # Ensure pkg-config can find MinGW pkgconfig
           export PKG_CONFIG_PATH="/mingw64/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-          # NVENC control
-          if [ "${{ github.event.inputs.enable_nvenc }}" = "true" ]; then
-            echo "NVENC enabled by user input"
-            export ENABLE_NVENC=1
-          else
-            echo "NVENC disabled (use enable_nvenc input to enable)"
-            export ENABLE_NVENC=0
-          fi
+          export ENABLE_NVENC=1
 
           export AUTO_INSTALL_FFNV=1
 
@@ -197,6 +190,9 @@ jobs:
           echo ""
           echo "=== MJPEG decoders ==="
           /c/ffmpeg-shared/bin/ffmpeg -hide_banner -decoders | grep -i mjpeg || echo "No mjpeg decoders found"
+          echo ""
+          echo "=== NVENC/QSV specific checks ==="
+          /c/ffmpeg-shared/bin/ffmpeg -hide_banner -decoders | grep -E "(cuvid|qsv)" || echo "No NVENC/QSV decoders found"
           echo ""
           echo "=== Tail of configure log (if present) ==="
           if [ -f "${{ env.SOURCE_DIR }}/build-script/ffmpeg-build-temp/ffmpeg-configure.log" ]; then

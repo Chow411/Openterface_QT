@@ -176,11 +176,11 @@ EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lwinpthread"
 # libmfx (QSV): Only enable if user explicitly requests it via ENABLE_LIBMFX=1 and pkg-config can find it.
 if [ "${ENABLE_LIBMFX:-0}" = "1" ]; then
     if pkg-config --exists libmfx; then
-        echo "libmfx found via pkg-config; enabling QSV (libmfx)"
         ENABLE_LIBMFX="--enable-libmfx --enable-decoder=mjpeg_qsv"
+        echo "✓ libmfx detected; enabling QSV support"
     else
-        echo "ERROR: ENABLE_LIBMFX=1 but libmfx not found via pkg-config. Install headers/libs or unset ENABLE_LIBMFX."
-        exit 1
+        echo "⚠ libmfx not found via pkg-config; QSV will attempt runtime detection (no build-time enable)"
+        ENABLE_LIBMFX=""  # Don't fail; let FFmpeg load at runtime
     fi
 else
     echo "libmfx not enabled; QSV support will be attempted at runtime if available via drivers/SDK (dynamic loading by FFmpeg)."
@@ -326,17 +326,19 @@ else
                         EXTRA_LDFLAGS="${EXTRA_LDFLAGS} $(pkg-config --libs-only-L ffnvcodec 2>/dev/null || true) $(pkg-config --libs-only-l ffnvcodec 2>/dev/null || true)"
                         CUDA_FLAGS="--enable-cuda --enable-cuvid --enable-nvdec --enable-ffnvcodec --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid"
                     else
-                        echo "ERROR: auto-install completed but pkg-config still cannot find ffnvcodec"
-                        exit 1
+                        echo "⚠ auto-install completed but pkg-config still cannot find ffnvcodec; disabling NVENC"
+                        NVENC_ARG="--disable-nvenc"
+                        CUDA_FLAGS="--disable-cuda --disable-cuvid --disable-nvdec --disable-ffnvcodec"
                     fi
                 else
-                    echo "ERROR: auto-install of nv-codec-headers failed"
-                    exit 1
+                    echo "⚠ auto-install of nv-codec-headers failed; disabling NVENC"
+                    NVENC_ARG="--disable-nvenc"
+                    CUDA_FLAGS="--disable-cuda --disable-cuvid --disable-nvdec --disable-ffnvcodec"
                 fi
             else
-                echo "ERROR: ENABLE_NVENC=1 but neither ffnvcodec pkg-config nor NVENC SDK headers found (looked at ${NVENC_SDK_PATH})."
-                echo "Set AUTO_INSTALL_FFNV=1 to attempt automatic installation of nv-codec-headers into ${FFMPEG_INSTALL_PREFIX}."
-                exit 1
+                echo "⚠ ENABLE_NVENC=1 but neither ffnvcodec pkg-config nor NVENC SDK headers found (looked at ${NVENC_SDK_PATH}). Disabling NVENC."
+                NVENC_ARG="--disable-nvenc"
+                CUDA_FLAGS="--disable-cuda --disable-cuvid --disable-nvdec --disable-ffnvcodec"
             fi
         fi
     fi

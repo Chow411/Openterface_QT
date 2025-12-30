@@ -36,7 +36,13 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: nasm zlib bzip2 xz openssl libmfx
+          install: |
+            mingw-w64-x86_64-nasm
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-bzip2
+            mingw-w64-x86_64-xz
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-libmfx
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
@@ -91,7 +97,13 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: nasm zlib bzip2 xz openssl
+          install: |
+            mingw-w64-x86_64-nasm
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-bzip2
+            mingw-w64-x86_64-xz
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-libmfx
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
@@ -128,7 +140,13 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: nasm zlib bzip2 xz openssl libmfx
+          install: |
+            mingw-w64-x86_64-nasm
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-bzip2
+            mingw-w64-x86_64-xz
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-libmfx
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
@@ -164,7 +182,13 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: nasm zlib bzip2 xz openssl libmfx
+          install: |
+            mingw-w64-x86_64-nasm
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-bzip2
+            mingw-w64-x86_64-xz
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-libmfx
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV

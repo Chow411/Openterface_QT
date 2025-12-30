@@ -11,7 +11,6 @@ env:
   MINGW_ROOT: C:\\mingw64
   QT_PREFIX: C:\\Qt6
   FFMPEG_PREFIX: C:\\ffmpeg-static
-  VCPKG_ROOT: C:\\vcpkg
   SOURCE_DIR: D:\\a\\openterface\\openterface
 
 jobs:
@@ -58,26 +57,6 @@ jobs:
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
 
-      - name: Bootstrap vcpkg
-        shell: cmd
-        run: |
-          if not exist "${{ env.VCPKG_ROOT }}\.git" (
-            git clone https://github.com/microsoft/vcpkg.git "${{ env.VCPKG_ROOT }}"
-          ) else (
-            cd "${{ env.VCPKG_ROOT }}"
-            git fetch --all --tags
-            git reset --hard origin/HEAD
-          )
-          "${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat"
-
-      - name: Cache vcpkg installed packages
-        id: cache-vcpkg-installed
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.VCPKG_ROOT }}/installed
-          key: vcpkg-installed-windows-static-${{ hashFiles('vcpkg.json') }}
-          restore-keys: |
-            vcpkg-installed-windows-static-
 
       - name: Cache Qt static build
         id: cache-qt
@@ -133,6 +112,7 @@ jobs:
       - name: Build Qt statically from source
         shell: msys2 {0}
         run: |
+          cd ${{ env.SOURCE_DIR }}\build-script
           ./build-script/build-static-qt-from-source.sh "${{ env.SOURCE_DIR }}"
         env:
           MINGW_ROOT: ${{ env.MINGW_ROOT }}
@@ -262,8 +242,6 @@ jobs:
             -G "MinGW Makefiles" ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_PREFIX_PATH="${{ env.QT_PREFIX }};${{ env.FFMPEG_PREFIX }}" ^
-            -DVCPKG_ROOT="${{ env.VCPKG_ROOT }}" ^
-            -DVCPKG_TARGET_TRIPLET=x64-windows-static ^
             -DBUILD_SHARED_LIBS=OFF ^
             -DSTATIC_LINKAGE=ON
         env:

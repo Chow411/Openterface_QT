@@ -365,6 +365,20 @@ jobs:
           rm -rf build
           mkdir build && cd build
 
+          # Extra debug: look for any hardcoded msys paths in repo and in Qt/ffmpeg installed config files
+          echo "Searching for 'C:/msys64' in generated files and installed CMake configs (may show where link args come from)"
+          grep -R --line-number "C:/msys64" .. || true
+          echo "Searching CMakeCache and CMakeFiles for references"
+          if [ -f CMakeCache.txt ]; then grep -R --line-number "C:/msys64" CMakeCache.txt || true; fi
+          grep -R --line-number "C:/msys64" CMakeFiles || true
+          echo "Searching installed Qt & FFmpeg CMake config files for msys references"
+          grep -R --line-number "C:/msys64" /c/Qt6 || true
+          grep -R --line-number "C:/msys64" /c/ffmpeg-static || true
+
+          # Show pkg-config info for bzip2/zlib (where find_package may pull libs from)
+          pkg-config --exists bzip2 && echo "pkg-config bzip2 libs: $(pkg-config --libs bzip2)" || echo "pkg-config bzip2 not found"
+          pkg-config --exists zlib && echo "pkg-config zlib libs: $(pkg-config --libs zlib)" || echo "pkg-config zlib not found"
+
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
@@ -372,10 +386,14 @@ jobs:
             -DCMAKE_LIBRARY_PATH="${MSYS_MINGW_PATH}/lib" \
             -DCMAKE_INCLUDE_PATH="${MSYS_MINGW_PATH}/include" \
             -DCMAKE_FIND_ROOT_PATH="${MSYS_MINGW_PATH}" \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
             -DMINGW_ROOT="${MSYS_MINGW_PATH}" \
             -DPKG_CONFIG_PATH="${PKG_CONFIG_PATH}" \
             -DZLIB_LIBRARY="${MSYS_MINGW_PATH}/lib/libz.a" \
             -DZLIB_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
+            -DBZIP2_LIBRARY="${MSYS_MINGW_PATH}/lib/libbz2.a" \
+            -DBZIP2_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
         env:

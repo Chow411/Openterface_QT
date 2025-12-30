@@ -112,8 +112,7 @@ jobs:
       - name: Build Qt statically from source
         shell: msys2 {0}
         run: |
-          cd ${{ env.SOURCE_DIR }}\\build-script
-          ./build-script/build-static-qt-from-source.sh "${{ env.SOURCE_DIR }}"
+          ./build-script/build-static-qt-from-source.sh
         env:
           MINGW_ROOT: ${{ env.MINGW_ROOT }}
           QT_PREFIX: ${{ env.QT_PREFIX }}

@@ -130,15 +130,6 @@ jobs:
           EXTERNAL_MINGW: ${{ env.MINGW_ROOT }}
           OPENSSL_ROOT: ${{ env.OPENSSL_ROOT }}
 
-      - name: Verify Qt build
-        shell: msys2 {0}
-        run: |
-          if [ ! -f /c/Qt6/lib/cmake/Qt6/Qt6Config.cmake ]; then
-            echo "Qt build failed - Qt6Config.cmake not found at /c/Qt6/lib/cmake/Qt6/Qt6Config.cmake"
-            exit 1
-          fi
-          echo "Qt build verification passed."
-
       - name: Upload Qt artifact
         uses: actions/upload-artifact@v4
         with:

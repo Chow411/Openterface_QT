@@ -127,12 +127,12 @@ jobs:
           OPENSSL_ROOT: ${{ env.OPENSSL_ROOT }}
 
       - name: Verify Qt build
-        shell: cmd
+        shell: msys2 {0}
         run: |
-          if not exist "C:\Qt6\lib\cmake\Qt6\Qt6Config.cmake" (
-            echo "Qt build failed - Qt6Config.cmake not found at C:\Qt6\lib\cmake\Qt6\Qt6Config.cmake"
+          if [ ! -f /c/Qt6/lib/cmake/Qt6/Qt6Config.cmake ]; then
+            echo "Qt build failed - Qt6Config.cmake not found at /c/Qt6/lib/cmake/Qt6/Qt6Config.cmake"
             exit 1
-          )
+          fi
           echo "Qt build verification passed."
 
       - name: Upload Qt artifact
@@ -256,21 +256,21 @@ jobs:
           python-version: '3.11'
 
       - name: Configure CMake (Static Build)
-        shell: cmd
+        shell: msys2 {0}
         run: |
           mkdir build && cd build
-          cmake .. ^
-            -G "MinGW Makefiles" ^
-            -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_PREFIX_PATH="${{ env.QT_PREFIX }};${{ env.FFMPEG_PREFIX }}" ^
-            -DBUILD_SHARED_LIBS=OFF ^
+          cmake .. \
+            -G "MinGW Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="/c/Qt6;/c/ffmpeg-static" \
+            -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
         env:
           CC: gcc
           CXX: g++
 
       - name: Build project
-        shell: cmd
+        shell: msys2 {0}
         run: |
           cd build
           mingw32-make -j$(nproc)

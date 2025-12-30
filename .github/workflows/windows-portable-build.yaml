@@ -79,7 +79,6 @@ jobs:
     name: Build Qt 6.6.3 (Static)
     needs: setup-env
     runs-on: windows-2022
-    if: ${{ needs.setup-env.outputs.qt-cache-hit != 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -116,7 +115,12 @@ jobs:
       - name: Set OPENSSL_ROOT
         run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
 
+      - name: Check Qt cache status
+        id: check-qt-cache
+        run: echo "cache-hit=${{ needs.setup-env.outputs.qt-cache-hit }}" >> $GITHUB_OUTPUT
+
       - name: Build Qt statically from source
+        if: steps.check-qt-cache.outputs.cache-hit == 'false'
         shell: msys2 {0}
         run: |
           ./build-script/build-static-qt-from-source.sh
@@ -152,7 +156,6 @@ jobs:
     name: Build FFmpeg (Static)
     needs: setup-env
     runs-on: windows-2022
-    if: ${{ needs.setup-env.outputs.ffmpeg-cache-hit != 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -188,7 +191,12 @@ jobs:
       - name: Set OPENSSL_ROOT
         run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
 
+      - name: Check FFmpeg cache status
+        id: check-ffmpeg-cache
+        run: echo "cache-hit=${{ needs.setup-env.outputs.ffmpeg-cache-hit }}" >> $GITHUB_OUTPUT
+
       - name: Build FFmpeg statically
+        if: steps.check-ffmpeg-cache.outputs.cache-hit == 'false'
         shell: msys2 {0}
         run: |
           ./build-script/build-static-ffmpeg-windows.sh
@@ -251,34 +259,16 @@ jobs:
         run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
 
       - name: Download Qt artifact
-        if: needs.setup-env.outputs.qt-cache-hit == 'false'
         uses: actions/download-artifact@v4
         with:
           name: qt-static
-          path: C:\temp
+          path: C:\
 
       - name: Download FFmpeg artifact
-        if: needs.setup-env.outputs.ffmpeg-cache-hit == 'false'
         uses: actions/download-artifact@v4
         with:
           name: ffmpeg-static
-          path: C:\temp
-
-      - name: Move Qt to correct location
-        if: needs.setup-env.outputs.qt-cache-hit == 'false'
-        shell: msys2 {0}
-        run: |
-          if [ -d /c/temp/qt-static/Qt6 ]; then
-            mv /c/temp/qt-static/Qt6 /c/Qt6
-          fi
-
-      - name: Move FFmpeg to correct location
-        if: needs.setup-env.outputs.ffmpeg-cache-hit == 'false'
-        shell: msys2 {0}
-        run: |
-          if [ -d /c/temp/ffmpeg-static/ffmpeg-static ]; then
-            mv /c/temp/ffmpeg-static/ffmpeg-static /c/ffmpeg-static
-          fi
+          path: C:\
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -292,7 +282,7 @@ jobs:
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="/c/Qt6;/c/ffmpeg-static" \
+            -DCMAKE_PREFIX_PATH="/c/qt-static/Qt6;/c/ffmpeg-static" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
         env:

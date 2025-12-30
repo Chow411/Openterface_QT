@@ -47,6 +47,17 @@ case "$uname_s" in
     ;;
 esac
 
+# Prefer lld on Windows if available (helps avoid GNU ld running out of memory)
+LLD_FLAGS=""
+if [ "$PLATFORM" = "windows" ]; then
+  if command -v ld.lld >/dev/null 2>&1 || command -v lld >/dev/null 2>&1; then
+    LLD_FLAGS="-fuse-ld=lld"
+    echo "INFO: lld detected; will add '${LLD_FLAGS}' to linker flags"
+  else
+    echo "INFO: lld not found; install with: pacman -S mingw-w64-x86_64-lld (optional but recommended to avoid ld OOM)"
+  fi
+fi
+
 # Convert to Windows paths if needed (cygpath available)
 winpath() {
   if command -v cygpath >/dev/null 2>&1; then
@@ -323,7 +334,7 @@ cmake_args=(
 
 # Add windows-specific linker flags
 if [ "$PLATFORM" = "windows" ]; then
-  cmake_args+=( -DCMAKE_EXE_LINKER_FLAGS="-L${OPENSSL_LIB_DIR} -lssl -lcrypto -lws2_32 -lcrypt32 -ladvapi32 -luser32 -lgdi32" -DCMAKE_REQUIRED_LIBRARIES="ws2_32;crypt32;advapi32;user32;gdi32" )
+  cmake_args+=( -DCMAKE_EXE_LINKER_FLAGS="${LLD_FLAGS} -L${OPENSSL_LIB_DIR} -lssl -lcrypto -lws2_32 -lcrypt32 -ladvapi32 -luser32 -lgdi32" -DCMAKE_SHARED_LINKER_FLAGS="${LLD_FLAGS}" -DCMAKE_REQUIRED_LIBRARIES="ws2_32;crypt32;advapi32;user32;gdi32" )
 fi
 
 cmake "${cmake_args[@]}"
@@ -342,6 +353,8 @@ for m in "${MODULES[@]}"; do
   pushd "$m/build" >/dev/null
   cmake \
     -G "Ninja" \
+    -DCMAKE_EXE_LINKER_FLAGS="${LLD_FLAGS}" \
+    -DCMAKE_SHARED_LINKER_FLAGS="${LLD_FLAGS}" \
     -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
     -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX}" \
     -DBUILD_SHARED_LIBS=OFF \

@@ -21,7 +21,9 @@ REM Set paths
 set "QT_SOURCE=C:\Qt6-source"
 set "QT_INSTALL=C:\Qt6"
 set "MINGW_PATH=C:\mingw64"
-set "OPENSSL_ROOT=%VCPKG_ROOT%\installed\x64-mingw-static"
+if "%OPENSSL_ROOT%"=="" (
+    set "OPENSSL_ROOT=%VCPKG_ROOT%\installed\x64-mingw-static"
+)
 
 REM Configuration
 set QT_VERSION=6.6.3
@@ -36,7 +38,7 @@ REM Allow openssl to come from either the central vcpkg installation or a
 REM repo-local manifest install (vcpkg_installed). Prefer central vcpkg but
 REM fall back to repo-local to avoid CI failures when vcpkg copies installs
 REM into the repository instead of the shared vcpkg folder.
-set OPENSSL_DIR=%VCPKG_DIR%\installed\x64-mingw-static
+set OPENSSL_DIR=%OPENSSL_ROOT%
 set OPENSSL_LIB_DIR=%OPENSSL_DIR%\lib
 set OPENSSL_INCLUDE_DIR=%OPENSSL_DIR%\include
 

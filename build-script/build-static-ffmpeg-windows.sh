@@ -44,12 +44,19 @@ echo ""
 # Default to SKIP_PACKAGE_MINGW=1 (use external MinGW) unless explicitly overridden
 if [ "${SKIP_PACKAGE_MINGW:-1}" = "1" ]; then
     echo "Step 1/8: SKIP_PACKAGE_MINGW set (or default) - using external MinGW build environment"
+    # Prefer MSYS2 mingw64 if present and user didn't set EXTERNAL_MINGW_POSIX
+    if [ -z "${EXTERNAL_MINGW_POSIX:-}" ] && [ -d "/c/msys64/mingw64" ]; then
+        EXTERNAL_MINGW_POSIX="/c/msys64/mingw64"
+    fi
     echo "External MinGW (posix style): ${EXTERNAL_MINGW_POSIX:-/c/mingw64}"
     # Prepend external mingw to PATH so the toolchain is used
     EXTERNAL_MINGW_BIN="${EXTERNAL_MINGW_POSIX:-/c/mingw64}/bin"
     if [ -d "${EXTERNAL_MINGW_BIN}" ]; then
         export PATH="${EXTERNAL_MINGW_BIN}:$PATH"
         echo "PATH updated to prefer external MinGW: ${EXTERNAL_MINGW_BIN}"
+        if [ -n "${EXTERNAL_MINGW_POSIX:-}" ] && [ "${EXTERNAL_MINGW_POSIX}" = "/c/msys64/mingw64" ]; then
+            echo "Note: Using MSYS2 MinGW64 at ${EXTERNAL_MINGW_POSIX}"
+        fi
     else
         echo "WARNING: External MinGW bin directory not found: ${EXTERNAL_MINGW_BIN}"
         echo "Please ensure your external MinGW (gcc, make, cmake, nasm/yasm) are on PATH."
@@ -191,7 +198,22 @@ fi
 # By default, do NOT force libmfx/NVENC linking; they should be optional and allowed to be missing at runtime.
 ENABLE_LIBMFX=""
 EXTRA_CFLAGS="-I${FFMPEG_INSTALL_PREFIX}/include"
-EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lmingwex -lwinpthread -static -static-libgcc -static-libstdc++"
+# Start with common link flags; add bz2/lzma only if present in known MinGW/MSYS2 lib dirs
+EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lmingwex -lwinpthread -static -static-libgcc -static-libstdc++"
+# Probe candidate lib dirs for libbz2/liblzma (respect EXTERNAL_MINGW_POSIX if set)
+CANDIDATE_LIB_DIRS="${EXTERNAL_MINGW_POSIX:-/c/mingw64} /c/msys64/mingw64 /mingw64"
+for d in $CANDIDATE_LIB_DIRS; do
+    if [ -d "$d/lib" ]; then
+        if ls "$d/lib"/libbz2.* >/dev/null 2>&1; then
+            EXTRA_LDFLAGS="${EXTRA_LDFLAGS} -lbz2"
+        fi
+        if ls "$d/lib"/liblzma.* >/dev/null 2>&1; then
+            EXTRA_LDFLAGS="${EXTRA_LDFLAGS} -llzma"
+        fi
+    fi
+done
+# Debug info about chosen flags (helpful when troubleshooting)
+echo "Using EXTRA_LDFLAGS: ${EXTRA_LDFLAGS}"
 
 # libmfx (QSV): Only enable if user explicitly requests it via ENABLE_LIBMFX=1 and pkg-config can find it.
 if [ "${ENABLE_LIBMFX:-0}" = "1" ]; then
@@ -222,6 +244,46 @@ else
     NVENC_ARG="--disable-nvenc"
 fi
 echo ""
+
+# Determine CUDA/ffnvcodec availability and set configure args accordingly
+# Default to disabling CUDA-related options unless both CUDA and ffnvcodec/SDK are present
+CUDA_ARG="--disable-cuda"
+CUVID_ARG="--disable-cuvid"
+NVDEC_ARG="--disable-nvdec"
+FFNV_ARG="--disable-ffnvcodec"
+
+# Candidate lib dirs were defined earlier in CANDIDATE_LIB_DIRS
+FOUND_FFNV=0
+if [ -n "${CUDA_PATH:-}" ]; then
+    # Check for libffnvcodec in known lib dirs or NVENC SDK headers
+    for d in $CANDIDATE_LIB_DIRS; do
+        if [ -d "$d/lib" ] && ls "$d/lib"/libffnvcodec.* >/dev/null 2>&1; then
+            FOUND_FFNV=1
+            break
+        fi
+    done
+    # Also check NVENC SDK path if provided
+    if [ "$FOUND_FFNV" -eq 0 ] && [ -n "${NVENC_SDK_PATH:-}" ]; then
+        if [ -f "${NVENC_SDK_PATH}/include/nvEncodeAPI.h" ] || ls "${NVENC_SDK_PATH}/lib"/libnv* >/dev/null 2>&1; then
+            FOUND_FFNV=1
+        fi
+    fi
+
+    if [ "$FOUND_FFNV" -eq 1 ]; then
+        echo "✓ Found ffnvcodec/NVENC headers/libs; enabling CUDA/CUVID/NVDEC/FFNV support"
+        CUDA_ARG="--enable-cuda"
+        CUVID_ARG="--enable-cuvid"
+        NVDEC_ARG="--enable-nvdec"
+        FFNV_ARG="--enable-ffnvcodec"
+        EXTRA_CFLAGS="${EXTRA_CFLAGS} -I${CUDA_PATH}/include"
+    else
+        echo "⚠ CUDA found but ffnvcodec (NVENC SDK headers/libs) not found. Disabling CUDA/CUVID/NVDEC/FFNV to avoid configure failure."
+        CUDA_ARG="--disable-cuda"
+        CUVID_ARG="--disable-cuvid"
+        NVDEC_ARG="--disable-nvdec"
+        FFNV_ARG="--disable-ffnvcodec"
+    fi
+fi
 
 # Download FFmpeg source
 echo "Step 4/8: Downloading FFmpeg ${FFMPEG_VERSION}..."
@@ -289,11 +351,11 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-d3d11va \
     --enable-hwaccels \
     --enable-decoder=mjpeg \
-    --enable-cuda \
-    --enable-cuvid \
-    --enable-nvdec \
+    ${CUDA_ARG} \
+    ${CUVID_ARG} \
+    ${NVDEC_ARG} \
     ${NVENC_ARG} \
-    --enable-ffnvcodec \
+    ${FFNV_ARG} \
     --enable-decoder=h264_cuvid \
     --enable-decoder=hevc_cuvid \
     --enable-decoder=mjpeg_cuvid \
@@ -302,7 +364,6 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-decoder=mpeg4_cuvid \
     --enable-decoder=vc1_cuvid \
     --enable-decoder=vp8_cuvid \
-    --enable-decoder=vp9_cuvid \
     --enable-decoder=vp9_cuvid \
     --enable-cross-compile \
     --pkg-config-flags="--static" \

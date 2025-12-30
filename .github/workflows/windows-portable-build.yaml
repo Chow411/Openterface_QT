@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  MINGW_ROOT: C:\\mingw64
+  # MINGW_ROOT is set dynamically from the msys2 setup step to avoid hardcoded C:\\ paths
   QT_PREFIX: C:\\Qt6
   FFMPEG_PREFIX: C:\\ffmpeg-static
   SOURCE_DIR: D:\\a\\openterface\\openterface
@@ -346,6 +346,15 @@ jobs:
           echo "MSYS_MINGW_PATH=$MSYS_MINGW_PATH"
           ls "$MSYS_MINGW_PATH/lib" || echo "$MSYS_MINGW_PATH/lib not found"
 
+          # Export pkg-config path so find modules use correct pkgconfigs
+          export PKG_CONFIG_PATH="${MSYS_MINGW_PATH}/lib/pkgconfig:${MSYS_MINGW_PATH}/share/pkgconfig"
+          echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
+          ls "${MSYS_MINGW_PATH}/lib/pkgconfig" || echo "pkgconfig dir not found"
+
+          # Debug: check zlib presence and pkg-config
+          if [ -f "${MSYS_MINGW_PATH}/lib/libz.a" ]; then echo "FOUND: ${MSYS_MINGW_PATH}/lib/libz.a"; else echo "MISSING: libz.a"; fi
+          pkg-config --exists zlib && echo "pkg-config zlib libs: $(pkg-config --libs zlib)" || echo "pkg-config zlib not found"
+
           # Ensure a clean build dir
           rm -rf build
           mkdir build && cd build
@@ -356,6 +365,9 @@ jobs:
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
             -DCMAKE_LIBRARY_PATH="${MSYS_MINGW_PATH}/lib" \
             -DCMAKE_INCLUDE_PATH="${MSYS_MINGW_PATH}/include" \
+            -DCMAKE_FIND_ROOT_PATH="${MSYS_MINGW_PATH}" \
+            -DMINGW_ROOT="${MSYS_MINGW_PATH}" \
+            -DPKG_CONFIG_PATH="${PKG_CONFIG_PATH}" \
             -DZLIB_LIBRARY="${MSYS_MINGW_PATH}/lib/libz.a" \
             -DZLIB_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
             -DBUILD_SHARED_LIBS=OFF \

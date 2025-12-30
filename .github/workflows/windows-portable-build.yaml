@@ -357,6 +357,7 @@ jobs:
       - name: Build project
         shell: msys2 {0}
         run: |
+          export PATH=/mingw64/bin:$PATH
           cd build
           mingw32-make -j$(nproc)
 

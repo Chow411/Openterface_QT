@@ -342,6 +342,7 @@ jobs:
             mingw-w64-x86_64-libiconv
           
           ls /c/msys64/mingw64/lib || echo "/c/msys64/mingw64/lib not found"
+          ls ${{ env.MINGW_ROOT }} || echo "${{ env.MINGW_ROOT }} not found"
 
           mkdir build && cd build
           cmake .. \
@@ -359,7 +360,7 @@ jobs:
         run: |
           export PATH=/mingw64/bin:$PATH
           cd build
-          mingw32-make -j$(nproc)
+          mingw32-make VERBOSE=1 -j$(nproc)
 
       - name: Verify static linking (no DLL dependencies)
         shell: powershell

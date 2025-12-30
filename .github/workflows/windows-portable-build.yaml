@@ -270,10 +270,21 @@ jobs:
 
       - name: Restore Qt cache (if artifact missing)
         if: steps.check-qt-artifact.outputs.qt-artifact-present == 'false'
+        id: restore-qt
         uses: actions/cache@v4
         with:
           path: ${{ env.QT_PREFIX }}
           key: qt-6.6.3-msys2-mingw64-windows-static-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
+
+      - name: Show Qt cache restore result
+        if: steps.check-qt-artifact.outputs.qt-artifact-present == 'false'
+        run: |
+          echo "qt-cache-hit=${{ steps.restore-qt.outputs.cache-hit }}"
+
+      - name: List Qt directory (PowerShell debug)
+        run: |
+          echo "QT_PREFIX=${{ env.QT_PREFIX }}"
+          if (Test-Path "${{ env.QT_PREFIX }}") { dir "${{ env.QT_PREFIX }}" } else { echo "${{ env.QT_PREFIX }} not found" }
 
       - name: Download FFmpeg artifact
         uses: actions/download-artifact@v4
@@ -290,26 +301,42 @@ jobs:
 
       - name: Restore FFmpeg cache (if artifact missing)
         if: steps.check-ffmpeg-artifact.outputs.ffmpeg-artifact-present == 'false'
+        id: restore-ffmpeg
         uses: actions/cache@v4
         with:
           path: ${{ env.FFMPEG_PREFIX }}
           key: ffmpeg-static-msys2-mingw64-windows-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
+
+      - name: Show FFmpeg cache restore result
+        if: steps.check-ffmpeg-artifact.outputs.ffmpeg-artifact-present == 'false'
+        run: |
+          echo "ffmpeg-cache-hit=${{ steps.restore-ffmpeg.outputs.cache-hit }}"
+
+      - name: List FFmpeg directory (PowerShell debug)
+        run: |
+          echo "FFMPEG_PREFIX=${{ env.FFMPEG_PREFIX }}"
+          if (Test-Path "${{ env.FFMPEG_PREFIX }}") { dir "${{ env.FFMPEG_PREFIX }}" } else { echo "${{ env.FFMPEG_PREFIX }} not found" }
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
+      - name: List Qt/FFmpeg in msys2 (debug)
+        shell: msys2 {0}
+        run: |
+          echo "Listing /c/Qt6 and /c/ffmpeg-static"
+          ls /c/Qt6 || echo "/c/Qt6 not found"
+          ls /c/ffmpeg-static || echo "/c/ffmpeg-static not found"
+
       - name: Configure CMake (Static Build)
         shell: msys2 {0}
         run: |
-          ls \\c\\ffmpeg-static
-          ls \\c\\qt-static
           mkdir build && cd build
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="/c/qt-static/Qt6;/c/ffmpeg-static" \
+            -DCMAKE_PREFIX_PATH="/c/Qt6;/c/ffmpeg-static" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
         env:

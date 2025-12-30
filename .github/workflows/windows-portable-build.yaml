@@ -35,6 +35,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
+          location: C:\msys64
           install: |
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
@@ -66,14 +67,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.QT_PREFIX }}
-          key: qt-6.6.3-msys2-mingw64-windows-static-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
+          key: qt-6.6.3-msys2-mingw64-windows-static-v2-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
 
       - name: Cache FFmpeg static build
         id: cache-ffmpeg
         uses: actions/cache@v4
         with:
           path: ${{ env.FFMPEG_PREFIX }}
-          key: ffmpeg-static-msys2-mingw64-windows-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
+          key: ffmpeg-static-msys2-mingw64-windows-v2-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
 
   build-qt:
     name: Build Qt 6.6.3 (Static)
@@ -94,6 +95,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
+          location: C:\msys64
           install: |
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
@@ -140,7 +142,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.QT_PREFIX }}
-          key: qt-6.6.3-msys2-mingw64-windows-static-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
+          key: qt-6.6.3-msys2-mingw64-windows-static-v2-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
 
   build-ffmpeg:
     name: Build FFmpeg (Static)
@@ -161,6 +163,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
+          location: C:\msys64
           install: |
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
@@ -210,7 +213,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.FFMPEG_PREFIX }}
-          key: ffmpeg-static-msys2-mingw64-windows-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
+          key: ffmpeg-static-msys2-mingw64-windows-v2-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
 
   build-project:
     name: Build Main Project (Static & Portable)
@@ -265,7 +268,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.QT_PREFIX }}
-          key: qt-6.6.3-msys2-mingw64-windows-static-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
+          key: qt-6.6.3-msys2-mingw64-windows-static-v2-${{ hashFiles('build-script/build-static-qt-from-source.sh') }}
 
       - name: Show Qt cache restore result
         run: |
@@ -289,7 +292,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.FFMPEG_PREFIX }}
-          key: ffmpeg-static-msys2-mingw64-windows-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
+          key: ffmpeg-static-msys2-mingw64-windows-v2-${{ hashFiles('build-script/build-static-ffmpeg-windows.sh') }}
 
       - name: Show FFmpeg cache restore result
         run: |

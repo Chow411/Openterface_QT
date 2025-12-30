@@ -304,6 +304,7 @@ export PKG_CONFIG_PATH="${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH
     --enable-decoder=vp8_cuvid \
     --enable-decoder=vp9_cuvid \
     --enable-decoder=vp9_cuvid \
+    --enable-cross-compile \
     --pkg-config-flags="--static" \
     --extra-cflags="${EXTRA_CFLAGS}" \
     --extra-ldflags="${EXTRA_LDFLAGS}"

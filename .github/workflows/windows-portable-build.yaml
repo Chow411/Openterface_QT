@@ -36,7 +36,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: nasm zlib bzip2 xz openssl
+          install: nasm zlib bzip2 xz openssl libmfx
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
@@ -128,7 +128,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: nasm zlib bzip2 xz openssl
+          install: nasm zlib bzip2 xz openssl libmfx
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
@@ -164,7 +164,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: nasm zlib bzip2 xz openssl
+          install: nasm zlib bzip2 xz openssl libmfx
 
       - name: Set MINGW_ROOT
         run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV

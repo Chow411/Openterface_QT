@@ -3,8 +3,6 @@
 # Option to control USB functionality
 option(USE_USB "Enable USB functionality via libusb" ON)
 
-find_package(QT NAMES Qt5 Qt6 REQUIRED COMPONENTS Core)
-
 # Detect ARM64 architecture for both cross-compilation and native builds
 if(OPENTERFACE_IS_ARM64)    
     # Apply ARM64-specific optimizations for native builds
@@ -59,6 +57,11 @@ else()
     list(GET CMAKE_PREFIX_PATH 0 QT_BUILD_PATH)
     message(STATUS "QT_BUILD_PATH set from CMAKE_PREFIX_PATH: ${QT_BUILD_PATH}")
 endif()
+
+# Detect Qt toolchain (Qt5 or Qt6) after CMAKE_PREFIX_PATH has been set so user-provided
+# paths (e.g. -DCMAKE_PREFIX_PATH="/c/Qt6") are honored during configuration.
+find_package(QT NAMES Qt5 Qt6 REQUIRED COMPONENTS Core)
+
 
 # Find pkg-config dependencies required by Qt components (Linux only)
 if(NOT WIN32)

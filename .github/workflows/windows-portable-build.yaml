@@ -265,6 +265,7 @@ jobs:
             mingw-w64-x86_64-libmfx
             mingw-w64-x86_64-libiconv
             mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-brotli
             diffutils
             make
             libtool
@@ -482,6 +483,23 @@ jobs:
           if [ -f CMakeCache.txt ]; then
             grep -E 'JPEG_LIBRARY|TURBOJPEG_LIBRARY|LIBUSB|ZSTD|B2|BROTLI|ZLIB' CMakeCache.txt || true
           fi
+
+          # Additional brotli diagnostics: show actual files and whether they contain key symbols
+          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" ]; then
+            echo "Inspecting: ${MSYS_MINGW_PATH}/lib/libbrotlicommon.a"
+            nm -g --defined-only "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" | grep -E "BrotliTransformDictionaryWord|BrotliSharedDictionary" || true
+          else
+            echo "libbrotlicommon.a not found in ${MSYS_MINGW_PATH}/lib"
+          fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then
+            echo "Inspecting: ${MSYS_MINGW_PATH}/lib/libbrotlidec.a"
+            nm -g --defined-only "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" | grep -E "BrotliTransformDictionaryWord|BrotliSharedDictionary" || true
+          fi
+
+          # Show link response files to confirm which libraries will be passed to linker
+          echo "--- Link response files (CMakeFiles/*/linkLibs.rsp) ---"
+          for f in CMakeFiles/*/linkLibs.rsp; do echo "---- $f ----"; sed -n '1,200p' "$f" || true; done || true
+          echo "--- End link response files ---"
 
         env:
           CC: gcc

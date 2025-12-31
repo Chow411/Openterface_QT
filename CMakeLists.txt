@@ -179,6 +179,18 @@ if(OPENTERFACE_BUILD_STATIC AND WIN32)
         if(BROTLI_DEC_LIB AND NOT BROTLI_COM_LIB)
             message(FATAL_ERROR "Found brotli decoder library (${BROTLI_DEC_LIB}) but could not find brotlicommon (static).\nPlease install a static brotlicommon (e.g. 'mingw-w64-x86_64-brotli') or provide the path via -DBROTLI_COM_LIB=/path/to/libbrotlicommon.a")
         endif()
+
+        # If both brotli decoder and common libs are available, link them carefully.
+        if(BROTLI_DEC_LIB AND BROTLI_COM_LIB)
+            message(STATUS "Linking brotli decoder and common static libraries: ${BROTLI_DEC_LIB} , ${BROTLI_COM_LIB}")
+            # First add normally to keep expected order
+            target_link_libraries(${PROJECT_NAME} PRIVATE ${BROTLI_DEC_LIB} ${BROTLI_COM_LIB})
+
+            # Some msys/MinGW toolchains may not extract all necessary objects from archives unless forced;
+            # use --whole-archive as a safe fallback to ensure symbols from the brotli archives are included.
+            # This may increase binary size but prevents undefined references like BrotliTransformDictionaryWord.
+            target_link_libraries(${PROJECT_NAME} PRIVATE "-Wl,--whole-archive" ${BROTLI_DEC_LIB} ${BROTLI_COM_LIB} "-Wl,--no-whole-archive")
+        endif()
         find_library(TURBOJPEG_LIB NAMES turbojpeg libturbojpeg.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
         find_library(LIBUSB_LIB NAMES usb-1.0 libusb-1.0.a libusb PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
         find_library(ZSTD_LIB NAMES zstd libzstd.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)

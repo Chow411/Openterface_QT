@@ -398,6 +398,7 @@ jobs:
           echo "MSYS_MINGW_PATH=$MSYS_MINGW_PATH"
           ls "$MSYS_MINGW_PATH/lib" || echo "$MSYS_MINGW_PATH/lib not found"
           ls /mingw64/lib || echo "/mingw64/lib not found"
+          
 
           # Export pkg-config path so find modules use correct pkgconfigs
           export PKG_CONFIG_PATH="${MSYS_MINGW_PATH}/lib/pkgconfig:${MSYS_MINGW_PATH}/share/pkgconfig"
@@ -422,6 +423,30 @@ jobs:
             echo "FOUND: /c/ffmpeg-static/lib/libturbojpeg.a"
           else 
             echo "MISSING: /c/ffmpeg-static/lib/libturbojpeg.a"
+          fi
+
+          # Copy discovered static libs into MSYS MINGW lib dir so CMake/find_library can find real .a files
+          if [ -n "$MSYS_MINGW_PATH" ]; then
+            echo "Copying available static libs into ${MSYS_MINGW_PATH}/lib"
+            for f in libb2.a libbrotlidec.a libbrotlicommon.a libturbojpeg.a libusb-1.0.a libzstd.a libcrypto.a libssl.a; do
+              if [ -f "/c/ffmpeg-static/lib/$f" ]; then
+                echo "Copy /c/ffmpeg-static/lib/$f -> ${MSYS_MINGW_PATH}/lib/"
+                cp "/c/ffmpeg-static/lib/$f" "${MSYS_MINGW_PATH}/lib/" || true
+              fi
+              if [ -f "${MSYS_MINGW_PATH}/lib/$f" ]; then
+                echo "Present in ${MSYS_MINGW_PATH}/lib: $f"
+              fi
+            done
+
+            # Also copy any found .a from the current repo build location (if applicable)
+            for f in libb2.a libbrotlidec.a libbrotlicommon.a libturbojpeg.a libusb-1.0.a libzstd.a libcrypto.a libssl.a; do
+              if [ -f "/c/Qt6/lib/$f" ]; then
+                echo "Copy /c/Qt6/lib/$f -> ${MSYS_MINGW_PATH}/lib/"
+                cp "/c/Qt6/lib/$f" "${MSYS_MINGW_PATH}/lib/" || true
+              fi
+            done
+          else
+            echo "MSYS_MINGW_PATH not set; skipping copy of static libs"
           fi
 
           # Ensure a clean build dir
@@ -461,8 +486,6 @@ jobs:
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DMINGW_ROOT="${MSYS_MINGW_PATH}" \
-            -DMINGW_LIB_DIR="${MSYS_MINGW_PATH}" \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
             -DCMAKE_LIBRARY_PATH="${MSYS_MINGW_PATH}/lib;/c/ffmpeg-static/lib" \
             -DCMAKE_INCLUDE_PATH="${MSYS_MINGW_PATH}/include" \

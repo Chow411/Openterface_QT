@@ -157,7 +157,7 @@ if(OPENTERFACE_BUILD_STATIC AND WIN32)
     endif()
 
     if(DEFINED MINGW_ROOT_DIR)
-        set(MINGW_LIB_DIR "${MINGW_ROOT_DIR}/lib")
+        set(MINGW_LIB_DIR "/mingw64/lib")
         # Remove any accidental newlines from existing flags and append single-line options
         string(REPLACE "\n" " " _tmp "${CMAKE_EXE_LINKER_FLAGS}")
         set(CMAKE_EXE_LINKER_FLAGS "${_tmp} -L${MINGW_LIB_DIR} -static-libgcc -static-libstdc++ -static")

@@ -122,12 +122,14 @@ jobs:
         run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
 
       - name: Build Qt statically from source
+        if: needs.setup-env.outputs.qt-cache-hit != 'true'
         shell: msys2 {0}
         
         run: |
           ./build-script/build-static-qt-from-source.sh
         
       - name: Verify Qt build succeeded
+        if: needs.setup-env.outputs.qt-cache-hit != 'true'
         shell: powershell
         run: |
           if (-not (Test-Path "${{ env.QT_PREFIX }}\lib\cmake\Qt6\Qt6Config.cmake")) {
@@ -136,6 +138,7 @@ jobs:
           Write-Host "✅ Qt build verified"
 
       - name: Upload Qt artifact
+        if: needs.setup-env.outputs.qt-cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: qt-static
@@ -143,6 +146,7 @@ jobs:
           retention-days: 1
 
       - name: Save Qt cache
+        if: needs.setup-env.outputs.qt-cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.QT_PREFIX }}
@@ -193,6 +197,7 @@ jobs:
         run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
 
       - name: Build FFmpeg statically
+        if: needs.setup-env.outputs.ffmpeg-cache-hit != 'true'
         shell: msys2 {0}
         run: |
           ./build-script/build-static-ffmpeg-windows.sh
@@ -203,6 +208,7 @@ jobs:
           SKIP_PACKAGE_MINGW: 1
 
       - name: Verify FFmpeg build succeeded
+        if: needs.setup-env.outputs.ffmpeg-cache-hit != 'true'
         shell: powershell
         run: |
           if (-not (Test-Path "${{ env.FFMPEG_PREFIX }}\lib\libavcodec.a")) {
@@ -211,6 +217,7 @@ jobs:
           Write-Host "✅ FFmpeg build verified"
 
       - name: Upload FFmpeg artifact
+        if: needs.setup-env.outputs.ffmpeg-cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-static
@@ -218,6 +225,7 @@ jobs:
           retention-days: 1
 
       - name: Save FFmpeg cache
+        if: needs.setup-env.outputs.ffmpeg-cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.FFMPEG_PREFIX }}

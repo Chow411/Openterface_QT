@@ -38,20 +38,6 @@ endif()
 message(STATUS "OPENTERFACE_IS_ARM64: ${OPENTERFACE_IS_ARM64}")
 message(STATUS "OPENTERFACE_IS_AMD64: ${OPENTERFACE_IS_AMD64}")
 
-# When building static on Windows, prefer real static libraries (.a) over import libs (.dll.a)
-if(OPENTERFACE_BUILD_STATIC AND WIN32)
-    # Prefer .a first when searching for libraries
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".dll.a" ".lib")
-    message(STATUS "CMAKE_FIND_LIBRARY_SUFFIXES set to: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
-
-    # If test-time environment provides MINGW_ROOT, prepend its lib dir to CMake library search path
-    if(NOT "$ENV{MINGW_ROOT}" STREQUAL "")
-        set(MINGW_LIB_DIR "$ENV{MINGW_ROOT}/lib")
-        list(INSERT CMAKE_LIBRARY_PATH 0 "${MINGW_LIB_DIR}")
-        message(STATUS "Prioritizing MINGW lib dir for find_library: ${MINGW_LIB_DIR}")
-    endif()
-endif()
-
 include(cmake/Configuration.cmake)
 
 # Provide FFmpeg helper functions (defines add_ffmpeg_static_libraries)
@@ -143,84 +129,17 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # For static Qt builds on Windows with MinGW, link MinGW runtime libraries
+# When building static on Windows, prefer real static libraries (.a) over import libs (.dll.a)
 if(OPENTERFACE_BUILD_STATIC AND WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE mingw32 mingwex)
+    # Prefer .a first when searching for libraries
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".dll.a" ".lib")
+    message(STATUS "CMAKE_FIND_LIBRARY_SUFFIXES set to: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
 
-    # Try to detect MINGW root from environment or common install path
+    # If test-time environment provides MINGW_ROOT, prepend its lib dir to CMake library search path
     if(NOT "$ENV{MINGW_ROOT}" STREQUAL "")
-        set(MINGW_ROOT_DIR "$ENV{MINGW_ROOT}")
-    endif()
-    if(NOT DEFINED MINGW_ROOT_DIR)
-        if(EXISTS "C:/msys64/mingw64")
-            set(MINGW_ROOT_DIR "C:/msys64/mingw64")
-        endif()
-    endif()
-
-    if(DEFINED MINGW_ROOT_DIR)
-        set(MINGW_LIB_DIR "/mingw64/lib")
-        # Remove any accidental newlines from existing flags and append single-line options
-        string(REPLACE "\n" " " _tmp "${CMAKE_EXE_LINKER_FLAGS}")
-        set(CMAKE_EXE_LINKER_FLAGS "${_tmp} -L${MINGW_LIB_DIR} -static-libgcc -static-libstdc++ -static")
-        message(STATUS "Added MINGW lib dir to linker flags: ${MINGW_LIB_DIR}")
-
-        # Find common static libs in the MINGW lib dir and link them if present
-        find_library(B2_LIB NAMES b2 libb2.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
-        # Try finding brotli decoder and common libs (search both MINGW and FFmpeg prefixes)
-        find_library(BROTLI_DEC_LIB NAMES brotlidec libbrotlidec.a PATHS ${MINGW_LIB_DIR} /c/ffmpeg-static/lib NO_DEFAULT_PATH)
-        # brotlicommon contains static lookup tables and must be linked together with brotlidec
-        find_library(BROTLI_COM_LIB NAMES brotlicommon libbrotlicommon.a brotli libbrotli.a PATHS ${MINGW_LIB_DIR} /c/ffmpeg-static/lib NO_DEFAULT_PATH)
-
-        # Accept user-provided explicit static library paths (DBROTLI_DEC_LIBRARY / DBROTLI_COM_LIBRARY) as fallbacks
-        if(NOT BROTLI_DEC_LIB AND DEFINED BROTLI_DEC_LIBRARY AND EXISTS "${BROTLI_DEC_LIBRARY}")
-            set(BROTLI_DEC_LIB "${BROTLI_DEC_LIBRARY}")
-            message(STATUS "Using user-provided BROTLI_DEC_LIBRARY: ${BROTLI_DEC_LIB}")
-        endif()
-        if(NOT BROTLI_COM_LIB AND DEFINED BROTLI_COM_LIBRARY AND EXISTS "${BROTLI_COM_LIBRARY}")
-            set(BROTLI_COM_LIB "${BROTLI_COM_LIBRARY}")
-            message(STATUS "Using user-provided BROTLI_COM_LIBRARY: ${BROTLI_COM_LIB}")
-        endif()
-
-        # If decoder found but common part missing, try a couple of common alternative names and finally fail with guidance
-        if(BROTLI_DEC_LIB AND NOT BROTLI_COM_LIB)
-            message(STATUS "brotlidec found at ${BROTLI_DEC_LIB} but brotlicommon not found in ${MINGW_LIB_DIR} or /c/ffmpeg-static/lib; trying alternate names...")
-            find_library(BROTLI_COM_LIB NAMES brotlicommon libbrotlicommon.a brotli libbrotli.a PATHS ${MINGW_LIB_DIR} /c/ffmpeg-static/lib C:/msys64/mingw64/lib NO_DEFAULT_PATH)
-        endif()
-
-        if(BROTLI_DEC_LIB AND NOT BROTLI_COM_LIB)
-            message(FATAL_ERROR "Found brotli decoder library (${BROTLI_DEC_LIB}) but could not find brotlicommon (static).\nPlease install a static brotlicommon (e.g. 'mingw-w64-x86_64-brotli') or provide the path via -DBROTLI_COM_LIB=/path/to/libbrotlicommon.a or -DBROTLI_COM_LIBRARY=/path/to/libbrotlicommon.a")
-        endif()
-
-        # If both brotli decoder and common libs are available, link them carefully.
-        if(BROTLI_DEC_LIB AND BROTLI_COM_LIB)
-            message(STATUS "Linking brotli decoder and common static libraries: ${BROTLI_DEC_LIB} , ${BROTLI_COM_LIB}")
-            # First add normally to keep expected order
-            target_link_libraries(${PROJECT_NAME} PRIVATE ${BROTLI_DEC_LIB} ${BROTLI_COM_LIB})
-
-            # Some msys/MinGW toolchains may not extract all necessary objects from archives unless forced;
-            # use --whole-archive as a safe fallback to ensure symbols from the brotli archives are included.
-            # This may increase binary size but prevents undefined references like BrotliTransformDictionaryWord.
-            target_link_libraries(${PROJECT_NAME} PRIVATE "-Wl,--whole-archive" ${BROTLI_DEC_LIB} ${BROTLI_COM_LIB} "-Wl,--no-whole-archive")
-        endif()
-        find_library(TURBOJPEG_LIB NAMES turbojpeg libturbojpeg.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
-        find_library(LIBUSB_LIB NAMES usb-1.0 libusb-1.0.a libusb PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
-        find_library(ZSTD_LIB NAMES zstd libzstd.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
-        find_library(BZIP2_LIB NAMES bz2 libbz2.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
-        find_library(ZLIB_LIB NAMES z libz.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
-        find_library(JPEG_LIB NAMES jpeg libjpeg.a libjpeg PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
-
-        set(MINGW_STATIC_LIB_VARS B2_LIB BROTLI_DEC_LIB BROTLI_COM_LIB TURBOJPEG_LIB LIBUSB_LIB ZSTD_LIB BZIP2_LIB ZLIB_LIB JPEG_LIB)
-        foreach(_lib_var IN LISTS MINGW_STATIC_LIB_VARS)
-            # Only link when the variable is non-empty and not set to "...-NOTFOUND"
-            if(NOT "${${_lib_var}}" STREQUAL "" AND NOT "${${_lib_var}}" MATCHES "-NOTFOUND$")
-                target_link_libraries(${PROJECT_NAME} PRIVATE ${${_lib_var}})
-                message(STATUS "Linking static library from MINGW: ${${_lib_var}}")
-            else()
-                message(STATUS "Static library not found or NOTFOUND (skipping): ${_lib_var}")
-            endif()
-        endforeach()
-    else()
-        message(WARNING "MINGW_ROOT not defined and default MINGW path not found; keeping default linker flags")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static")
+        set(MINGW_LIB_DIR "$ENV{MINGW_ROOT}")
+        list(INSERT CMAKE_LIBRARY_PATH 0 "${MINGW_LIB_DIR}")
+        message(STATUS "Prioritizing MINGW lib dir for find_library: ${MINGW_LIB_DIR}")
     endif()
 endif()
 

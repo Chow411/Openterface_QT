@@ -461,7 +461,7 @@ jobs:
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DMINGW_ROOT_DIR="${MSYS_MINGW_PATH}" \
+            -DMINGW_ROOT="${MSYS_MINGW_PATH}" \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
             -DCMAKE_LIBRARY_PATH="${MSYS_MINGW_PATH}/lib;/c/ffmpeg-static/lib" \
             -DCMAKE_INCLUDE_PATH="${MSYS_MINGW_PATH}/include" \

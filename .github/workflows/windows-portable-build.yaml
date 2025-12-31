@@ -47,8 +47,11 @@ jobs:
             mingw-w64-x86_64-xz
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-libmfx
-            mingw-w64-x86_64-libjpeg-turbo
             mingw-w64-x86_64-libiconv
+            mingw-w64-x86_64-libb2
+            mingw-w64-x86_64-brotli
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-libusb
             diffutils
             make
             libtool
@@ -106,8 +109,10 @@ jobs:
             mingw-w64-x86_64-xz
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-libmfx
-            mingw-w64-x86_64-libjpeg-turbo
             mingw-w64-x86_64-libiconv
+            mingw-w64-x86_64-libb2
+            mingw-w64-x86_64-brotli
+            mingw-w64-x86_64-libjpeg-turbo
             mingw-w64-x86_64-libusb
             mingw-w64-x86_64-lld
             diffutils
@@ -183,7 +188,6 @@ jobs:
             mingw-w64-x86_64-xz
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-libmfx
-            mingw-w64-x86_64-libjpeg-turbo
             mingw-w64-x86_64-libiconv
             mingw-w64-x86_64-libusb
             diffutils
@@ -259,7 +263,6 @@ jobs:
             mingw-w64-x86_64-xz
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-libmfx
-            mingw-w64-x86_64-libjpeg-turbo
             mingw-w64-x86_64-libiconv
             mingw-w64-x86_64-libusb
             diffutils
@@ -377,8 +380,10 @@ jobs:
             mingw-w64-x86_64-xz \
             mingw-w64-x86_64-openssl \
             mingw-w64-x86_64-libmfx \
-            mingw-w64-x86_64-libjpeg-turbo \
             mingw-w64-x86_64-libiconv \
+            mingw-w64-x86_64-libb2 \
+            mingw-w64-x86_64-brotli \
+            mingw-w64-x86_64-libjpeg-turbo \
             mingw-w64-x86_64-libusb
           
           # Convert Windows-style $MINGW_ROOT to msys path and debug (fallback to /mingw64 if empty)
@@ -400,6 +405,14 @@ jobs:
           # Debug: check zlib presence and pkg-config
           if [ -f "${MSYS_MINGW_PATH}/lib/libz.a" ]; then echo "FOUND: ${MSYS_MINGW_PATH}/lib/libz.a"; else echo "MISSING: libz.a"; fi
           pkg-config --exists zlib && echo "pkg-config zlib libs: $(pkg-config --libs zlib)" || echo "pkg-config zlib not found"
+
+          # Debug: check static libraries for libb2, brotli, turbojpeg, libusb
+          echo "Checking for static libraries to be linked:"
+          if [ -f "${MSYS_MINGW_PATH}/lib/libb2.a" ]; then echo "FOUND: libb2.a"; else echo "MISSING: libb2.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then echo "FOUND: libbrotlidec.a"; else echo "MISSING: libbrotlidec.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" ]; then echo "FOUND: libbrotlicommon.a"; else echo "MISSING: libbrotlicommon.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" ]; then echo "FOUND: libturbojpeg.a"; else echo "MISSING: libturbojpeg.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" ]; then echo "FOUND: libusb-1.0.a"; else echo "MISSING: libusb-1.0.a"; fi
 
           # Ensure a clean build dir
           rm -rf build
@@ -434,6 +447,12 @@ jobs:
             -DZLIB_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
             -DBZIP2_LIBRARY="${MSYS_MINGW_PATH}/lib/libbz2.a" \
             -DBZIP2_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
+            -Db2_LIBRARY="${MSYS_MINGW_PATH}/lib/libb2.a" \
+            -DBROTLIDEC_LIBRARY="${MSYS_MINGW_PATH}/lib/libbrotlidec.a" \
+            -DBROTLICOMMON_LIBRARY="${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" \
+            -DJPEG_LIBRARY="/c/ffmpeg-static/lib/libturbojpeg.a" \
+            -DLIBUSB_LIBRARY="${MSYS_MINGW_PATH}/lib/libusb-1.0.a" \
+            -DLIBUSB_INCLUDE_DIR="${MSYS_MINGW_PATH}/include/libusb-1.0" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
         env:

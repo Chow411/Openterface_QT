@@ -38,6 +38,20 @@ endif()
 message(STATUS "OPENTERFACE_IS_ARM64: ${OPENTERFACE_IS_ARM64}")
 message(STATUS "OPENTERFACE_IS_AMD64: ${OPENTERFACE_IS_AMD64}")
 
+# When building static on Windows, prefer real static libraries (.a) over import libs (.dll.a)
+if(OPENTERFACE_BUILD_STATIC AND WIN32)
+    # Prefer .a first when searching for libraries
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".dll.a" ".lib")
+    message(STATUS "CMAKE_FIND_LIBRARY_SUFFIXES set to: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
+
+    # If test-time environment provides MINGW_ROOT, prepend its lib dir to CMake library search path
+    if(NOT "$ENV{MINGW_ROOT}" STREQUAL "")
+        set(MINGW_LIB_DIR "$ENV{MINGW_ROOT}/lib")
+        list(INSERT CMAKE_LIBRARY_PATH 0 "${MINGW_LIB_DIR}")
+        message(STATUS "Prioritizing MINGW lib dir for find_library: ${MINGW_LIB_DIR}")
+    endif()
+endif()
+
 include(cmake/Configuration.cmake)
 
 # Provide FFmpeg helper functions (defines add_ffmpeg_static_libraries)

@@ -443,7 +443,20 @@ jobs:
 
           # Force static linking by setting linker flags
           export LDFLAGS="-L${MSYS_MINGW_PATH}/lib -static-libgcc -static-libstdc++"
-          
+
+          # Build EXTRA CMake flags to prefer explicit static libs when present (from FFmpeg prefix or MINGW)
+          EXTRA=""
+          if [ -f "/c/ffmpeg-static/lib/libjpeg.a" ]; then EXTRA="$EXTRA -DJPEG_LIBRARY=/c/ffmpeg-static/lib/libjpeg.a -DTURBOJPEG_LIBRARY=/c/ffmpeg-static/lib/libturbojpeg.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" ]; then EXTRA="$EXTRA -DTURBOJPEG_LIBRARY=${MSYS_MINGW_PATH}/lib/libturbojpeg.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" ]; then EXTRA="$EXTRA -DLIBUSB_LIBRARIES=${MSYS_MINGW_PATH}/lib/libusb-1.0.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libzstd.a" ]; then EXTRA="$EXTRA -DZSTD_LIBRARY=${MSYS_MINGW_PATH}/lib/libzstd.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libb2.a" ]; then EXTRA="$EXTRA -DB2_LIBRARY=${MSYS_MINGW_PATH}/lib/libb2.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then EXTRA="$EXTRA -DBROTLI_DEC_LIBRARY=${MSYS_MINGW_PATH}/lib/libbrotlidec.a -DBROTLI_COM_LIBRARY=${MSYS_MINGW_PATH}/lib/libbrotlicommon.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libz.a" ]; then EXTRA="$EXTRA -DZLIB_LIBRARY=${MSYS_MINGW_PATH}/lib/libz.a -DZLIB_INCLUDE_DIR=${MSYS_MINGW_PATH}/include"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libbz2.a" ]; then EXTRA="$EXTRA -DBZIP2_LIBRARY=${MSYS_MINGW_PATH}/lib/libbz2.a -DBZIP2_INCLUDE_DIR=${MSYS_MINGW_PATH}/include"; fi
+
+          echo "Extra CMake flags: ${EXTRA}"
+
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
@@ -461,7 +474,7 @@ jobs:
             -DBZIP2_LIBRARY="${MSYS_MINGW_PATH}/lib/libbz2.a" \
             -DBZIP2_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
             -DBUILD_SHARED_LIBS=OFF \
-            -DSTATIC_LINKAGE=ON
+            -DSTATIC_LINKAGE=ON ${EXTRA}
         env:
           CC: gcc
           CXX: g++

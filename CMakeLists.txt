@@ -5,6 +5,12 @@ project(openterfaceQT VERSION 1.0 LANGUAGES C CXX)
 option(OPENTERFACE_BUILD_STATIC "Link libraries statically where possible" ON)
 message(STATUS "OPENTERFACE_BUILD_STATIC: ${OPENTERFACE_BUILD_STATIC}")
 
+# If we want a static build on Windows prefer .a libraries when CMake searches (set early so find_package uses it)
+if(OPENTERFACE_BUILD_STATIC AND WIN32)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".dll.a" ".lib")
+    message(STATUS "Early CMAKE_FIND_LIBRARY_SUFFIXES set to: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
+endif()
+
 # Detect architecture at top-level so users can override via -DOPENTERFACE_ARCH if desired
 if(NOT DEFINED OPENTERFACE_ARCH)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
@@ -313,6 +319,16 @@ endif()
 
 # Add FFmpeg libraries if available
 link_ffmpeg_libraries()
+
+# Diagnostic: detect if generated link response files contain references to .dll or import libs
+# (helps detect cases where import libs / shared libs are still used instead of static .a)
+file(GLOB LINK_RSP_FILES "${CMAKE_BINARY_DIR}/CMakeFiles/*/linkLibs.rsp")
+foreach(_f IN LISTS LINK_RSP_FILES)
+    file(READ "${_f}" _content)
+    if(_content MATCHES "\\.dll" OR _content MATCHES "dll\.a")
+        message(WARNING "Link response file ${_f} contains .dll references; build may still depend on DLLs. Inspect the file to find which libraries are used.")
+    endif()
+endforeach()
 
 # Add libjpeg libraries if available
 if(LIBJPEG_FOUND)

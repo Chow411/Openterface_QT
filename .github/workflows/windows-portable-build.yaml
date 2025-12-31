@@ -474,6 +474,15 @@ jobs:
             -DZLIB_LIBRARY="${MSYS_MINGW_PATH}/lib/libz.a" \
             -DZLIB_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
             -DBZIP2_LIBRARY="${MSYS_MINGW_PATH}/lib/libbz2.a" \
+            -DB2_LIBRARY="${MSYS_MINGW_PATH}/lib/libb2.a" \
+            -DBROTLI_DEC_LIBRARY="${MSYS_MINGW_PATH}/lib/libbrotlidec.a" \
+            -DBROTLI_COM_LIBRARY="${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" \
+            -DOPENSSL_CRYPTO_LIBRARY="${MSYS_MINGW_PATH}/lib/libcrypto.a" \
+            -DOPENSSL_SSL_LIBRARY="${MSYS_MINGW_PATH}/lib/libssl.a" \
+            -DOPENSSL_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
+            -DLIBUSB_LIBRARIES="${MSYS_MINGW_PATH}/lib/libusb-1.0.a" \
+            -DZSTD_LIBRARY="${MSYS_MINGW_PATH}/lib/libzstd.a" \
+            -DTURBOJPEG_LIBRARY="${MSYS_MINGW_PATH}/lib/libturbojpeg.a" \
             -DBZIP2_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON ${EXTRA}

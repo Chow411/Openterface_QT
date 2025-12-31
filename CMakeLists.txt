@@ -7,7 +7,7 @@ message(STATUS "OPENTERFACE_BUILD_STATIC: ${OPENTERFACE_BUILD_STATIC}")
 
 # If we want a static build on Windows prefer .a libraries when CMake searches (set early so find_package uses it)
 if(OPENTERFACE_BUILD_STATIC AND WIN32)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".dll.a" ".lib")
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
     message(STATUS "Early CMAKE_FIND_LIBRARY_SUFFIXES set to: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
 endif()
 

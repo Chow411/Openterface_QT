@@ -136,7 +136,7 @@ jobs:
           if (-not (Test-Path "${{ env.QT_PREFIX }}\lib\cmake\Qt6\Qt6Config.cmake")) {
             throw "Qt build failed - Qt6Config.cmake not found"
           }
-          Write-Host "✅ Qt build verified"
+          Write-Host "SUCCESS: Qt build verified"
 
       - name: Upload Qt artifact
         if: needs.setup-env.outputs.qt-cache-hit != 'true'
@@ -216,7 +216,7 @@ jobs:
           if (-not (Test-Path "${{ env.FFMPEG_PREFIX }}\lib\libavcodec.a")) {
             throw "FFmpeg build failed - libavcodec.a not found"
           }
-          Write-Host "✅ FFmpeg build verified"
+          Write-Host "SUCCESS: FFmpeg build verified"
 
       - name: Upload FFmpeg artifact
         if: needs.setup-env.outputs.ffmpeg-cache-hit != 'true'
@@ -379,7 +379,6 @@ jobs:
             mingw-w64-x86_64-libmfx \
             mingw-w64-x86_64-libjpeg-turbo \
             mingw-w64-x86_64-libiconv \
-            mingw-w64-x86_64-libusb \
             mingw-w64-x86_64-libusb
           
           # Convert Windows-style $MINGW_ROOT to msys path and debug (fallback to /mingw64 if empty)
@@ -452,7 +451,7 @@ jobs:
         run: |
           $exe = "build\Release\openterfaceQT-portable.exe"  
           if (-not (Test-Path $exe)) {
-            $exe = "build\openterfaceQT-portable.exe"  # Debug or no subfolder
+            $exe = "build\openterfaceQT-portable.exe"
           }
           if (-not (Test-Path $exe)) {
             throw "Executable not found!"
@@ -463,7 +462,7 @@ jobs:
             $deps
             exit 1
           } else {
-            Write-Host "✅ No DLL dependencies — fully static!"
+            Write-Host "SUCCESS: No DLL dependencies - fully static!"
           }
 
       - name: Upload final portable executable

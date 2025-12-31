@@ -504,13 +504,17 @@ jobs:
         env:
           CC: gcc
           CXX: g++
-          MINGW_ROOT_DIR: ${{ env.MINGW_ROOT }}
+          MINGW_ROOT: ${{ env.MINGW_ROOT }}
+          MINGW_ROOT_DOS: ${{ env.MINGW_ROOT }}
 
       - name: Build project
         shell: msys2 {0}
         run: |
           cd build
           mingw32-make VERBOSE=1 -j$(nproc)
+        env:
+          MINGW_ROOT: ${{ env.MINGW_ROOT }}
+          MINGW_ROOT_DOS: ${{ env.MINGW_ROOT }}
 
       - name: Verify static linking (no DLL dependencies)
         shell: powershell

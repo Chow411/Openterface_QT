@@ -170,6 +170,16 @@ if(OPENTERFACE_BUILD_STATIC AND WIN32)
         # brotlicommon contains static lookup tables and must be linked together with brotlidec
         find_library(BROTLI_COM_LIB NAMES brotlicommon libbrotlicommon.a brotli libbrotli.a PATHS ${MINGW_LIB_DIR} /c/ffmpeg-static/lib NO_DEFAULT_PATH)
 
+        # Accept user-provided explicit static library paths (DBROTLI_DEC_LIBRARY / DBROTLI_COM_LIBRARY) as fallbacks
+        if(NOT BROTLI_DEC_LIB AND DEFINED BROTLI_DEC_LIBRARY AND EXISTS "${BROTLI_DEC_LIBRARY}")
+            set(BROTLI_DEC_LIB "${BROTLI_DEC_LIBRARY}")
+            message(STATUS "Using user-provided BROTLI_DEC_LIBRARY: ${BROTLI_DEC_LIB}")
+        endif()
+        if(NOT BROTLI_COM_LIB AND DEFINED BROTLI_COM_LIBRARY AND EXISTS "${BROTLI_COM_LIBRARY}")
+            set(BROTLI_COM_LIB "${BROTLI_COM_LIBRARY}")
+            message(STATUS "Using user-provided BROTLI_COM_LIBRARY: ${BROTLI_COM_LIB}")
+        endif()
+
         # If decoder found but common part missing, try a couple of common alternative names and finally fail with guidance
         if(BROTLI_DEC_LIB AND NOT BROTLI_COM_LIB)
             message(STATUS "brotlidec found at ${BROTLI_DEC_LIB} but brotlicommon not found in ${MINGW_LIB_DIR} or /c/ffmpeg-static/lib; trying alternate names...")
@@ -177,7 +187,7 @@ if(OPENTERFACE_BUILD_STATIC AND WIN32)
         endif()
 
         if(BROTLI_DEC_LIB AND NOT BROTLI_COM_LIB)
-            message(FATAL_ERROR "Found brotli decoder library (${BROTLI_DEC_LIB}) but could not find brotlicommon (static).\nPlease install a static brotlicommon (e.g. 'mingw-w64-x86_64-brotli') or provide the path via -DBROTLI_COM_LIB=/path/to/libbrotlicommon.a")
+            message(FATAL_ERROR "Found brotli decoder library (${BROTLI_DEC_LIB}) but could not find brotlicommon (static).\nPlease install a static brotlicommon (e.g. 'mingw-w64-x86_64-brotli') or provide the path via -DBROTLI_COM_LIB=/path/to/libbrotlicommon.a or -DBROTLI_COM_LIBRARY=/path/to/libbrotlicommon.a")
         endif()
 
         # If both brotli decoder and common libs are available, link them carefully.

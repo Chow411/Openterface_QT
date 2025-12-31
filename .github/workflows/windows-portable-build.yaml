@@ -475,6 +475,14 @@ jobs:
             -DBZIP2_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON ${EXTRA}
+
+          # Post-config verification: show any references to dll.a and key libs in CMake cache
+          grep -R --line-number "dll.a" CMakeCache.txt || true
+          grep -R --line-number "dll.a" CMakeFiles || true
+          if [ -f CMakeCache.txt ]; then
+            grep -E 'JPEG_LIBRARY|TURBOJPEG_LIBRARY|LIBUSB|ZSTD|B2|BROTLI|ZLIB' CMakeCache.txt || true
+          fi
+
         env:
           CC: gcc
           CXX: g++

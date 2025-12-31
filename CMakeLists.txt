@@ -137,7 +137,7 @@ endif()
 # For static Qt builds on Windows with MinGW, link MinGW runtime libraries
 # When building static on Windows, prefer real static libraries (.a) over import libs (.dll.a)
 if(OPENTERFACE_BUILD_STATIC AND WIN32)
-    set(MSYS_MINGW_PATH "/mingw64")
+    set(MSYS_MINGW_PATH "/c/msys64/mingw64")
     list(INSERT CMAKE_LIBRARY_PATH 0 "${MSYS_MINGW_PATH}/lib")
     list(INSERT CMAKE_INCLUDE_PATH 0 "${MSYS_MINGW_PATH}/include")
     message(STATUS "Using MSYS2 MinGW path: ${MSYS_MINGW_PATH}")

@@ -540,6 +540,7 @@ jobs:
         env:
           CC: gcc
           CXX: g++
+          MSYS_MINGW_PATH: /c/msys64/mingw64
 
       - name: Build project
         shell: msys2 {0}

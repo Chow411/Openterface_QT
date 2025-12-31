@@ -261,6 +261,7 @@ jobs:
             mingw-w64-x86_64-libmfx
             mingw-w64-x86_64-libjpeg-turbo
             mingw-w64-x86_64-libiconv
+            mingw-w64-x86_64-libusb
             diffutils
             make
             libtool
@@ -378,6 +379,7 @@ jobs:
             mingw-w64-x86_64-libmfx \
             mingw-w64-x86_64-libjpeg-turbo \
             mingw-w64-x86_64-libiconv \
+            mingw-w64-x86_64-libusb \
             mingw-w64-x86_64-libusb
           
           # Convert Windows-style $MINGW_ROOT to msys path and debug (fallback to /mingw64 if empty)

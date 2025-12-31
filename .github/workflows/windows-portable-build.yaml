@@ -441,30 +441,9 @@ jobs:
           pkg-config --exists bzip2 && echo "pkg-config bzip2 libs: $(pkg-config --libs bzip2)" || echo "pkg-config bzip2 not found"
           pkg-config --exists zlib && echo "pkg-config zlib libs: $(pkg-config --libs zlib)" || echo "pkg-config zlib not found"
 
-          # Remove all DLL files for libraries we want to link statically
-          # This forces the linker to use .a versions
-          echo "Removing DLL files to force static linking..."
-          rm -f ${MSYS_MINGW_PATH}/bin/libb2-1.dll
-          rm -f ${MSYS_MINGW_PATH}/bin/libbrotlidec.dll
-          rm -f ${MSYS_MINGW_PATH}/bin/libbrotlicommon.dll
-          rm -f ${MSYS_MINGW_PATH}/bin/libturbojpeg.dll
-          rm -f ${MSYS_MINGW_PATH}/bin/libusb-1.0.dll
-          rm -f ${MSYS_MINGW_PATH}/bin/libzstd.dll
-          rm -f ${MSYS_MINGW_PATH}/bin/libcrypto-3-x64.dll
-          rm -f ${MSYS_MINGW_PATH}/bin/libssl-3-x64.dll
-          
-          # Also remove import libraries if they exist
-          rm -f ${MSYS_MINGW_PATH}/lib/libb2.dll.a
-          rm -f ${MSYS_MINGW_PATH}/lib/libbrotlidec.dll.a
-          rm -f ${MSYS_MINGW_PATH}/lib/libbrotlicommon.dll.a
-          rm -f ${MSYS_MINGW_PATH}/lib/libturbojpeg.dll.a
-          rm -f ${MSYS_MINGW_PATH}/lib/libusb-1.0.dll.a
-          rm -f ${MSYS_MINGW_PATH}/lib/libzstd.dll.a
-          rm -f ${MSYS_MINGW_PATH}/lib/libcrypto.dll.a
-          rm -f ${MSYS_MINGW_PATH}/lib/libssl.dll.a
-          
-          echo "DLLs removed. Only .a files remain for these libraries."
-          
+          # DLL removal moved: we must not remove OpenSSL (libcrypto/libssl) before configure/build because they may be required at build/config time.
+          # We'll remove only the *non-essential* DLLs after the build finishes successfully to force static linkage for packaging.
+
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
@@ -492,6 +471,31 @@ jobs:
         run: |
           cd build
           mingw32-make VERBOSE=1 -j$(nproc)
+
+          # Diagnostics after build
+          echo "Build finished. Diagnostics: which cmake; cmake --version; echo PATH=$PATH"
+          which cmake || true
+          cmake --version || true
+          echo "PATH=$PATH"
+          ls -l ${MSYS_MINGW_PATH}/bin | egrep 'libb2|libbrotli|libturbojpeg|libusb|libzstd' || true
+
+          # Now remove only the non-essential DLLs to force static linking for packaging.
+          echo "Removing non-essential DLLs (b2, brotli, turbojpeg, usb, zstd) to force static linkage for packaging..."
+          rm -f ${MSYS_MINGW_PATH}/bin/libb2-1.dll || true
+          rm -f ${MSYS_MINGW_PATH}/bin/libbrotlidec.dll || true
+          rm -f ${MSYS_MINGW_PATH}/bin/libbrotlicommon.dll || true
+          rm -f ${MSYS_MINGW_PATH}/bin/libturbojpeg.dll || true
+          rm -f ${MSYS_MINGW_PATH}/bin/libusb-1.0.dll || true
+          rm -f ${MSYS_MINGW_PATH}/bin/libzstd.dll || true
+          # Remove import libraries referencing DLLs, but keep OpenSSL import libs intact
+          rm -f ${MSYS_MINGW_PATH}/lib/libb2.dll.a || true
+          rm -f ${MSYS_MINGW_PATH}/lib/libbrotlidec.dll.a || true
+          rm -f ${MSYS_MINGW_PATH}/lib/libbrotlicommon.dll.a || true
+          rm -f ${MSYS_MINGW_PATH}/lib/libturbojpeg.dll.a || true
+          rm -f ${MSYS_MINGW_PATH}/lib/libusb-1.0.dll.a || true
+          rm -f ${MSYS_MINGW_PATH}/lib/libzstd.dll.a || true
+
+          echo "Non-essential DLLs removed. OpenSSL DLLs left in place for runtime/config."
 
       - name: Verify static linking (no DLL dependencies)
         shell: powershell

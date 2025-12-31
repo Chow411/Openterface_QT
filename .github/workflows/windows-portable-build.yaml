@@ -464,11 +464,30 @@ jobs:
             throw "Executable not found at: $exe"
           }
           
-          $deps = objdump -p $exe | Select-String "\.dll"
-          if ($deps) {
-            Write-Error "Detected DLL dependencies! Not fully static:"
-            $deps
-            exit 1
+          Write-Host "`n=== Checking DLL dependencies ==="
+          $allOutput = objdump -p $exe | Select-String "DLL Name:"
+          
+          if ($allOutput) {
+            Write-Host "DLL dependencies found:"
+            $allOutput | ForEach-Object { Write-Host "  $_" }
+            
+            # Filter out Windows system DLLs that are acceptable
+            $systemDlls = @("KERNEL32.dll", "msvcrt.dll", "USER32.dll", "GDI32.dll", "ADVAPI32.dll", "SHELL32.dll", "WS2_32.dll", "ole32.dll", "OLEAUT32.dll", "IMM32.dll", "WINMM.dll", "SETUPAPI.dll", "VERSION.dll", "UxTheme.dll", "DWMAPI.dll", "COMDLG32.dll", "WINSPOOL.DRV", "OPENGL32.dll")
+            
+            $problematicDlls = $allOutput | Where-Object { 
+              $line = $_.ToString()
+              $dll = ($line -split "DLL Name:")[1].Trim()
+              $systemDlls -notcontains $dll
+            }
+            
+            if ($problematicDlls) {
+              Write-Host "`n=== PROBLEMATIC DLLs (not Windows system DLLs) ==="
+              $problematicDlls | ForEach-Object { Write-Host "  $_" }
+              Write-Error "Build is not fully portable - has non-system DLL dependencies!"
+              exit 1
+            } else {
+              Write-Host "`nSUCCESS: Only Windows system DLLs found - build is portable!"
+            }
           } else {
             Write-Host "SUCCESS: No DLL dependencies - fully static!"
           }

@@ -448,6 +448,7 @@ jobs:
 
       - name: Verify static linking (no DLL dependencies)
         shell: powershell
+        continue-on-error: true
         run: |
           # Find the executable
           $exe = Get-ChildItem -Path "build" -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName

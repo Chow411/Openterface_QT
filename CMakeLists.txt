@@ -165,8 +165,20 @@ if(OPENTERFACE_BUILD_STATIC AND WIN32)
 
         # Find common static libs in the MINGW lib dir and link them if present
         find_library(B2_LIB NAMES b2 libb2.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
-        find_library(BROTLI_DEC_LIB NAMES brotlidec libbrotlidec.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
-        find_library(BROTLI_COM_LIB NAMES brotlicommon libbrotlicommon.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
+        # Try finding brotli decoder and common libs (search both MINGW and FFmpeg prefixes)
+        find_library(BROTLI_DEC_LIB NAMES brotlidec libbrotlidec.a PATHS ${MINGW_LIB_DIR} /c/ffmpeg-static/lib NO_DEFAULT_PATH)
+        # brotlicommon contains static lookup tables and must be linked together with brotlidec
+        find_library(BROTLI_COM_LIB NAMES brotlicommon libbrotlicommon.a brotli libbrotli.a PATHS ${MINGW_LIB_DIR} /c/ffmpeg-static/lib NO_DEFAULT_PATH)
+
+        # If decoder found but common part missing, try a couple of common alternative names and finally fail with guidance
+        if(BROTLI_DEC_LIB AND NOT BROTLI_COM_LIB)
+            message(STATUS "brotlidec found at ${BROTLI_DEC_LIB} but brotlicommon not found in ${MINGW_LIB_DIR} or /c/ffmpeg-static/lib; trying alternate names...")
+            find_library(BROTLI_COM_LIB NAMES brotlicommon libbrotlicommon.a brotli libbrotli.a PATHS ${MINGW_LIB_DIR} /c/ffmpeg-static/lib C:/msys64/mingw64/lib NO_DEFAULT_PATH)
+        endif()
+
+        if(BROTLI_DEC_LIB AND NOT BROTLI_COM_LIB)
+            message(FATAL_ERROR "Found brotli decoder library (${BROTLI_DEC_LIB}) but could not find brotlicommon (static).\nPlease install a static brotlicommon (e.g. 'mingw-w64-x86_64-brotli') or provide the path via -DBROTLI_COM_LIB=/path/to/libbrotlicommon.a")
+        endif()
         find_library(TURBOJPEG_LIB NAMES turbojpeg libturbojpeg.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
         find_library(LIBUSB_LIB NAMES usb-1.0 libusb-1.0.a libusb PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)
         find_library(ZSTD_LIB NAMES zstd libzstd.a PATHS ${MINGW_LIB_DIR} NO_DEFAULT_PATH)

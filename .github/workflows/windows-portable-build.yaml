@@ -387,45 +387,9 @@ jobs:
             mingw-w64-x86_64-libusb \
             mingw-w64-x86_64-zstd
           
-          export PKG_CONFIG="--static"
-
-          # Convert Windows-style $MINGW_ROOT to msys path and debug (fallback to /mingw64 if empty)
-          if [ -n "$MINGW_ROOT" ]; then
-            MSYS_MINGW_PATH=$(cygpath -u "$MINGW_ROOT" 2>/dev/null || echo "$MINGW_ROOT")
-          else
-            MSYS_MINGW_PATH="/mingw64"
-          fi
-          echo "MINGW_ROOT (raw)='$MINGW_ROOT'"
-          echo "MSYS_MINGW_PATH=$MSYS_MINGW_PATH"
-          ls "$MSYS_MINGW_PATH/lib" || echo "$MSYS_MINGW_PATH/lib not found"
-          ls /mingw64/lib || echo "/mingw64/lib not found"
-
-          # Export pkg-config path so find modules use correct pkgconfigs
-          export PKG_CONFIG_PATH="${MSYS_MINGW_PATH}/lib/pkgconfig:${MSYS_MINGW_PATH}/share/pkgconfig"
-          echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
-          ls "${MSYS_MINGW_PATH}/lib/pkgconfig" || echo "pkgconfig dir not found"
-
-          # Debug: check zlib presence and pkg-config
-          if [ -f "${MSYS_MINGW_PATH}/lib/libz.a" ]; then echo "FOUND: ${MSYS_MINGW_PATH}/lib/libz.a"; else echo "MISSING: libz.a"; fi
-          pkg-config --exists zlib && echo "pkg-config zlib libs: $(pkg-config --libs zlib)" || echo "pkg-config zlib not found"
-
-          # Debug: check static libraries for libb2, brotli, turbojpeg, libusb
-          echo "Checking for static libraries to be linked:"
-          if [ -f "${MSYS_MINGW_PATH}/lib/libb2.a" ]; then echo "FOUND: libb2.a"; else echo "MISSING: libb2.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then echo "FOUND: libbrotlidec.a"; else echo "MISSING: libbrotlidec.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" ]; then echo "FOUND: libbrotlicommon.a"; else echo "MISSING: libbrotlicommon.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" ]; then echo "FOUND: libturbojpeg.a"; else echo "MISSING: libturbojpeg.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" ]; then echo "FOUND: libusb-1.0.a"; else echo "MISSING: libusb-1.0.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libzstd.a" ]; then echo "FOUND: libzstd.a"; else echo "MISSING: libzstd.a"; fi
-          
-          # Check for FFmpeg's libturbojpeg
-          if [ -f "/c/ffmpeg-static/lib/libturbojpeg.a" ]; then 
-            echo "FOUND: /c/ffmpeg-static/lib/libturbojpeg.a"
-          else 
-            echo "MISSING: /c/ffmpeg-static/lib/libturbojpeg.a"
-          fi
-
           # Ensure a clean build dir
+          export PKG_CONFIG="--static"
+          export PKG_CONFIG_PATH="${MSYS_MINGW_PATH}/lib/pkgconfig:${MSYS_MINGW_PATH}/share/pkgconfig"
           rm -rf build
           mkdir build && cd build
 
@@ -455,12 +419,6 @@ jobs:
             -DCMAKE_FIND_ROOT_PATH="${MSYS_MINGW_PATH}" \
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-            -DCMAKE_EXE_LINKER_FLAGS="${MSYS_MINGW_PATH}/lib/libb2.a
-              ${MSYS_MINGW_PATH}/lib/libbrotlidec.a
-              ${MSYS_MINGW_PATH}/lib/libbrotlicommon.a
-              ${MSYS_MINGW_PATH}/lib/libturbojpeg.a
-              ${MSYS_MINGW_PATH}/lib/libusb-1.0.a
-              ${MSYS_MINGW_PATH}/lib/libzstd.a" \
             -DMINGW_ROOT="${MSYS_MINGW_PATH}" \
             -DPKG_CONFIG_PATH="${PKG_CONFIG_PATH}" \
             -DZLIB_LIBRARY="${MSYS_MINGW_PATH}/lib/libz.a" \

@@ -465,6 +465,7 @@ jobs:
         env:
           CC: gcc
           CXX: g++
+          MINGW_ROOT_DIR: ${{ env.MINGW_ROOT }}
 
       - name: Build project
         shell: msys2 {0}

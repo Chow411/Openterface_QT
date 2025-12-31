@@ -461,6 +461,7 @@ jobs:
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
+            -DMINGW_ROOT_DIR="${MSYS_MINGW_PATH}" \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
             -DCMAKE_LIBRARY_PATH="${MSYS_MINGW_PATH}/lib;/c/ffmpeg-static/lib" \
             -DCMAKE_INCLUDE_PATH="${MSYS_MINGW_PATH}/include" \
@@ -504,17 +505,12 @@ jobs:
         env:
           CC: gcc
           CXX: g++
-          MINGW_ROOT: ${{ env.MINGW_ROOT }}
-          MINGW_ROOT_DOS: ${{ env.MINGW_ROOT }}
 
       - name: Build project
         shell: msys2 {0}
         run: |
           cd build
           mingw32-make VERBOSE=1 -j$(nproc)
-        env:
-          MINGW_ROOT: ${{ env.MINGW_ROOT }}
-          MINGW_ROOT_DOS: ${{ env.MINGW_ROOT }}
 
       - name: Verify static linking (no DLL dependencies)
         shell: powershell

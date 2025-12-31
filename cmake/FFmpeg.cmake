@@ -9,7 +9,11 @@ set(FFMPEG_PKG_CONFIG ${USE_SHARED_FFMPEG})
 
 # Set ZLIB_LIBRARY for static zlib
 if(NOT ZLIB_LIBRARY)
-    set(ZLIB_LIBRARY "C:/msys64/mingw64/lib/libz.a" CACHE FILEPATH "Path to static zlib library")
+    if(DEFINED MINGW_ROOT)
+        set(ZLIB_LIBRARY "${MINGW_ROOT}/lib/libz.a" CACHE FILEPATH "Path to static zlib library")
+    else()
+        set(ZLIB_LIBRARY "C:/msys64/mingw64/lib/libz.a" CACHE FILEPATH "Path to static zlib library")
+    endif()
 endif()
 
 # Set FFMPEG_PREFIX from environment or default
@@ -601,11 +605,11 @@ function(link_ffmpeg_libraries)
                     -lvfw32        # Video for Windows capture
                     -lshlwapi      # Shell API (for SHCreateStreamOnFileA)
                     ${ZLIB_LIBRARY}      # zlib for compression
-                    "C:/msys64/mingw64/lib/libbz2.a"    # bzip2 for compression
-                    "C:/msys64/mingw64/lib/liblzma.a"   # lzma/xz for compression
-                    "C:/msys64/mingw64/lib/libmfx.a"    # Intel Media SDK for QSV
+                    "${MINGW_ROOT}/lib/libbz2.a"    # bzip2 for compression
+                    "${MINGW_ROOT}/lib/liblzma.a"   # lzma/xz for compression
+                    "${MINGW_ROOT}/lib/libmfx.a"    # Intel Media SDK for QSV
                     -lmingwex       # MinGW extensions for setjmp etc.
-                    "C:/msys64/mingw64/lib/libwinpthread.a"  # Windows pthreads for 64-bit time functions
+                    "${MINGW_ROOT}/lib/libwinpthread.a"  # Windows pthreads for 64-bit time functions
                     # -liconv        # Character encoding conversion
                 )
                 
@@ -635,9 +639,9 @@ function(link_ffmpeg_libraries)
                 # endif()
                 
                 # Check for libiconv (required for FFmpeg character encoding)
-                if(EXISTS "C:/msys64/mingw64/lib/libiconv.a")
-                    list(APPEND _FFMPEG_STATIC_DEPS "C:/msys64/mingw64/lib/libiconv.a")
-                    message(STATUS "Found libiconv library: C:/msys64/mingw64/lib/libiconv.a")
+                if(EXISTS "${MINGW_ROOT}/lib/libiconv.a")
+                    list(APPEND _FFMPEG_STATIC_DEPS "${MINGW_ROOT}/lib/libiconv.a")
+                    message(STATUS "Found libiconv library: ${MINGW_ROOT}/lib/libiconv.a")
                 else()
                     message(WARNING "libiconv.a not found - character encoding may not work properly")
                 endif()

@@ -263,6 +263,22 @@ jobs:
       - name: Set OPENSSL_ROOT
         run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
 
+      - name: Fix hardcoded MSYS paths in CMake files
+        shell: powershell
+        run: |
+          Write-Host "Replacing hardcoded C:/msys64/mingw64 paths with dynamic MINGW_ROOT"
+          $mingwPath = "${{ env.MINGW_ROOT }}".Replace('\', '/')
+          Write-Host "MINGW_ROOT = $mingwPath"
+          
+          Get-ChildItem -Path cmake -Filter *.cmake -Recurse | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw
+            if ($content -match 'C:/msys64/mingw64') {
+              Write-Host "Fixing $($_.FullName)"
+              $content = $content -replace 'C:/msys64/mingw64', $mingwPath
+              Set-Content -Path $_.FullName -Value $content -NoNewline
+            }
+          }
+
       - name: Download Qt artifact
         uses: actions/download-artifact@v4
         continue-on-error: true

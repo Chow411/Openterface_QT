@@ -441,8 +441,29 @@ jobs:
           pkg-config --exists bzip2 && echo "pkg-config bzip2 libs: $(pkg-config --libs bzip2)" || echo "pkg-config bzip2 not found"
           pkg-config --exists zlib && echo "pkg-config zlib libs: $(pkg-config --libs zlib)" || echo "pkg-config zlib not found"
 
-          # Force static linking by setting linker flags
-          export LDFLAGS="-L${MSYS_MINGW_PATH}/lib -static-libgcc -static-libstdc++"
+          # Remove all DLL files for libraries we want to link statically
+          # This forces the linker to use .a versions
+          echo "Removing DLL files to force static linking..."
+          rm -f ${MSYS_MINGW_PATH}/bin/libb2-1.dll
+          rm -f ${MSYS_MINGW_PATH}/bin/libbrotlidec.dll
+          rm -f ${MSYS_MINGW_PATH}/bin/libbrotlicommon.dll
+          rm -f ${MSYS_MINGW_PATH}/bin/libturbojpeg.dll
+          rm -f ${MSYS_MINGW_PATH}/bin/libusb-1.0.dll
+          rm -f ${MSYS_MINGW_PATH}/bin/libzstd.dll
+          rm -f ${MSYS_MINGW_PATH}/bin/libcrypto-3-x64.dll
+          rm -f ${MSYS_MINGW_PATH}/bin/libssl-3-x64.dll
+          
+          # Also remove import libraries if they exist
+          rm -f ${MSYS_MINGW_PATH}/lib/libb2.dll.a
+          rm -f ${MSYS_MINGW_PATH}/lib/libbrotlidec.dll.a
+          rm -f ${MSYS_MINGW_PATH}/lib/libbrotlicommon.dll.a
+          rm -f ${MSYS_MINGW_PATH}/lib/libturbojpeg.dll.a
+          rm -f ${MSYS_MINGW_PATH}/lib/libusb-1.0.dll.a
+          rm -f ${MSYS_MINGW_PATH}/lib/libzstd.dll.a
+          rm -f ${MSYS_MINGW_PATH}/lib/libcrypto.dll.a
+          rm -f ${MSYS_MINGW_PATH}/lib/libssl.dll.a
+          
+          echo "DLLs removed. Only .a files remain for these libraries."
           
           cmake .. \
             -G "MinGW Makefiles" \
@@ -453,7 +474,7 @@ jobs:
             -DCMAKE_FIND_ROOT_PATH="${MSYS_MINGW_PATH}" \
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -L${MSYS_MINGW_PATH}/lib -L/c/ffmpeg-static/lib -Wl,-Bstatic -lb2 -lbrotlidec -lbrotlicommon -lturbojpeg -lusb-1.0 -lzstd -Wl,-Bdynamic" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
             -DMINGW_ROOT="${MSYS_MINGW_PATH}" \
             -DPKG_CONFIG_PATH="${PKG_CONFIG_PATH}" \
             -DZLIB_LIBRARY="${MSYS_MINGW_PATH}/lib/libz.a" \

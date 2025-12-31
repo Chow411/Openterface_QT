@@ -449,13 +449,21 @@ jobs:
       - name: Verify static linking (no DLL dependencies)
         shell: powershell
         run: |
-          $exe = "build\Release\openterfaceQT-portable.exe"  
-          if (-not (Test-Path $exe)) {
-            $exe = "build\openterfaceQT-portable.exe"
+          # Find the executable
+          $exe = Get-ChildItem -Path "build" -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          
+          if (-not $exe) {
+            Write-Error "No executable found in build directory"
+            Get-ChildItem -Path "build" -Recurse | Where-Object { $_.Extension -eq ".exe" -or $_.Name -like "*openterface*" }
+            exit 1
           }
+          
+          Write-Host "Found executable: $exe"
+          
           if (-not (Test-Path $exe)) {
-            throw "Executable not found!"
+            throw "Executable not found at: $exe"
           }
+          
           $deps = objdump -p $exe | Select-String "\.dll"
           if ($deps) {
             Write-Error "Detected DLL dependencies! Not fully static:"

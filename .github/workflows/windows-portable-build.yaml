@@ -410,14 +410,6 @@ jobs:
           if [ -f "${MSYS_MINGW_PATH}/lib/libz.a" ]; then echo "FOUND: ${MSYS_MINGW_PATH}/lib/libz.a"; else echo "MISSING: libz.a"; fi
           pkg-config --exists zlib && echo "pkg-config zlib libs: $(pkg-config --libs zlib)" || echo "pkg-config zlib not found"
 
-          # Debug: check static libraries for libb2, brotli, turbojpeg, libusb
-          echo "Checking for static libraries to be linked:"
-          if [ -f "${MSYS_MINGW_PATH}/lib/libb2.a" ]; then echo "FOUND: libb2.a" cp "${MSYS_MINGW_PATH}/lib/libb2.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libb2.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then echo "FOUND: libbrotlidec.a" cp "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libbrotlidec.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" ]; then echo "FOUND: libbrotlicommon.a" cp "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libbrotlicommon.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" ]; then echo "FOUND: libturbojpeg.a" cp "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libturbojpeg.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" ]; then echo "FOUND: libusb-1.0.a" cp "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libusb-1.0.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libzstd.a" ]; then echo "FOUND: libzstd.a" cp "${MSYS_MINGW_PATH}/lib/libzstd.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libzstd.a"; fi
           
           # Check for FFmpeg's libturbojpeg
           if [ -f "/c/ffmpeg-static/lib/libturbojpeg.a" ]; then 
@@ -453,6 +445,15 @@ jobs:
             echo "MSYS_MINGW_PATH not set; skipping copy of static libs"
           fi
 
+          # Debug: check static libraries for libb2, brotli, turbojpeg, libusb
+          echo "Checking for static libraries to be linked:"
+          if [ -f "${MSYS_MINGW_PATH}/lib/libb2.a" ]; then echo "FOUND: libb2.a" cp "${MSYS_MINGW_PATH}/lib/libb2.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libb2.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then echo "FOUND: libbrotlidec.a" cp "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libbrotlidec.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" ]; then echo "FOUND: libbrotlicommon.a" cp "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libbrotlicommon.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" ]; then echo "FOUND: libturbojpeg.a" cp "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libturbojpeg.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" ]; then echo "FOUND: libusb-1.0.a" cp "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libusb-1.0.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libzstd.a" ]; then echo "FOUND: libzstd.a" cp "${MSYS_MINGW_PATH}/lib/libzstd.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libzstd.a"; fi
+          
           # Ensure a clean build dir
           rm -rf build
           mkdir build && cd build

@@ -131,15 +131,29 @@ endif()
 # For static Qt builds on Windows with MinGW, link MinGW runtime libraries
 # When building static on Windows, prefer real static libraries (.a) over import libs (.dll.a)
 if(OPENTERFACE_BUILD_STATIC AND WIN32)
-    # Prefer .a first when searching for libraries
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".dll.a" ".lib")
-    message(STATUS "CMAKE_FIND_LIBRARY_SUFFIXES set to: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
+    if(DEFINED MINGW_LIB_DIR AND EXISTS "${MINGW_LIB_DIR}")
+        macro(set_if_exists var path desc)
+            if(EXISTS "${path}")
+                set(${var} "${path}" CACHE FILEPATH "${desc}")
+                message(STATUS "Forcing static ${var}: ${path}")
+            endif()
+        endmacro()
 
-    # If test-time environment provides MINGW_ROOT, prepend its lib dir to CMake library search path
-    if(NOT "$ENV{MINGW_ROOT}" STREQUAL "")
-        set(MINGW_LIB_DIR "$ENV{MINGW_ROOT}")
-        list(INSERT CMAKE_LIBRARY_PATH 0 "${MINGW_LIB_DIR}")
-        message(STATUS "Prioritizing MINGW lib dir for find_library: ${MINGW_LIB_DIR}")
+        set_if_exists(TURBOJPEG_LIBRARY "${MINGW_LIB_DIR}/libturbojpeg.a" "turbojpeg static")
+        set_if_exists(BROTLI_DEC_LIBRARY "${MINGW_LIB_DIR}/libbrotlidec.a" "brotli dec static")
+        set_if_exists(BROTLI_COM_LIBRARY "${MINGW_LIB_DIR}/libbrotlicommon.a" "brotli common static")
+        set_if_exists(B2_LIBRARY "${MINGW_LIB_DIR}/libb2.a" "b2 static")
+        set_if_exists(ZSTD_LIBRARY "${MINGW_LIB_DIR}/libzstd.a" "zstd static")
+        set_if_exists(LIBUSB_LIBRARIES "${MINGW_LIB_DIR}/libusb-1.0.a" "libusb static")
+
+        # Prefer static OpenSSL if present
+        if(EXISTS "${MINGW_LIB_DIR}/libcrypto.a" AND EXISTS "${MINGW_LIB_DIR}/libssl.a")
+            set(OPENSSL_CRYPTO_LIBRARY "${MINGW_LIB_DIR}/libcrypto.a" CACHE FILEPATH "OpenSSL crypto static")
+            set(OPENSSL_SSL_LIBRARY    "${MINGW_LIB_DIR}/libssl.a"   CACHE FILEPATH "OpenSSL ssl static")
+            set(OPENSSL_USE_STATIC_LIBS TRUE CACHE BOOL "Prefer static OpenSSL" FORCE)
+            set(OPENSSL_ROOT_DIR "${MINGW_LIB_DIR}/.." CACHE PATH "OpenSSL root dir" FORCE)
+            message(STATUS "Forcing static OpenSSL from ${MINGW_LIB_DIR}")
+        endif()
     endif()
 endif()
 

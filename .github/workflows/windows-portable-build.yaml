@@ -469,7 +469,6 @@ jobs:
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
             -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -L${MSYS_MINGW_PATH}/lib -L/c/ffmpeg-static/lib" \
-            -DMINGW_ROOT="${MSYS_MINGW_PATH}" \
             -DPKG_CONFIG_PATH="${PKG_CONFIG_PATH}" \
             -DZLIB_LIBRARY="${MSYS_MINGW_PATH}/lib/libz.a" \
             -DZLIB_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \

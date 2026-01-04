@@ -58,13 +58,6 @@ jobs:
             git
             perl
 
-      - name: Set MINGW_ROOT
-        run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
-
-      - name: Set OPENSSL_ROOT
-        run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
-
-
       - name: Cache Qt static build
         id: cache-qt
         uses: actions/cache@v4
@@ -120,12 +113,6 @@ jobs:
             libtool
             git
             perl
-
-      - name: Set MINGW_ROOT
-        run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
-
-      - name: Set OPENSSL_ROOT
-        run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
 
       - name: Build Qt statically from source
         if: needs.setup-env.outputs.qt-cache-hit != 'true'
@@ -196,21 +183,13 @@ jobs:
             git
             perl
 
-      - name: Set MINGW_ROOT
-        run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
-
-      - name: Set OPENSSL_ROOT
-        run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
-
       - name: Build FFmpeg statically
         if: needs.setup-env.outputs.ffmpeg-cache-hit != 'true'
         shell: msys2 {0}
         run: |
           ./build-script/build-static-ffmpeg-windows.sh
         env:
-          MINGW_ROOT: ${{ env.MINGW_ROOT }}
-          FFMPEG_PREFIX: ${{ env.FFMPEG_PREFIX }}
-          EXTERNAL_MINGW_POSIX: /mingw64
+          FFMPEG_PREFIX: /c/ffmpeg-static
           SKIP_PACKAGE_MINGW: 1
 
       - name: Verify FFmpeg build succeeded
@@ -272,24 +251,18 @@ jobs:
             git
             perl
 
-      - name: Set MINGW_ROOT
-        run: echo "MINGW_ROOT=${{ steps.setup-msys2.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
-
-      - name: Set OPENSSL_ROOT
-        run: echo "OPENSSL_ROOT=${{ env.MINGW_ROOT }}" >> $GITHUB_ENV
-
       - name: Fix hardcoded MSYS paths in CMake files
         shell: powershell
         run: |
-          Write-Host "Replacing hardcoded C:/msys64/mingw64 paths with dynamic MINGW_ROOT"
-          $mingwPath = "${{ env.MINGW_ROOT }}".Replace('\', '/')
-          Write-Host "MINGW_ROOT = $mingwPath"
+          Write-Host "Replacing hardcoded C:/msys64/mingw64 paths with C:/msys64/mingw64"
+          $mingwPath = "C:/msys64/mingw64"
+          Write-Host "Target MINGW path = $mingwPath"
           
           Get-ChildItem -Path cmake -Filter *.cmake -Recurse | ForEach-Object {
             $content = Get-Content $_.FullName -Raw
-            if ($content -match 'C:/msys64/mingw64') {
-              Write-Host "Fixing $($_.FullName)"
-              $content = $content -replace 'C:/msys64/mingw64', $mingwPath
+            if ($content -match 'C:/msys64/msys64') {
+              Write-Host "Fixing invalid path in $($_.FullName)"
+              $content = $content -replace 'C:/msys64/msys64/mingw64', $mingwPath
               Set-Content -Path $_.FullName -Value $content -NoNewline
             }
           }
@@ -388,152 +361,64 @@ jobs:
             mingw-w64-x86_64-libusb \
             mingw-w64-x86_64-zstd
           
-          # Convert Windows-style $MINGW_ROOT to msys path and debug (fallback to /mingw64 if empty)
-          if [ -n "$MINGW_ROOT" ]; then
-            MSYS_MINGW_PATH=$(cygpath -u "$MINGW_ROOT" 2>/dev/null || echo "$MINGW_ROOT")
-          else
-            MSYS_MINGW_PATH="/mingw64"
-          fi
-          echo "MINGW_ROOT (raw)='$MINGW_ROOT'"
+          # Use consistent MSYS2 path - always /mingw64 within MSYS2 shell
+          MSYS_MINGW_PATH="/mingw64"
           echo "MSYS_MINGW_PATH=$MSYS_MINGW_PATH"
+          
+          # Convert to Windows path for CMake
+          CMAKE_MINGW_PATH=$(cygpath -w "$MSYS_MINGW_PATH")
+          echo "CMAKE_MINGW_PATH=$CMAKE_MINGW_PATH"
 
-          # Export pkg-config path so find modules use correct pkgconfigs
+          # Set pkg-config path
           export PKG_CONFIG_PATH="${MSYS_MINGW_PATH}/lib/pkgconfig:${MSYS_MINGW_PATH}/share/pkgconfig"
           echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
-          ls "${MSYS_MINGW_PATH}/lib/pkgconfig" || echo "pkgconfig dir not found"
-
-          # Debug: check zlib presence and pkg-config
-          if [ -f "${MSYS_MINGW_PATH}/lib/libz.a" ]; then echo "FOUND: ${MSYS_MINGW_PATH}/lib/libz.a"; else echo "MISSING: libz.a"; fi
-          pkg-config --exists zlib && echo "pkg-config zlib libs: $(pkg-config --libs zlib)" || echo "pkg-config zlib not found"
-
           
-          # Check for FFmpeg's libturbojpeg
-          if [ -f "/c/ffmpeg-static/lib/libturbojpeg.a" ]; then 
-            echo "FOUND: /c/ffmpeg-static/lib/libturbojpeg.a"
-          else 
-            echo "MISSING: /c/ffmpeg-static/lib/libturbojpeg.a"
-          fi
-
-          # Copy discovered static libs into MSYS MINGW lib dir so CMake/find_library can find real .a files
-          if [ -n "$MSYS_MINGW_PATH" ]; then
-            # Prefer the Windows absolute path (e.g., C:\msys64\mingw64\lib) so other tooling can see them
-            WIN_MINGW_LIB=$(cygpath -w "${MSYS_MINGW_PATH}/lib" 2>/dev/null || echo "C:/msys64/mingw64/lib")
-            echo "Copying available static libs into ${WIN_MINGW_LIB}"
-            for f in libb2.a libbrotlidec.a libbrotlicommon.a libturbojpeg.a libusb-1.0.a libzstd.a libcrypto.a libssl.a libbz2.a; do
-              if [ -f "/c/ffmpeg-static/lib/$f" ]; then
-                echo "Copy /c/ffmpeg-static/lib/$f -> ${WIN_MINGW_LIB}/"
-                cp "/c/ffmpeg-static/lib/$f" "${WIN_MINGW_LIB}/" || true
-              fi
-              if [ -f "${WIN_MINGW_LIB}/$f" ]; then
-                echo "Present in ${WIN_MINGW_LIB}: $f"
-              fi
-            done
-
-            # Also copy any found .a from the current repo build location (if applicable)
-            for f in libb2.a libbrotlidec.a libbrotlicommon.a libturbojpeg.a libusb-1.0.a libzstd.a libcrypto.a libssl.a libbz2.a; do
-              if [ -f "/c/Qt6/lib/$f" ]; then
-                echo "Copy /c/Qt6/lib/$f -> ${WIN_MINGW_LIB}/"
-                cp "/c/Qt6/lib/$f" "${WIN_MINGW_LIB}/" || true
-                cp "${MSYS_MINGW_PATH}/lib/$f" "${WIN_MINGW_LIB}/" || true
-              fi
-            done
-          else
-            echo "MSYS_MINGW_PATH not set; skipping copy of static libs"
-          fi
-
-          # Debug: check static libraries for libb2, brotli, turbojpeg, libusb
-          echo "Checking for static libraries to be linked:"
-          if [ -f "${MSYS_MINGW_PATH}/lib/libb2.a" ]; then echo "FOUND: libb2.a" cp "${MSYS_MINGW_PATH}/lib/libb2.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libb2.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then echo "FOUND: libbrotlidec.a" cp "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libbrotlidec.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" ]; then echo "FOUND: libbrotlicommon.a" cp "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libbrotlicommon.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" ]; then echo "FOUND: libturbojpeg.a" cp "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libturbojpeg.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" ]; then echo "FOUND: libusb-1.0.a" cp "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libusb-1.0.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libzstd.a" ]; then echo "FOUND: libzstd.a" cp "${MSYS_MINGW_PATH}/lib/libzstd.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libzstd.a"; fi
+          # Verify critical static libraries exist
+          echo "Verifying static libraries in ${MSYS_MINGW_PATH}/lib:"
+          for lib in libz.a libbz2.a libb2.a libbrotlidec.a libbrotlicommon.a libusb-1.0.a libzstd.a libturbojpeg.a libcrypto.a libssl.a; do
+            if [ -f "${MSYS_MINGW_PATH}/lib/$lib" ]; then
+              echo "  ✓ $lib"
+            else
+              echo "  ✗ $lib (MISSING)"
+            fi
+          done
           
-          # Ensure a clean build dir
+          # Clean build directory
           rm -rf build
           mkdir build && cd build
 
-          # Extra debug: look for any hardcoded msys paths in repo and in Qt/ffmpeg installed config files
-          echo "Searching for 'C:/msys64' in generated files and installed CMake configs (may show where link args come from)"
-          grep -R --line-number "C:/msys64" .. || true
-          echo "Searching CMakeCache and CMakeFiles for references"
-          if [ -f CMakeCache.txt ]; then grep -R --line-number "C:/msys64" CMakeCache.txt || true; fi
-          grep -R --line-number "C:/msys64" CMakeFiles || true
-          echo "Searching installed Qt & FFmpeg CMake config files for msys references"
-          grep -R --line-number "C:/msys64" /c/Qt6 || true
-          grep -R --line-number "C:/msys64" /c/ffmpeg-static || true
-
-          # Show pkg-config info for bzip2/zlib (where find_package may pull libs from)
-          pkg-config --exists bzip2 && echo "pkg-config bzip2 libs: $(pkg-config --libs bzip2)" || echo "pkg-config bzip2 not found"
-          pkg-config --exists zlib && echo "pkg-config zlib libs: $(pkg-config --libs zlib)" || echo "pkg-config zlib not found"
-
-          # Force static linking by setting linker flags
-          export LDFLAGS="-L${MSYS_MINGW_PATH}/lib -static-libgcc -static-libstdc++"
-
-          # Build EXTRA CMake flags to prefer explicit static libs when present (from FFmpeg prefix or MINGW)
-          EXTRA=""
-          if [ -f "/c/ffmpeg-static/lib/libjpeg.a" ]; then EXTRA="$EXTRA -DJPEG_LIBRARY=/c/ffmpeg-static/lib/libjpeg.a -DTURBOJPEG_LIBRARY=/c/ffmpeg-static/lib/libturbojpeg.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" ]; then EXTRA="$EXTRA -DTURBOJPEG_LIBRARY=${MSYS_MINGW_PATH}/lib/libturbojpeg.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" ]; then EXTRA="$EXTRA -DLIBUSB_LIBRARIES=${MSYS_MINGW_PATH}/lib/libusb-1.0.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libzstd.a" ]; then EXTRA="$EXTRA -DZSTD_LIBRARY=${MSYS_MINGW_PATH}/lib/libzstd.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libb2.a" ]; then EXTRA="$EXTRA -DB2_LIBRARY=${MSYS_MINGW_PATH}/lib/libb2.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then EXTRA="$EXTRA -DBROTLI_DEC_LIBRARY=${MSYS_MINGW_PATH}/lib/libbrotlidec.a -DBROTLI_COM_LIBRARY=${MSYS_MINGW_PATH}/lib/libbrotlicommon.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libz.a" ]; then EXTRA="$EXTRA -DZLIB_LIBRARY=${MSYS_MINGW_PATH}/lib/libz.a -DZLIB_INCLUDE_DIR=${MSYS_MINGW_PATH}/include"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbz2.a" ]; then EXTRA="$EXTRA -DBZIP2_LIBRARY=${MSYS_MINGW_PATH}/lib/libbz2.a -DBZIP2_INCLUDE_DIR=${MSYS_MINGW_PATH}/include"; fi
-
-          echo "Extra CMake flags: ${EXTRA}"
-
+          # CMake configuration with consistent Windows paths
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
-            -DCMAKE_LIBRARY_PATH="${MSYS_MINGW_PATH}/lib;/c/ffmpeg-static/lib" \
-            -DCMAKE_INCLUDE_PATH="${MSYS_MINGW_PATH}/include" \
-            -DCMAKE_FIND_ROOT_PATH="${MSYS_MINGW_PATH}" \
-            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -L${MSYS_MINGW_PATH}/lib -L/c/ffmpeg-static/lib" \
-            -DPKG_CONFIG_PATH="${PKG_CONFIG_PATH}" \
-            -DZLIB_LIBRARY="${MSYS_MINGW_PATH}/lib/libz.a" \
-            -DZLIB_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
-            -DBZIP2_LIBRARY="${MSYS_MINGW_PATH}/lib/libbz2.a" \
-            -DB2_LIBRARY="${MSYS_MINGW_PATH}/lib/libb2.a" \
-            -DBROTLI_DEC_LIBRARY="${MSYS_MINGW_PATH}/lib/libbrotlidec.a" \
-            -DBROTLI_COM_LIBRARY="${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" \
-            -DOPENSSL_CRYPTO_LIBRARY="${MSYS_MINGW_PATH}/lib/libcrypto.a" \
-            -DOPENSSL_SSL_LIBRARY="${MSYS_MINGW_PATH}/lib/libssl.a" \
-            -DOPENSSL_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
-            -DLIBUSB_LIBRARIES="${MSYS_MINGW_PATH}/lib/libusb-1.0.a" \
-            -DZSTD_LIBRARY="${MSYS_MINGW_PATH}/lib/libzstd.a" \
-            -DTURBOJPEG_LIBRARY="${MSYS_MINGW_PATH}/lib/libturbojpeg.a" \
-            -DBZIP2_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
+            -DCMAKE_LIBRARY_PATH="${CMAKE_MINGW_PATH}/lib;C:/ffmpeg-static/lib" \
+            -DCMAKE_INCLUDE_PATH="${CMAKE_MINGW_PATH}/include" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
+            -DZLIB_LIBRARY="${CMAKE_MINGW_PATH}/lib/libz.a" \
+            -DZLIB_INCLUDE_DIR="${CMAKE_MINGW_PATH}/include" \
+            -DBZIP2_LIBRARY="${CMAKE_MINGW_PATH}/lib/libbz2.a" \
+            -DBZIP2_INCLUDE_DIR="${CMAKE_MINGW_PATH}/include" \
+            -DB2_LIBRARY="${CMAKE_MINGW_PATH}/lib/libb2.a" \
+            -DBROTLI_DEC_LIBRARY="${CMAKE_MINGW_PATH}/lib/libbrotlidec.a" \
+            -DBROTLI_COM_LIBRARY="${CMAKE_MINGW_PATH}/lib/libbrotlicommon.a" \
+            -DOPENSSL_CRYPTO_LIBRARY="${CMAKE_MINGW_PATH}/lib/libcrypto.a" \
+            -DOPENSSL_SSL_LIBRARY="${CMAKE_MINGW_PATH}/lib/libssl.a" \
+            -DOPENSSL_INCLUDE_DIR="${CMAKE_MINGW_PATH}/include" \
+            -DLIBUSB_LIBRARIES="${CMAKE_MINGW_PATH}/lib/libusb-1.0.a" \
+            -DZSTD_LIBRARY="${CMAKE_MINGW_PATH}/lib/libzstd.a" \
+            -DTURBOJPEG_LIBRARY="${CMAKE_MINGW_PATH}/lib/libturbojpeg.a" \
             -DBUILD_SHARED_LIBS=OFF \
-            -DSTATIC_LINKAGE=ON ${EXTRA}
-
-          # Post-config verification: show any references to dll.a and key libs in CMake cache
-          grep -R --line-number "dll.a" CMakeCache.txt || true
-          grep -R --line-number "dll.a" CMakeFiles || true
-          if [ -f CMakeCache.txt ]; then
-            grep -E 'JPEG_LIBRARY|TURBOJPEG_LIBRARY|LIBUSB|ZSTD|B2|BROTLI|ZLIB' CMakeCache.txt || true
-          fi
-
-          # Additional brotli diagnostics: show actual files and whether they contain key symbols
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" ]; then
-            echo "Inspecting: ${MSYS_MINGW_PATH}/lib/libbrotlicommon.a"
-            nm -g --defined-only "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" | grep -E "BrotliTransformDictionaryWord|BrotliSharedDictionary" || true
+            -DSTATIC_LINKAGE=ON
+          
+          # Verify no invalid paths in CMake cache
+          echo "=== Checking for invalid library paths in CMakeCache.txt ==="
+          if grep -E '(/lib/lib|/msys64/msys64)' CMakeCache.txt; then
+            echo "WARNING: Found potentially invalid paths in CMakeCache.txt"
+            grep -E '(/lib/lib|/msys64/msys64)' CMakeCache.txt || true
           else
-            echo "libbrotlicommon.a not found in ${MSYS_MINGW_PATH}/lib"
+            echo "✓ No invalid paths found"
           fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then
-            echo "Inspecting: ${MSYS_MINGW_PATH}/lib/libbrotlidec.a"
-            nm -g --defined-only "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" | grep -E "BrotliTransformDictionaryWord|BrotliSharedDictionary" || true
-          fi
-
-          # Show link response files to confirm which libraries will be passed to linker
-          echo "--- Link response files (CMakeFiles/*/linkLibs.rsp) ---"
-          for f in CMakeFiles/*/linkLibs.rsp; do echo "---- $f ----"; sed -n '1,200p' "$f" || true; done || true
-          echo "--- End link response files ---"
 
         env:
           CC: gcc

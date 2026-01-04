@@ -339,19 +339,22 @@ jobs:
           
           # Enhanced regex patterns to catch ALL variations
           $patterns = @(
-            @{Pattern='C:\\msys64\\msys64\\mingw64'; Replacement=$correctPath; Name='Backslash duplicate'},
-            @{Pattern='C:/msys64/msys64/mingw64'; Replacement=$correctPath; Name='Forward slash duplicate'},
-            @{Pattern='C:msys64msys64mingw64'; Replacement=$correctPath; Name='Missing separators duplicate'},
-            @{Pattern='C:\\msys64\\msys64\\'; Replacement='C:/msys64/'; Name='Partial backslash duplicate'},
-            @{Pattern='C:/msys64/msys64/'; Replacement='C:/msys64/'; Name='Partial forward slash duplicate'},
+            @{Pattern='C:\\msys64\\msys64\\mingw64'; Replacement=$correctPath; Name='Backslash duplicate'}
+            @{Pattern='C:/msys64/msys64/mingw64'; Replacement=$correctPath; Name='Forward slash duplicate'}
+            @{Pattern='C:msys64msys64mingw64'; Replacement=$correctPath; Name='Missing separators duplicate'}
+            @{Pattern='C:\\msys64\\msys64\\'; Replacement='C:/msys64/'; Name='Partial backslash duplicate'}
+            @{Pattern='C:/msys64/msys64/'; Replacement='C:/msys64/'; Name='Partial forward slash duplicate'}
             @{Pattern='(["\s;=])/lib/(lib[a-z0-9_\-]+\.a)'; Replacement="`$1$correctPath/lib/`$2"; Name='Invalid /lib/ paths'}
           )
           
           # Function to fix a file
           function Fix-CmakeFile {
-            param($filePath)
+            param([string]$filePath)
+            
             $content = Get-Content $filePath -Raw -ErrorAction SilentlyContinue
-            if (-not $content) { return $false }
+            if (-not $content) { 
+              return $false 
+            }
             
             $original = $content
             foreach ($p in $patterns) {
@@ -367,10 +370,12 @@ jobs:
           
           # Fix project cmake files
           Write-Host "Scanning project cmake/ files..."
-          Get-ChildItem -Path cmake -Filter *.cmake -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-            if (Fix-CmakeFile $_.FullName) {
-              Write-Host "  ✓ Fixed: $($_.Name)"
-              $fixedCount++
+          if (Test-Path "cmake") {
+            Get-ChildItem -Path cmake -Filter *.cmake -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              if (Fix-CmakeFile $_.FullName) {
+                Write-Host "  ✓ Fixed: $($_.Name)"
+                $fixedCount++
+              }
             }
           }
           
@@ -407,7 +412,7 @@ jobs:
           # Verify critical files
           Write-Host "`nVerifying critical Qt6 files..."
           $criticalFiles = @(
-            'C:\Qt6\lib\cmake\Qt6\Qt6Config.cmake',
+            'C:\Qt6\lib\cmake\Qt6\Qt6Config.cmake'
             'C:\Qt6\lib\cmake\Qt6Core\Qt6CoreConfig.cmake'
           )
           foreach ($file in $criticalFiles) {
@@ -415,7 +420,9 @@ jobs:
               $content = Get-Content $file -Raw
               if ($content -match 'msys64/msys64' -or $content -match 'msys64\\msys64') {
                 Write-Warning "⚠ STILL HAS BAD PATHS: $file"
-                $content | Select-String -Pattern 'msys64.*msys64' -AllMatches | ForEach-Object { Write-Host "    $_" }
+                $content | Select-String -Pattern 'msys64.*msys64' -AllMatches | ForEach-Object { 
+                  Write-Host "    $_" 
+                }
               } else {
                 Write-Host "  ✓ Clean: $(Split-Path $file -Leaf)"
               }

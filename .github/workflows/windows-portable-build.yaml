@@ -431,12 +431,21 @@ jobs:
             fi
           done
           
+          # List actual library files to confirm they exist
+          echo ""
+          echo "=== Listing actual MSYS2 libraries ==="
+          ls -lh /mingw64/lib/libz.a /mingw64/lib/libbz2.a /mingw64/lib/libusb-1.0.a 2>&1 || echo "Some libraries not found!"
+          
+          echo ""
+          echo "=== Checking Windows path accessibility from MSYS2 ==="
+          ls -lh /c/msys64/mingw64/lib/libz.a 2>&1 || echo "Windows path C:/msys64/mingw64/lib/libz.a NOT accessible!"
+          
           # Clean build directory
           rm -rf build
           mkdir build && cd build
 
-          # CMake configuration with explicit absolute paths to avoid path format issues
-          # Force correct compiler paths to avoid C:/msys64/msys64 duplication
+          # CMake configuration using pkg-config to find libraries automatically
+          # This avoids hardcoded paths that may not exist at link time
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_C_COMPILER="/mingw64/bin/gcc.exe" \
@@ -444,23 +453,8 @@ jobs:
             -DCMAKE_MAKE_PROGRAM="/mingw64/bin/mingw32-make.exe" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
-            -DCMAKE_LIBRARY_PATH="C:/msys64/mingw64/lib;C:/ffmpeg-static/lib" \
-            -DCMAKE_INCLUDE_PATH="C:/msys64/mingw64/include" \
-            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
-            -DMINGW_ROOT="C:/msys64/mingw64" \
-            -DZLIB_LIBRARY="C:/msys64/mingw64/lib/libz.a" \
-            -DZLIB_INCLUDE_DIR="C:/msys64/mingw64/include" \
-            -DBZIP2_LIBRARY="C:/msys64/mingw64/lib/libbz2.a" \
-            -DBZIP2_INCLUDE_DIR="C:/msys64/mingw64/include" \
-            -DB2_LIBRARY="C:/msys64/mingw64/lib/libb2.a" \
-            -DBROTLI_DEC_LIBRARY="C:/msys64/mingw64/lib/libbrotlidec.a" \
-            -DBROTLI_COM_LIBRARY="C:/msys64/mingw64/lib/libbrotlicommon.a" \
-            -DOPENSSL_CRYPTO_LIBRARY="C:/msys64/mingw64/lib/libcrypto.a" \
-            -DOPENSSL_SSL_LIBRARY="C:/msys64/mingw64/lib/libssl.a" \
-            -DOPENSSL_INCLUDE_DIR="C:/msys64/mingw64/include" \
-            -DLIBUSB_LIBRARIES="C:/msys64/mingw64/lib/libusb-1.0.a" \
-            -DZSTD_LIBRARY="C:/msys64/mingw64/lib/libzstd.a" \
-            -DTURBOJPEG_LIBRARY="C:/ffmpeg-static/lib/libturbojpeg.a" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -L/mingw64/lib -L/c/ffmpeg-static/lib" \
+            -DTURBOJPEG_LIBRARY="/c/ffmpeg-static/lib/libturbojpeg.a" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
           

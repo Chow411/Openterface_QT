@@ -431,7 +431,7 @@ jobs:
             fi
           done
           
-          # Clean build directory
+          # Clean build directory thoroughly
           rm -rf build
           mkdir build && cd build
 
@@ -443,16 +443,19 @@ jobs:
           cmake --version || echo "cmake not found"
           make --version || echo "make not found"
           
-          # Force CMake to use gcc/g++ by name (not cc/c++ symlinks)
-          # Use environment variables instead of -D flags for better compatibility
+          # Set compilers using simple names (let CMake find them in PATH)
+          # This prevents CMake from caching Windows-style absolute paths
           export CC=gcc
           export CXX=g++
           
           echo "Using compilers: CC=$CC, CXX=$CXX"
+          echo "Compiler paths:"
+          which $CC
+          which $CXX
           
           # CMake configuration with consistent Windows paths
-          # Use --fresh to avoid cache conflicts
-          cmake --fresh .. \
+          # DO NOT use --fresh as it forces compiler re-detection with Windows paths
+          cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \

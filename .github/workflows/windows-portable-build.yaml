@@ -326,6 +326,35 @@ jobs:
             Write-Host "Qt6 path not found, skipping"
           }
 
+      - name: Fix FFmpeg CMake to include Brotli libraries
+        shell: powershell
+        run: |
+          Write-Host "Adding Brotli library dependencies to FFmpeg.cmake"
+          $ffmpegCmake = "cmake\FFmpeg.cmake"
+          
+          if (Test-Path $ffmpegCmake) {
+            $content = Get-Content $ffmpegCmake -Raw
+            
+            # Check if Brotli libraries are already present
+            if ($content -notmatch 'libbrotli') {
+              Write-Host "Adding Brotli libraries (libbrotlidec, libbrotlienc, libbrotlicommon)"
+              
+              # Find the _FFMPEG_STATIC_DEPS section and add after liblzma
+              # Order matters: dec/enc before common
+              $pattern = '(\$\{MINGW_ROOT\}/lib/liblzma\.a")'
+              $replacement = '$1' + "`n" + '                    "${MINGW_ROOT}/lib/libbrotlidec.a"' + "`n" + '                    "${MINGW_ROOT}/lib/libbrotlienc.a"' + "`n" + '                    "${MINGW_ROOT}/lib/libbrotlicommon.a"'
+              
+              $content = $content -replace $pattern, $replacement
+              
+              Set-Content -Path $ffmpegCmake -Value $content -NoNewline
+              Write-Host "Successfully added Brotli libraries to FFmpeg.cmake"
+            } else {
+              Write-Host "Brotli libraries already present in FFmpeg.cmake"
+            }
+          } else {
+            Write-Host "Warning: FFmpeg.cmake not found at $ffmpegCmake"
+          }
+
       - name: Download Qt artifact
         uses: actions/download-artifact@v4
         continue-on-error: true

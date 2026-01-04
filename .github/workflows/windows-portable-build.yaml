@@ -292,6 +292,13 @@ jobs:
                   $modified = $true
                 }
                 
+                # Replace DLL references with static library equivalents
+                if ($content -match 'libzstd\.dll') {
+                  Write-Host "  Replacing libzstd.dll with static library in $($_.Name)"
+                  $content = $content -replace 'libzstd\.dll', 'libzstd.a'
+                  $modified = $true
+                }
+                
                 # Replace absolute library paths with linker flags to let the linker search
                 $systemLibs = @('libz.a', 'libbz2.a', 'libb2.a', 'liblzma.a', 'libmfx.a', 
                                 'libwinpthread.a', 'libiconv.a', 'libbrotlidec.a', 'libbrotlicommon.a',
@@ -572,8 +579,9 @@ jobs:
             -DCMAKE_MAKE_PROGRAM="/mingw64/bin/mingw32-make.exe" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
-            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -L/mingw64/lib -L/c/ffmpeg-static/lib" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -L/mingw64/lib -L/c/ffmpeg-static/lib -Wl,-Bstatic -lzstd -Wl,-Bdynamic" \
             -DTURBOJPEG_LIBRARY="/c/ffmpeg-static/lib/libturbojpeg.a" \
+            -DZSTD_LIBRARY="/mingw64/lib/libzstd.a" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
           

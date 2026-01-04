@@ -12,30 +12,7 @@ if(WIN32 AND NOT DEFINED MINGW_ROOT)
         # Default to standard MSYS2 location
         set(MINGW_ROOT "C:/msys64/mingw64" CACHE PATH "MinGW root directory")
     endif()
-endif()
-
-# Normalize MINGW_ROOT path (fix common errors)
-if(WIN32 AND DEFINED MINGW_ROOT)
-    # Convert to CMake path format
-    file(TO_CMAKE_PATH "${MINGW_ROOT}" MINGW_ROOT)
-    
-    # Fix duplicate msys64 in path
-    string(REPLACE "msys64/msys64" "msys64" MINGW_ROOT "${MINGW_ROOT}")
-    string(REPLACE "msys64\\msys64" "msys64" MINGW_ROOT "${MINGW_ROOT}")
-    
-    # Ensure proper format C:/msys64/mingw64
-    if(MINGW_ROOT MATCHES "^C:msys64")
-        string(REGEX REPLACE "^C:msys64" "C:/msys64" MINGW_ROOT "${MINGW_ROOT}")
-    endif()
-    
-    # Update cache
-    set(MINGW_ROOT "${MINGW_ROOT}" CACHE PATH "MinGW root directory" FORCE)
     message(STATUS "Using MINGW_ROOT: ${MINGW_ROOT}")
-    
-    # Verify the path exists
-    if(NOT EXISTS "${MINGW_ROOT}")
-        message(WARNING "MINGW_ROOT path does not exist: ${MINGW_ROOT}")
-    endif()
 endif()
 
 # Initialize FFmpeg configuration variables
@@ -638,26 +615,17 @@ function(link_ffmpeg_libraries)
                 
                 message(STATUS "Building FFmpeg dependencies with MINGW_ROOT: ${MINGW_ROOT}")
                 
-                # Verify critical libraries exist (with path normalization)
+                # Verify critical libraries exist
                 set(_REQUIRED_LIBS
                     "${MINGW_ROOT}/lib/libbz2.a"
                     "${MINGW_ROOT}/lib/liblzma.a"
                     "${MINGW_ROOT}/lib/libwinpthread.a"
                 )
                 foreach(_lib ${_REQUIRED_LIBS})
-                    # Normalize path before checking
-                    file(TO_CMAKE_PATH "${_lib}" _lib_normalized)
-                    if(NOT EXISTS "${_lib_normalized}")
-                        # Try alternative location (system MinGW)
-                        get_filename_component(_lib_name "${_lib_normalized}" NAME)
-                        set(_alt_path "C:/msys64/mingw64/lib/${_lib_name}")
-                        if(EXISTS "${_alt_path}")
-                            message(STATUS "Found (alt): ${_alt_path}")
-                        else()
-                            message(WARNING "Required library not found: ${_lib_normalized} (also checked ${_alt_path})")
-                        endif()
+                    if(NOT EXISTS "${_lib}")
+                        message(WARNING "Required library not found: ${_lib}")
                     else()
-                        message(STATUS "Found: ${_lib_normalized}")
+                        message(STATUS "Found: ${_lib}")
                     endif()
                 endforeach()
                   
@@ -703,20 +671,11 @@ function(link_ffmpeg_libraries)
                 # endif()
                 
                 # Check for libiconv (required for FFmpeg character encoding)
-                set(_iconv_path "${MINGW_ROOT}/lib/libiconv.a")
-                file(TO_CMAKE_PATH "${_iconv_path}" _iconv_normalized)
-                if(EXISTS "${_iconv_normalized}")
-                    list(APPEND _FFMPEG_STATIC_DEPS "${_iconv_normalized}")
-                    message(STATUS "Found libiconv library: ${_iconv_normalized}")
+                if(EXISTS "${MINGW_ROOT}/lib/libiconv.a")
+                    list(APPEND _FFMPEG_STATIC_DEPS "${MINGW_ROOT}/lib/libiconv.a")
+                    message(STATUS "Found libiconv library: ${MINGW_ROOT}/lib/libiconv.a")
                 else()
-                    # Try alternative location
-                    set(_alt_iconv "C:/msys64/mingw64/lib/libiconv.a")
-                    if(EXISTS "${_alt_iconv}")
-                        list(APPEND _FFMPEG_STATIC_DEPS "${_alt_iconv}")
-                        message(STATUS "Found libiconv library (alt): ${_alt_iconv}")
-                    else()
-                        message(WARNING "libiconv.a not found at ${_iconv_normalized} or ${_alt_iconv} - character encoding may not work properly")
-                    endif()
+                    message(WARNING "libiconv.a not found - character encoding may not work properly")
                 endif()
                 
                 # Check for static zlib (required for FFmpeg compression)

@@ -6,23 +6,6 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      force_rebuild_qt:
-        description: 'Force rebuild Qt (ignore cache)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
-      force_rebuild_ffmpeg:
-        description: 'Force rebuild FFmpeg (ignore cache)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
 
 env:
   # MINGW_ROOT is set dynamically from the msys2 setup step to avoid hardcoded C:\\ paths
@@ -77,7 +60,6 @@ jobs:
 
       - name: Cache Qt static build
         id: cache-qt
-        if: github.event.inputs.force_rebuild_qt != 'true'
         uses: actions/cache@v4
         with:
           path: ${{ env.QT_PREFIX }}
@@ -85,7 +67,6 @@ jobs:
 
       - name: Cache FFmpeg static build
         id: cache-ffmpeg
-        if: github.event.inputs.force_rebuild_ffmpeg != 'true'
         uses: actions/cache@v4
         with:
           path: ${{ env.FFMPEG_PREFIX }}
@@ -98,12 +79,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Show force rebuild status
-        if: github.event.inputs.force_rebuild_qt == 'true'
-        run: |
-          Write-Host "⚠️ FORCE REBUILD ENABLED - Qt cache will be ignored"
-          Write-Host "This will take 2-4 hours to complete"
 
       - name: Check Qt cache status
         id: check-qt-cache
@@ -140,7 +115,7 @@ jobs:
             perl
 
       - name: Build Qt statically from source
-        if: needs.setup-env.outputs.qt-cache-hit != 'true' || github.event.inputs.force_rebuild_qt == 'true'
+        if: needs.setup-env.outputs.qt-cache-hit != 'true'
         shell: msys2 {0}
         
         run: |
@@ -178,12 +153,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Show force rebuild status
-        if: github.event.inputs.force_rebuild_ffmpeg == 'true'
-        run: |
-          Write-Host "⚠️ FORCE REBUILD ENABLED - FFmpeg cache will be ignored"
-          Write-Host "This will take 1-2 hours to complete"
-
       - name: Check FFmpeg cache status
         id: check-ffmpeg-cache
         run: echo "cache-hit=${{ needs.setup-env.outputs.ffmpeg-cache-hit }}" >> $GITHUB_OUTPUT
@@ -215,7 +184,7 @@ jobs:
             perl
 
       - name: Build FFmpeg statically
-        if: needs.setup-env.outputs.ffmpeg-cache-hit != 'true' || github.event.inputs.force_rebuild_ffmpeg == 'true'
+        if: needs.setup-env.outputs.ffmpeg-cache-hit != 'true'
         shell: msys2 {0}
         run: |
           ./build-script/build-static-ffmpeg-windows.sh
@@ -282,6 +251,58 @@ jobs:
             git
             perl
 
+      - name: Fix hardcoded MSYS paths in CMake files
+        shell: powershell
+        run: |
+          Write-Host "Replacing hardcoded C:/msys64/mingw64 paths with C:/msys64/mingw64"
+          $mingwPath = "C:/msys64/mingw64"
+          Write-Host "Target MINGW path = $mingwPath"
+          
+          Get-ChildItem -Path cmake -Filter *.cmake -Recurse | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw
+            if ($content -match 'C:/msys64/msys64') {
+              Write-Host "Fixing invalid path in $($_.FullName)"
+              $content = $content -replace 'C:/msys64/msys64/mingw64', $mingwPath
+              Set-Content -Path $_.FullName -Value $content -NoNewline
+            }
+          }
+
+      - name: Fix Qt CMake config files for invalid MINGW paths
+        shell: powershell
+        run: |
+          Write-Host "Scanning Qt6 CMake files for invalid library paths..."
+          $qtPath = "C:\Qt6"
+          if (Test-Path $qtPath) {
+            Get-ChildItem -Path $qtPath -Filter "*.cmake" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+              if ($content) {
+                $modified = $false
+                
+                # Fix /lib/lib paths (invalid absolute paths)
+                if ($content -match '/lib/lib[a-z0-9_\-]+\.a') {
+                  Write-Host "  Fixing /lib/lib* paths in $($_.Name)"
+                  $content = $content -replace '(["\s;])/lib/(lib[a-z0-9_\-]+\.a)', '$1C:/msys64/mingw64/lib/$2'
+                  $modified = $true
+                }
+                
+                # Fix C:/msys64/msys64 duplicate paths
+                if ($content -match 'C:/msys64/msys64') {
+                  Write-Host "  Fixing duplicate msys64 path in $($_.Name)"
+                  $content = $content -replace 'C:/msys64/msys64/mingw64', 'C:/msys64/mingw64'
+                  $modified = $true
+                }
+                
+                if ($modified) {
+                  Set-Content -Path $_.FullName -Value $content -NoNewline
+                  Write-Host "  Fixed $($_.FullName)"
+                }
+              }
+            }
+            Write-Host "Qt CMake config files scan complete"
+          } else {
+            Write-Host "Qt6 path not found, skipping"
+          }
+
       - name: Download Qt artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
@@ -329,116 +350,6 @@ jobs:
         run: |
           echo "FFMPEG_PREFIX=${{ env.FFMPEG_PREFIX }}"
           if (Test-Path "${{ env.FFMPEG_PREFIX }}") { dir "${{ env.FFMPEG_PREFIX }}" } else { echo "${{ env.FFMPEG_PREFIX }} not found" }
-
-      - name: Fix Qt and FFmpeg CMake config files
-        shell: powershell
-        run: |
-          Write-Host "=== Comprehensive CMake Path Fixing ==="
-          $correctPath = "C:/msys64/mingw64"
-          $fixedCount = 0
-          
-          function Fix-PathsInFile {
-            param([string]$filePath)
-            
-            try {
-              $content = Get-Content $filePath -Raw -ErrorAction Stop
-            } catch {
-              return $false
-            }
-            
-            $original = $content
-            
-            # Apply all path fixes
-            $content = $content -replace 'C:\\msys64\\msys64\\mingw64', $correctPath
-            $content = $content -replace 'C:/msys64/msys64/mingw64', $correctPath
-            $content = $content -replace 'C:msys64msys64mingw64', $correctPath
-            $content = $content -replace 'C:\\msys64\\msys64\\', 'C:/msys64/'
-            $content = $content -replace 'C:/msys64/msys64/', 'C:/msys64/'
-            $content = $content -replace '(["\s;=])/lib/(lib[a-z0-9_\-]+\.a)', "`$1$correctPath/lib/`$2"
-            
-            if ($content -ne $original) {
-              Set-Content -Path $filePath -Value $content -NoNewline
-              return $true
-            }
-            return $false
-          }
-          
-          # Fix project cmake files
-          Write-Host "Scanning project cmake/ files..."
-          if (Test-Path "cmake") {
-            Get-ChildItem -Path "cmake" -Filter "*.cmake" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-              if (Fix-PathsInFile $_.FullName) {
-                Write-Host "  Fixed: $($_.Name)"
-                $fixedCount++
-              }
-            }
-          }
-          
-          # Fix Qt6 files
-          Write-Host "Scanning Qt6 directory..."
-          if (Test-Path "C:\Qt6") {
-            Write-Host "  Fixing .cmake files..."
-            Get-ChildItem -Path "C:\Qt6" -Filter "*.cmake" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-              if (Fix-PathsInFile $_.FullName) {
-                $fixedCount++
-              }
-            }
-            
-            Write-Host "  Fixing .pri files..."
-            Get-ChildItem -Path "C:\Qt6" -Filter "*.pri" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-              if (Fix-PathsInFile $_.FullName) {
-                $fixedCount++
-              }
-            }
-            
-            Write-Host "  Fixing .prl files..."
-            Get-ChildItem -Path "C:\Qt6" -Filter "*.prl" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-              if (Fix-PathsInFile $_.FullName) {
-                $fixedCount++
-              }
-            }
-            
-            Write-Host "  Fixing .pc files..."
-            Get-ChildItem -Path "C:\Qt6" -Filter "*.pc" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-              if (Fix-PathsInFile $_.FullName) {
-                $fixedCount++
-              }
-            }
-          }
-          
-          # Fix FFmpeg files
-          Write-Host "Scanning FFmpeg directory..."
-          if (Test-Path "C:\ffmpeg-static") {
-            Write-Host "  Fixing .cmake files..."
-            Get-ChildItem -Path "C:\ffmpeg-static" -Filter "*.cmake" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-              if (Fix-PathsInFile $_.FullName) {
-                $fixedCount++
-              }
-            }
-            
-            Write-Host "  Fixing .pc files..."
-            Get-ChildItem -Path "C:\ffmpeg-static" -Filter "*.pc" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-              if (Fix-PathsInFile $_.FullName) {
-                $fixedCount++
-              }
-            }
-          }
-          
-          Write-Host ""
-          Write-Host "=== Path fixing complete: $fixedCount files modified ==="
-          Write-Host ""
-          
-          # Verify critical files
-          Write-Host "Verifying critical Qt6 files..."
-          $qtConfigFile = "C:\Qt6\lib\cmake\Qt6\Qt6Config.cmake"
-          if (Test-Path $qtConfigFile) {
-            $content = Get-Content $qtConfigFile -Raw
-            if ($content -match 'msys64.*msys64') {
-              Write-Warning "WARNING: Qt6Config.cmake still has bad paths"
-            } else {
-              Write-Host "  OK: Qt6Config.cmake"
-            }
-          }
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -490,11 +401,8 @@ jobs:
           MSYS_MINGW_PATH="/mingw64"
           echo "MSYS_MINGW_PATH=$MSYS_MINGW_PATH"
           
-          # Convert to Windows path for CMake (with validation)
+          # Convert to Windows path for CMake
           CMAKE_MINGW_PATH=$(cygpath -w "$MSYS_MINGW_PATH")
-          # Fix potential duplicate msys64 in path
-          CMAKE_MINGW_PATH="${CMAKE_MINGW_PATH//msys64\\msys64/msys64}"
-          CMAKE_MINGW_PATH="${CMAKE_MINGW_PATH//msys64\/msys64/msys64}"
           echo "CMAKE_MINGW_PATH=$CMAKE_MINGW_PATH"
 
           # Set pkg-config path
@@ -511,36 +419,12 @@ jobs:
             fi
           done
           
-          # Clean build directory thoroughly
+          # Clean build directory
           rm -rf build
           mkdir build && cd build
 
-          # Verify compilers are accessible
-          echo "Checking compiler availability:"
-          which gcc g++ cmake make || echo "Some tools not found in PATH"
-          gcc --version || echo "gcc not found"
-          g++ --version || echo "g++ not found"
-          cmake --version || echo "cmake not found"
-          make --version || echo "make not found"
-          
-          # Set compilers using simple names (let CMake find them in PATH)
-          # This prevents CMake from caching Windows-style absolute paths
-          export CC=gcc
-          export CXX=g++
-          
-          echo "Using compilers: CC=$CC, CXX=$CXX"
-          echo "Compiler paths (POSIX):"
-          which $CC
-          which $CXX
-          
-          # CMake configuration with explicit compiler overrides to prevent caching
-          # Use -U to unset any cached compiler variables
+          # CMake configuration with consistent Windows paths
           cmake .. \
-            -U CMAKE_C_COMPILER \
-            -U CMAKE_CXX_COMPILER \
-            -U CMAKE_RC_COMPILER \
-            -DCMAKE_C_COMPILER=gcc \
-            -DCMAKE_CXX_COMPILER=g++ \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
@@ -564,53 +448,26 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
           
-          # Comprehensive validation of CMakeCache.txt
-          echo "=== Validating CMakeCache.txt ==="
-          
-          # Check for duplicate msys64 paths
-          if grep -E '(msys64.*msys64)' CMakeCache.txt; then
-            echo "❌ ERROR: Found duplicate msys64 paths:"
-            grep -E 'msys64.*msys64' CMakeCache.txt
-            echo "Attempting to fix..."
-            sed -i 's|C:\\msys64\\msys64\\mingw64|C:/msys64/mingw64|g' CMakeCache.txt
-            sed -i 's|C:/msys64/msys64/mingw64|C:/msys64/mingw64|g' CMakeCache.txt
-            sed -i 's|C:msys64msys64mingw64|C:/msys64/mingw64|g' CMakeCache.txt
-            grep -E 'msys64.*msys64' CMakeCache.txt && echo "⚠ Still has duplicates!" || echo "✓ Fixed"
+          # Verify no invalid paths in CMake cache
+          echo "=== Checking for invalid library paths in CMakeCache.txt ==="
+          if grep -E '(/lib/lib|/msys64/msys64)' CMakeCache.txt; then
+            echo "WARNING: Found potentially invalid paths in CMakeCache.txt"
+            grep -E '(/lib/lib|/msys64/msys64)' CMakeCache.txt || true
           else
-            echo "✓ No duplicate msys64 paths found"
-          fi
-          
-          # Check for Windows-format compiler paths (should be simple names)
-          if grep -E 'CMAKE_(C|CXX)_COMPILER:FILEPATH=C:/' CMakeCache.txt; then
-            echo "⚠ WARNING: Found Windows-format compiler paths:"
-            grep -E 'CMAKE_(C|CXX)_COMPILER:FILEPATH' CMakeCache.txt
-            echo "This may cause issues in MSYS2 environment"
-          else
-            echo "✓ Compiler paths look good"
-          fi
-          
-          # Check for invalid /lib/ paths
-          if grep -E '"[^"]*(/lib/lib[a-z])' CMakeCache.txt; then
-            echo "❌ ERROR: Found invalid /lib/ paths:"
-            grep -E '/lib/lib[a-z]' CMakeCache.txt
-          else
-            echo "✓ No invalid /lib/ paths"
+            echo "✓ No invalid paths found"
           fi
           
           # Show all library paths that will be linked
-          echo "=== Checking link.txt and linkLibs.rsp files ==="
+          echo "=== Checking link.txt files for library paths ==="
           find CMakeFiles -name "link.txt" -o -name "linkLibs.rsp" | while read f; do
             echo "--- $f ---"
             cat "$f" | head -100
-            if grep -E '(C:msys64msys64|/msys64/msys64)' "$f"; then
-              echo "WARNING: Invalid paths found in $f"
-            fi
             echo ""
           done || true
 
         env:
-          # Don't set CC/CXX here - set them inside the script
-          MSYS: winsymlinks:nativestrict
+          CC: gcc
+          CXX: g++
 
       - name: Build project
         shell: msys2 {0}

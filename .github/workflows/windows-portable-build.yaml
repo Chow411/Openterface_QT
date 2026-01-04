@@ -490,8 +490,11 @@ jobs:
           MSYS_MINGW_PATH="/mingw64"
           echo "MSYS_MINGW_PATH=$MSYS_MINGW_PATH"
           
-          # Convert to Windows path for CMake
+          # Convert to Windows path for CMake (with validation)
           CMAKE_MINGW_PATH=$(cygpath -w "$MSYS_MINGW_PATH")
+          # Fix potential duplicate msys64 in path
+          CMAKE_MINGW_PATH="${CMAKE_MINGW_PATH//msys64\\msys64/msys64}"
+          CMAKE_MINGW_PATH="${CMAKE_MINGW_PATH//msys64\/msys64/msys64}"
           echo "CMAKE_MINGW_PATH=$CMAKE_MINGW_PATH"
 
           # Set pkg-config path

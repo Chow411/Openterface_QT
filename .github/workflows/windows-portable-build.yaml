@@ -270,7 +270,7 @@ jobs:
       - name: Fix Qt CMake config files for invalid MINGW paths
         shell: powershell
         run: |
-          Write-Host "Scanning Qt6 CMake files for invalid library paths..."
+          Write-Host "Scanning Qt6 CMake files for hardcoded library paths..."
           $qtPath = "C:\Qt6"
           if (Test-Path $qtPath) {
             Get-ChildItem -Path $qtPath -Filter "*.cmake" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
@@ -292,9 +292,30 @@ jobs:
                   $modified = $true
                 }
                 
+                # Replace absolute library paths with linker flags to let the linker search
+                $systemLibs = @('libz.a', 'libbz2.a', 'libb2.a', 'liblzma.a', 'libmfx.a', 
+                                'libwinpthread.a', 'libiconv.a', 'libbrotlidec.a', 'libbrotlicommon.a',
+                                'libusb-1.0.a', 'libzstd.a', 'libcrypto.a', 'libssl.a')
+                
+                foreach ($lib in $systemLibs) {
+                  $libName = $lib -replace '^lib', '' -replace '\.a$', ''
+                  # Replace full paths like "C:/msys64/mingw64/lib/libz.a" with "-lz"
+                  if ($content -match [regex]::Escape("C:/msys64/mingw64/lib/$lib")) {
+                    Write-Host "  Replacing hardcoded path for $lib with linker flag -l$libName in $($_.Name)"
+                    $content = $content -replace [regex]::Escape("C:/msys64/mingw64/lib/$lib"), "-l$libName"
+                    $modified = $true
+                  }
+                  # Also handle quoted paths
+                  if ($content -match [regex]::Escape("`"C:/msys64/mingw64/lib/$lib`"")) {
+                    Write-Host "  Replacing quoted hardcoded path for $lib in $($_.Name)"
+                    $content = $content -replace [regex]::Escape("`"C:/msys64/mingw64/lib/$lib`""), "`"-l$libName`""
+                    $modified = $true
+                  }
+                }
+                
                 if ($modified) {
                   Set-Content -Path $_.FullName -Value $content -NoNewline
-                  Write-Host "  Fixed $($_.FullName)"
+                  Write-Host "  ✓ Fixed $($_.FullName)"
                 }
               }
             }
@@ -404,6 +425,29 @@ jobs:
           # Use hardcoded Windows path to avoid cygpath conversion issues
           CMAKE_MINGW_PATH="C:/msys64/mingw64"
           echo "CMAKE_MINGW_PATH=$CMAKE_MINGW_PATH"
+          
+          # Fix PATH to ensure correct tools are used (no duplicate msys64)
+          export PATH="/mingw64/bin:/usr/bin:/bin:$PATH"
+          echo "PATH=$PATH"
+          
+          # Verify tool paths to ensure no C:/msys64/msys64 duplication
+          echo ""
+          echo "=== Verifying tool paths ==="
+          which gcc
+          which g++
+          which cmake
+          which mingw32-make
+          echo ""
+          
+          # Verify these resolve to correct paths (not C:/msys64/msys64)
+          if which gcc | grep -q "msys64/msys64"; then
+            echo "ERROR: gcc path contains duplicate msys64!"
+            exit 1
+          fi
+          if which cmake | grep -q "msys64/msys64"; then
+            echo "ERROR: cmake path contains duplicate msys64!"
+            exit 1
+          fi
 
           # Set pkg-config path
           export PKG_CONFIG_PATH="${MSYS_MINGW_PATH}/lib/pkgconfig:${MSYS_MINGW_PATH}/share/pkgconfig"

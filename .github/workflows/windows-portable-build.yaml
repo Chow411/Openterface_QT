@@ -267,6 +267,42 @@ jobs:
             }
           }
 
+      - name: Fix Qt CMake config files for invalid MINGW paths
+        shell: powershell
+        run: |
+          Write-Host "Scanning Qt6 CMake files for invalid library paths..."
+          $qtPath = "C:\Qt6"
+          if (Test-Path $qtPath) {
+            Get-ChildItem -Path $qtPath -Filter "*.cmake" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+              if ($content) {
+                $modified = $false
+                
+                # Fix /lib/lib paths (invalid absolute paths)
+                if ($content -match '/lib/lib[a-z0-9_\-]+\.a') {
+                  Write-Host "  Fixing /lib/lib* paths in $($_.Name)"
+                  $content = $content -replace '(["\s;])/lib/(lib[a-z0-9_\-]+\.a)', '$1C:/msys64/mingw64/lib/$2'
+                  $modified = $true
+                }
+                
+                # Fix C:/msys64/msys64 duplicate paths
+                if ($content -match 'C:/msys64/msys64') {
+                  Write-Host "  Fixing duplicate msys64 path in $($_.Name)"
+                  $content = $content -replace 'C:/msys64/msys64/mingw64', 'C:/msys64/mingw64'
+                  $modified = $true
+                }
+                
+                if ($modified) {
+                  Set-Content -Path $_.FullName -Value $content -NoNewline
+                  Write-Host "  ✓ Fixed $($_.FullName)"
+                }
+              }
+            }
+            Write-Host "Qt CMake config files scan complete"
+          } else {
+            Write-Host "Qt6 path not found, skipping"
+          }
+
       - name: Download Qt artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
@@ -395,6 +431,7 @@ jobs:
             -DCMAKE_LIBRARY_PATH="${CMAKE_MINGW_PATH}/lib;C:/ffmpeg-static/lib" \
             -DCMAKE_INCLUDE_PATH="${CMAKE_MINGW_PATH}/include" \
             -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
+            -DMINGW_ROOT="${CMAKE_MINGW_PATH}" \
             -DZLIB_LIBRARY="${CMAKE_MINGW_PATH}/lib/libz.a" \
             -DZLIB_INCLUDE_DIR="${CMAKE_MINGW_PATH}/include" \
             -DBZIP2_LIBRARY="${CMAKE_MINGW_PATH}/lib/libbz2.a" \
@@ -419,6 +456,14 @@ jobs:
           else
             echo "✓ No invalid paths found"
           fi
+          
+          # Show all library paths that will be linked
+          echo "=== Checking link.txt files for library paths ==="
+          find CMakeFiles -name "link.txt" -o -name "linkLibs.rsp" | while read f; do
+            echo "--- $f ---"
+            cat "$f" | head -100
+            echo ""
+          done || true
 
         env:
           CC: gcc

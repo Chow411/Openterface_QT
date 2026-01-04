@@ -420,13 +420,29 @@ jobs:
             mingw-w64-x86_64-libusb \
             mingw-w64-x86_64-zstd
           
+          # Ensure C:\msys64 symlink exists for Qt CMake files that expect it
+          if [ ! -d "/c/msys64" ]; then
+            echo "Creating /c/msys64 directory structure for compatibility"
+            mkdir -p /c/msys64
+          fi
+          
+          # Create symlink from /c/msys64/mingw64 to /mingw64 if it doesn't exist
+          if [ ! -L "/c/msys64/mingw64" ] && [ ! -d "/c/msys64/mingw64" ]; then
+            echo "Creating symlink: /c/msys64/mingw64 -> /mingw64"
+            cmd //c mklink //D "C:\\msys64\\mingw64" "C:\\msys64\\mingw64" || ln -s /mingw64 /c/msys64/mingw64 || cp -r /mingw64 /c/msys64/mingw64
+          fi
+          
+          # Verify the path exists now
+          if [ -d "/c/msys64/mingw64/lib" ]; then
+            echo "✓ C:/msys64/mingw64/lib is accessible"
+            ls -la /c/msys64/mingw64/lib/libz.a || echo "libz.a not found!"
+          else
+            echo "✗ Failed to create C:/msys64/mingw64 path"
+          fi
+          
           # Use consistent MSYS2 path - always /mingw64 within MSYS2 shell
           MSYS_MINGW_PATH="/mingw64"
           echo "MSYS_MINGW_PATH=$MSYS_MINGW_PATH"
-          
-          # Use hardcoded Windows path to avoid cygpath conversion issues
-          CMAKE_MINGW_PATH="C:/msys64/mingw64"
-          echo "CMAKE_MINGW_PATH=$CMAKE_MINGW_PATH"
           
           # Fix PATH to ensure correct tools are used (no duplicate msys64)
           export PATH="/mingw64/bin:/usr/bin:/bin:$PATH"

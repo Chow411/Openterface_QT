@@ -437,16 +437,22 @@ jobs:
 
           # Verify compilers are accessible
           echo "Checking compiler availability:"
-          which gcc g++ cmake || echo "Some tools not found in PATH"
+          which gcc g++ cmake make || echo "Some tools not found in PATH"
           gcc --version || echo "gcc not found"
           g++ --version || echo "g++ not found"
           cmake --version || echo "cmake not found"
+          make --version || echo "make not found"
           
-          # Don't set CC/CXX - let CMake find them from PATH
-          # This avoids path format conflicts between MSYS2 and Windows
+          # Force CMake to use gcc/g++ by name (not cc/c++ symlinks)
+          # Use environment variables instead of -D flags for better compatibility
+          export CC=gcc
+          export CXX=g++
+          
+          echo "Using compilers: CC=$CC, CXX=$CXX"
           
           # CMake configuration with consistent Windows paths
-          cmake .. \
+          # Use --fresh to avoid cache conflicts
+          cmake --fresh .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \

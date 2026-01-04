@@ -294,7 +294,7 @@ jobs:
                 
                 if ($modified) {
                   Set-Content -Path $_.FullName -Value $content -NoNewline
-                  Write-Host "  ✓ Fixed $($_.FullName)"
+                  Write-Host "  Fixed $($_.FullName)"
                 }
               }
             }

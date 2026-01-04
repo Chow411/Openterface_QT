@@ -401,8 +401,8 @@ jobs:
           MSYS_MINGW_PATH="/mingw64"
           echo "MSYS_MINGW_PATH=$MSYS_MINGW_PATH"
           
-          # Convert to Windows path for CMake
-          CMAKE_MINGW_PATH=$(cygpath -w "$MSYS_MINGW_PATH")
+          # Use hardcoded Windows path to avoid cygpath conversion issues
+          CMAKE_MINGW_PATH="C:/msys64/mingw64"
           echo "CMAKE_MINGW_PATH=$CMAKE_MINGW_PATH"
 
           # Set pkg-config path
@@ -411,11 +411,12 @@ jobs:
           
           # Verify critical static libraries exist
           echo "Verifying static libraries in ${MSYS_MINGW_PATH}/lib:"
-          for lib in libz.a libbz2.a libb2.a libbrotlidec.a libbrotlicommon.a libusb-1.0.a libzstd.a libturbojpeg.a libcrypto.a libssl.a; do
+          for lib in libz.a libbz2.a libb2.a liblzma.a libmfx.a libwinpthread.a libiconv.a libbrotlidec.a libbrotlicommon.a libusb-1.0.a libzstd.a libturbojpeg.a libcrypto.a libssl.a; do
             if [ -f "${MSYS_MINGW_PATH}/lib/$lib" ]; then
               echo "  ✓ $lib"
             else
-              echo "  ✗ $lib (MISSING)"
+              echo "  ✗ $lib (MISSING - will cause linker failure)"
+              exit 1
             fi
           done
           
@@ -423,28 +424,28 @@ jobs:
           rm -rf build
           mkdir build && cd build
 
-          # CMake configuration with consistent Windows paths
+          # CMake configuration with explicit absolute paths to avoid path format issues
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
-            -DCMAKE_LIBRARY_PATH="${CMAKE_MINGW_PATH}/lib;C:/ffmpeg-static/lib" \
-            -DCMAKE_INCLUDE_PATH="${CMAKE_MINGW_PATH}/include" \
+            -DCMAKE_LIBRARY_PATH="C:/msys64/mingw64/lib;C:/ffmpeg-static/lib" \
+            -DCMAKE_INCLUDE_PATH="C:/msys64/mingw64/include" \
             -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
-            -DMINGW_ROOT="${CMAKE_MINGW_PATH}" \
-            -DZLIB_LIBRARY="${CMAKE_MINGW_PATH}/lib/libz.a" \
-            -DZLIB_INCLUDE_DIR="${CMAKE_MINGW_PATH}/include" \
-            -DBZIP2_LIBRARY="${CMAKE_MINGW_PATH}/lib/libbz2.a" \
-            -DBZIP2_INCLUDE_DIR="${CMAKE_MINGW_PATH}/include" \
-            -DB2_LIBRARY="${CMAKE_MINGW_PATH}/lib/libb2.a" \
-            -DBROTLI_DEC_LIBRARY="${CMAKE_MINGW_PATH}/lib/libbrotlidec.a" \
-            -DBROTLI_COM_LIBRARY="${CMAKE_MINGW_PATH}/lib/libbrotlicommon.a" \
-            -DOPENSSL_CRYPTO_LIBRARY="${CMAKE_MINGW_PATH}/lib/libcrypto.a" \
-            -DOPENSSL_SSL_LIBRARY="${CMAKE_MINGW_PATH}/lib/libssl.a" \
-            -DOPENSSL_INCLUDE_DIR="${CMAKE_MINGW_PATH}/include" \
-            -DLIBUSB_LIBRARIES="${CMAKE_MINGW_PATH}/lib/libusb-1.0.a" \
-            -DZSTD_LIBRARY="${CMAKE_MINGW_PATH}/lib/libzstd.a" \
-            -DTURBOJPEG_LIBRARY="${CMAKE_MINGW_PATH}/lib/libturbojpeg.a" \
+            -DMINGW_ROOT="C:/msys64/mingw64" \
+            -DZLIB_LIBRARY="C:/msys64/mingw64/lib/libz.a" \
+            -DZLIB_INCLUDE_DIR="C:/msys64/mingw64/include" \
+            -DBZIP2_LIBRARY="C:/msys64/mingw64/lib/libbz2.a" \
+            -DBZIP2_INCLUDE_DIR="C:/msys64/mingw64/include" \
+            -DB2_LIBRARY="C:/msys64/mingw64/lib/libb2.a" \
+            -DBROTLI_DEC_LIBRARY="C:/msys64/mingw64/lib/libbrotlidec.a" \
+            -DBROTLI_COM_LIBRARY="C:/msys64/mingw64/lib/libbrotlicommon.a" \
+            -DOPENSSL_CRYPTO_LIBRARY="C:/msys64/mingw64/lib/libcrypto.a" \
+            -DOPENSSL_SSL_LIBRARY="C:/msys64/mingw64/lib/libssl.a" \
+            -DOPENSSL_INCLUDE_DIR="C:/msys64/mingw64/include" \
+            -DLIBUSB_LIBRARIES="C:/msys64/mingw64/lib/libusb-1.0.a" \
+            -DZSTD_LIBRARY="C:/msys64/mingw64/lib/libzstd.a" \
+            -DTURBOJPEG_LIBRARY="C:/msys64/mingw64/lib/libturbojpeg.a" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
           

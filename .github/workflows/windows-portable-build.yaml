@@ -306,16 +306,18 @@ jobs:
                     $modified = $true
                   }
                   # Also handle quoted paths
-                  if ($content -match [regex]::Escape("`"C:/msys64/mingw64/lib/$lib`"")) {
+                  $quotedPath = '"C:/msys64/mingw64/lib/' + $lib + '"'
+                  $quotedReplacement = '"-l' + $libName + '"'
+                  if ($content -match [regex]::Escape($quotedPath)) {
                     Write-Host "  Replacing quoted hardcoded path for $lib in $($_.Name)"
-                    $content = $content -replace [regex]::Escape("`"C:/msys64/mingw64/lib/$lib`""), "`"-l$libName`""
+                    $content = $content -replace [regex]::Escape($quotedPath), $quotedReplacement
                     $modified = $true
                   }
                 }
                 
                 if ($modified) {
                   Set-Content -Path $_.FullName -Value $content -NoNewline
-                  Write-Host "  ✓ Fixed $($_.FullName)"
+                  Write-Host "  Done: Fixed $($_.FullName)"
                 }
               }
             }

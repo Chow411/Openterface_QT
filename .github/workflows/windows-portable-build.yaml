@@ -435,10 +435,22 @@ jobs:
           rm -rf build
           mkdir build && cd build
 
+          # Verify compilers are accessible
+          echo "Checking compiler availability:"
+          which gcc g++ cmake || echo "Some tools not found in PATH"
+          gcc --version || echo "gcc not found"
+          g++ --version || echo "g++ not found"
+          
+          # Set compilers explicitly for CMake (use MSYS2 paths)
+          export CC=/mingw64/bin/gcc.exe
+          export CXX=/mingw64/bin/g++.exe
+          
           # CMake configuration with consistent Windows paths
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER="${CC}" \
+            -DCMAKE_CXX_COMPILER="${CXX}" \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
             -DCMAKE_LIBRARY_PATH="${CMAKE_MINGW_PATH}/lib;C:/ffmpeg-static/lib" \
             -DCMAKE_INCLUDE_PATH="${CMAKE_MINGW_PATH}/include" \
@@ -486,8 +498,8 @@ jobs:
           done || true
 
         env:
-          CC: gcc
-          CXX: g++
+          # Don't set CC/CXX here - set them inside the script
+          MSYS: winsymlinks:nativestrict
 
       - name: Build project
         shell: msys2 {0}

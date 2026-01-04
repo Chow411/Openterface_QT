@@ -337,29 +337,24 @@ jobs:
           $correctPath = "C:/msys64/mingw64"
           $fixedCount = 0
           
-          # Enhanced regex patterns to catch ALL variations
-          $patterns = @(
-            @{Pattern='C:\\msys64\\msys64\\mingw64'; Replacement=$correctPath; Name='Backslash duplicate'}
-            @{Pattern='C:/msys64/msys64/mingw64'; Replacement=$correctPath; Name='Forward slash duplicate'}
-            @{Pattern='C:msys64msys64mingw64'; Replacement=$correctPath; Name='Missing separators duplicate'}
-            @{Pattern='C:\\msys64\\msys64\\'; Replacement='C:/msys64/'; Name='Partial backslash duplicate'}
-            @{Pattern='C:/msys64/msys64/'; Replacement='C:/msys64/'; Name='Partial forward slash duplicate'}
-            @{Pattern='(["\s;=])/lib/(lib[a-z0-9_\-]+\.a)'; Replacement="`$1$correctPath/lib/`$2"; Name='Invalid /lib/ paths'}
-          )
-          
-          # Function to fix a file
-          function Fix-CmakeFile {
+          function Fix-PathsInFile {
             param([string]$filePath)
             
-            $content = Get-Content $filePath -Raw -ErrorAction SilentlyContinue
-            if (-not $content) { 
-              return $false 
+            try {
+              $content = Get-Content $filePath -Raw -ErrorAction Stop
+            } catch {
+              return $false
             }
             
             $original = $content
-            foreach ($p in $patterns) {
-              $content = $content -replace $p.Pattern, $p.Replacement
-            }
+            
+            # Apply all path fixes
+            $content = $content -replace 'C:\\msys64\\msys64\\mingw64', $correctPath
+            $content = $content -replace 'C:/msys64/msys64/mingw64', $correctPath
+            $content = $content -replace 'C:msys64msys64mingw64', $correctPath
+            $content = $content -replace 'C:\\msys64\\msys64\\', 'C:/msys64/'
+            $content = $content -replace 'C:/msys64/msys64/', 'C:/msys64/'
+            $content = $content -replace '(["\s;=])/lib/(lib[a-z0-9_\-]+\.a)', "`$1$correctPath/lib/`$2"
             
             if ($content -ne $original) {
               Set-Content -Path $filePath -Value $content -NoNewline
@@ -371,61 +366,77 @@ jobs:
           # Fix project cmake files
           Write-Host "Scanning project cmake/ files..."
           if (Test-Path "cmake") {
-            Get-ChildItem -Path cmake -Filter *.cmake -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-              if (Fix-CmakeFile $_.FullName) {
-                Write-Host "  ✓ Fixed: $($_.Name)"
+            Get-ChildItem -Path "cmake" -Filter "*.cmake" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              if (Fix-PathsInFile $_.FullName) {
+                Write-Host "  Fixed: $($_.Name)"
                 $fixedCount++
               }
             }
           }
           
-          # Fix ALL Qt6 files (including .cmake, .pri, .prl, .pc)
-          Write-Host "Scanning Qt6 directory comprehensively..."
+          # Fix Qt6 files
+          Write-Host "Scanning Qt6 directory..."
           if (Test-Path "C:\Qt6") {
-            $qtExtensions = @('*.cmake', '*.pri', '*.prl', '*.pc', '*.la')
-            foreach ($ext in $qtExtensions) {
-              Get-ChildItem -Path "C:\Qt6" -Filter $ext -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-                if (Fix-CmakeFile $_.FullName) {
-                  Write-Host "  ✓ Fixed: $($_.FullName.Replace('C:\Qt6\', ''))"
-                  $fixedCount++
-                }
+            Write-Host "  Fixing .cmake files..."
+            Get-ChildItem -Path "C:\Qt6" -Filter "*.cmake" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              if (Fix-PathsInFile $_.FullName) {
+                $fixedCount++
+              }
+            }
+            
+            Write-Host "  Fixing .pri files..."
+            Get-ChildItem -Path "C:\Qt6" -Filter "*.pri" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              if (Fix-PathsInFile $_.FullName) {
+                $fixedCount++
+              }
+            }
+            
+            Write-Host "  Fixing .prl files..."
+            Get-ChildItem -Path "C:\Qt6" -Filter "*.prl" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              if (Fix-PathsInFile $_.FullName) {
+                $fixedCount++
+              }
+            }
+            
+            Write-Host "  Fixing .pc files..."
+            Get-ChildItem -Path "C:\Qt6" -Filter "*.pc" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              if (Fix-PathsInFile $_.FullName) {
+                $fixedCount++
               }
             }
           }
           
-          # Fix ALL FFmpeg files
-          Write-Host "Scanning FFmpeg directory comprehensively..."
+          # Fix FFmpeg files
+          Write-Host "Scanning FFmpeg directory..."
           if (Test-Path "C:\ffmpeg-static") {
-            $ffExtensions = @('*.cmake', '*.pc', '*.la')
-            foreach ($ext in $ffExtensions) {
-              Get-ChildItem -Path "C:\ffmpeg-static" -Filter $ext -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-                if (Fix-CmakeFile $_.FullName) {
-                  Write-Host "  ✓ Fixed: $($_.FullName.Replace('C:\ffmpeg-static\', ''))"
-                  $fixedCount++
-                }
+            Write-Host "  Fixing .cmake files..."
+            Get-ChildItem -Path "C:\ffmpeg-static" -Filter "*.cmake" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              if (Fix-PathsInFile $_.FullName) {
+                $fixedCount++
+              }
+            }
+            
+            Write-Host "  Fixing .pc files..."
+            Get-ChildItem -Path "C:\ffmpeg-static" -Filter "*.pc" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              if (Fix-PathsInFile $_.FullName) {
+                $fixedCount++
               }
             }
           }
           
-          Write-Host "`n=== Path fixing complete: $fixedCount files modified ==="
+          Write-Host ""
+          Write-Host "=== Path fixing complete: $fixedCount files modified ==="
+          Write-Host ""
           
           # Verify critical files
-          Write-Host "`nVerifying critical Qt6 files..."
-          $criticalFiles = @(
-            'C:\Qt6\lib\cmake\Qt6\Qt6Config.cmake'
-            'C:\Qt6\lib\cmake\Qt6Core\Qt6CoreConfig.cmake'
-          )
-          foreach ($file in $criticalFiles) {
-            if (Test-Path $file) {
-              $content = Get-Content $file -Raw
-              if ($content -match 'msys64/msys64' -or $content -match 'msys64\\msys64') {
-                Write-Warning "⚠ STILL HAS BAD PATHS: $file"
-                $content | Select-String -Pattern 'msys64.*msys64' -AllMatches | ForEach-Object { 
-                  Write-Host "    $_" 
-                }
-              } else {
-                Write-Host "  ✓ Clean: $(Split-Path $file -Leaf)"
-              }
+          Write-Host "Verifying critical Qt6 files..."
+          $qtConfigFile = "C:\Qt6\lib\cmake\Qt6\Qt6Config.cmake"
+          if (Test-Path $qtConfigFile) {
+            $content = Get-Content $qtConfigFile -Raw
+            if ($content -match 'msys64.*msys64') {
+              Write-Warning "WARNING: Qt6Config.cmake still has bad paths"
+            } else {
+              Write-Host "  OK: Qt6Config.cmake"
             }
           }
 

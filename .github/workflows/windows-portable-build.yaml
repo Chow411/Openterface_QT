@@ -411,8 +411,19 @@ jobs:
           
           # Verify critical static libraries exist
           echo "Verifying static libraries in ${MSYS_MINGW_PATH}/lib:"
-          for lib in libz.a libbz2.a libb2.a liblzma.a libmfx.a libwinpthread.a libiconv.a libbrotlidec.a libbrotlicommon.a libusb-1.0.a libzstd.a libturbojpeg.a libcrypto.a libssl.a; do
+          for lib in libz.a libbz2.a libb2.a liblzma.a libmfx.a libwinpthread.a libiconv.a libbrotlidec.a libbrotlicommon.a libusb-1.0.a libzstd.a libcrypto.a libssl.a; do
             if [ -f "${MSYS_MINGW_PATH}/lib/$lib" ]; then
+              echo "  ✓ $lib"
+            else
+              echo "  ✗ $lib (MISSING - will cause linker failure)"
+              exit 1
+            fi
+          done
+          
+          # Verify FFmpeg static libraries
+          echo "Verifying FFmpeg static libraries in /c/ffmpeg-static/lib:"
+          for lib in libavcodec.a libavformat.a libavutil.a libswscale.a libturbojpeg.a; do
+            if [ -f "/c/ffmpeg-static/lib/$lib" ]; then
               echo "  ✓ $lib"
             else
               echo "  ✗ $lib (MISSING - will cause linker failure)"
@@ -445,7 +456,7 @@ jobs:
             -DOPENSSL_INCLUDE_DIR="C:/msys64/mingw64/include" \
             -DLIBUSB_LIBRARIES="C:/msys64/mingw64/lib/libusb-1.0.a" \
             -DZSTD_LIBRARY="C:/msys64/mingw64/lib/libzstd.a" \
-            -DTURBOJPEG_LIBRARY="C:/msys64/mingw64/lib/libturbojpeg.a" \
+            -DTURBOJPEG_LIBRARY="C:/ffmpeg-static/lib/libturbojpeg.a" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
           

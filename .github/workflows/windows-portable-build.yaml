@@ -421,24 +421,31 @@ jobs:
             mingw-w64-x86_64-zstd
           
           # Ensure C:\msys64 symlink exists for Qt CMake files that expect it
-          if [ ! -d "/c/msys64" ]; then
-            echo "Creating /c/msys64 directory structure for compatibility"
-            mkdir -p /c/msys64
-          fi
+          # In MSYS2, /c/msys64 should point to the actual C:\msys64 installation
+          # But sometimes the path isn't accessible, so verify and create if needed
           
-          # Create symlink from /c/msys64/mingw64 to /mingw64 if it doesn't exist
-          if [ ! -L "/c/msys64/mingw64" ] && [ ! -d "/c/msys64/mingw64" ]; then
-            echo "Creating symlink: /c/msys64/mingw64 -> /mingw64"
-            cmd //c mklink //D "C:\\msys64\\mingw64" "C:\\msys64\\mingw64" || ln -s /mingw64 /c/msys64/mingw64 || cp -r /mingw64 /c/msys64/mingw64
-          fi
+          echo "=== Checking MSYS64 path accessibility ==="
+          echo "MSYS2 is installed at: C:\\msys64"
+          echo "From MSYS2 shell, /c/msys64 should exist"
           
-          # Verify the path exists now
           if [ -d "/c/msys64/mingw64/lib" ]; then
-            echo "✓ C:/msys64/mingw64/lib is accessible"
-            ls -la /c/msys64/mingw64/lib/libz.a || echo "libz.a not found!"
+            echo "✓ /c/msys64/mingw64/lib already accessible"
+            ls -la /c/msys64/mingw64/lib/libz.a
           else
-            echo "✗ Failed to create C:/msys64/mingw64 path"
+            echo "✗ /c/msys64/mingw64/lib NOT accessible"
+            echo "This should not happen in MSYS2 - debugging..."
+            ls -la /c/ || true
+            ls -la /c/msys64/ || true
           fi
+          
+          # The real issue: Qt CMake files reference C:/msys64/mingw64/lib/libz.a
+          # But the file doesn't exist at that path. Check if libraries are in /mingw64 instead
+          echo ""
+          echo "=== Verifying library locations ==="
+          echo "Checking /mingw64/lib/libz.a:"
+          ls -la /mingw64/lib/libz.a
+          echo "Checking /c/msys64/mingw64/lib/libz.a:"
+          ls -la /c/msys64/mingw64/lib/libz.a || echo "NOT FOUND - this is the problem!"
           
           # Use consistent MSYS2 path - always /mingw64 within MSYS2 shell
           MSYS_MINGW_PATH="/mingw64"

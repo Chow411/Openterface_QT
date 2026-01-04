@@ -12,7 +12,30 @@ if(WIN32 AND NOT DEFINED MINGW_ROOT)
         # Default to standard MSYS2 location
         set(MINGW_ROOT "C:/msys64/mingw64" CACHE PATH "MinGW root directory")
     endif()
+endif()
+
+# Normalize MINGW_ROOT path (fix common errors)
+if(WIN32 AND DEFINED MINGW_ROOT)
+    # Convert to CMake path format
+    file(TO_CMAKE_PATH "${MINGW_ROOT}" MINGW_ROOT)
+    
+    # Fix duplicate msys64 in path
+    string(REPLACE "msys64/msys64" "msys64" MINGW_ROOT "${MINGW_ROOT}")
+    string(REPLACE "msys64\\msys64" "msys64" MINGW_ROOT "${MINGW_ROOT}")
+    
+    # Ensure proper format C:/msys64/mingw64
+    if(MINGW_ROOT MATCHES "^C:msys64")
+        string(REGEX REPLACE "^C:msys64" "C:/msys64" MINGW_ROOT "${MINGW_ROOT}")
+    endif()
+    
+    # Update cache
+    set(MINGW_ROOT "${MINGW_ROOT}" CACHE PATH "MinGW root directory" FORCE)
     message(STATUS "Using MINGW_ROOT: ${MINGW_ROOT}")
+    
+    # Verify the path exists
+    if(NOT EXISTS "${MINGW_ROOT}")
+        message(WARNING "MINGW_ROOT path does not exist: ${MINGW_ROOT}")
+    endif()
 endif()
 
 # Initialize FFmpeg configuration variables

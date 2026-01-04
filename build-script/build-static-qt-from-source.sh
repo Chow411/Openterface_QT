@@ -334,7 +334,13 @@ cmake_args=(
 
 # Add windows-specific linker flags
 if [ "$PLATFORM" = "windows" ]; then
-  cmake_args+=( -DCMAKE_EXE_LINKER_FLAGS="${LLD_FLAGS} -L${OPENSSL_LIB_DIR} -lssl -lcrypto -lws2_32 -lcrypt32 -ladvapi32 -luser32 -lgdi32" -DCMAKE_SHARED_LINKER_FLAGS="${LLD_FLAGS}" -DCMAKE_REQUIRED_LIBRARIES="ws2_32;crypt32;advapi32;user32;gdi32" )
+  # Force static linking of zstd from MSYS2 instead of vcpkg
+  ZSTD_STATIC_LIB="${MINGW_PATH}/lib/libzstd.a"
+  if [ -f "$ZSTD_STATIC_LIB" ]; then
+    echo "Using static zstd from: $ZSTD_STATIC_LIB"
+    cmake_args+=( -DZSTD_LIBRARY="$ZSTD_STATIC_LIB" -DZSTD_INCLUDE_DIR="${MINGW_PATH}/include" )
+  fi
+  cmake_args+=( -DCMAKE_EXE_LINKER_FLAGS="${LLD_FLAGS} -L${OPENSSL_LIB_DIR} -L${MINGW_PATH}/lib -Wl,-Bstatic -lzstd -Wl,-Bdynamic -lssl -lcrypto -lws2_32 -lcrypt32 -ladvapi32 -luser32 -lgdi32" -DCMAKE_SHARED_LINKER_FLAGS="${LLD_FLAGS}" -DCMAKE_REQUIRED_LIBRARIES="ws2_32;crypt32;advapi32;user32;gdi32" )
 fi
 
 cmake "${cmake_args[@]}"

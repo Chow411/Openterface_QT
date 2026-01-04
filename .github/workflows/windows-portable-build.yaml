@@ -572,6 +572,7 @@ jobs:
 
           # CMake configuration using pkg-config to find libraries automatically
           # This avoids hardcoded paths that may not exist at link time
+          # Force static linking for all third-party libraries
           cmake .. \
             -G "MinGW Makefiles" \
             -DCMAKE_C_COMPILER="/mingw64/bin/gcc.exe" \
@@ -579,9 +580,11 @@ jobs:
             -DCMAKE_MAKE_PROGRAM="/mingw64/bin/mingw32-make.exe" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt6;C:/ffmpeg-static" \
-            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -L/mingw64/lib -L/c/ffmpeg-static/lib -Wl,-Bstatic -lzstd -Wl,-Bdynamic" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -L/mingw64/lib -L/c/ffmpeg-static/lib" \
+            -DCMAKE_MODULE_LINKER_FLAGS="-Wl,-Bstatic" \
             -DTURBOJPEG_LIBRARY="/c/ffmpeg-static/lib/libturbojpeg.a" \
             -DZSTD_LIBRARY="/mingw64/lib/libzstd.a" \
+            -DZSTD_INCLUDE_DIR="/mingw64/include" \
             -DBUILD_SHARED_LIBS=OFF \
             -DSTATIC_LINKAGE=ON
           

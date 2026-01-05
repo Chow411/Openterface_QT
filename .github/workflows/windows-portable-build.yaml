@@ -117,7 +117,11 @@ jobs:
       - name: Build Qt statically from source
         if: needs.setup-env.outputs.qt-cache-hit != 'true'
         shell: msys2 {0}
-        
+        env:
+          # Ensure correct compiler paths without duplication
+          CC: /mingw64/bin/gcc
+          CXX: /mingw64/bin/g++
+          PATH: /mingw64/bin:/usr/bin:/bin
         run: |
           ./build-script/build-static-qt-from-source.sh
         

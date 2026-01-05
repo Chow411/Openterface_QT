@@ -46,15 +46,6 @@ function(force_static_compression_libraries target)
         if(STATIC_LIB_PATHS)
             target_link_libraries(${target} PRIVATE ${STATIC_LIB_PATHS})
             message(STATUS "Linked static compression libraries: ${STATIC_LIB_PATHS}")
-            
-            # Add linker flags to prefer static libraries for compression libs
-            get_target_property(CURRENT_LINK_FLAGS ${target} LINK_FLAGS)
-            if(NOT CURRENT_LINK_FLAGS)
-                set(CURRENT_LINK_FLAGS "")
-            endif()
-            set_target_properties(${target} PROPERTIES 
-                LINK_FLAGS "${CURRENT_LINK_FLAGS} -Wl,-Bstatic,-lzstd,-lbrotlidec,-lbrotlienc,-lbrotlicommon,-Wl,-Bdynamic"
-            )
         endif()
         
         # Set library suffixes to prefer .a files for this target

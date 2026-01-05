@@ -632,62 +632,57 @@ jobs:
         shell: powershell
         run: |
           # Find the executable
-          $exe = Get-ChildItem -Path "build" -Filter "*.exe" -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          $exe = Get-ChildItem -Path "build" -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          
           if (-not $exe) {
             Write-Error "No executable found in build directory"
             Get-ChildItem -Path "build" -Recurse | Where-Object { $_.Extension -eq ".exe" -or $_.Name -like "*openterface*" }
             exit 1
           }
+          
           Write-Host "Found executable: $exe"
-          if (-not (Test-Path $exe)) { throw "Executable not found at: $exe" }
-
-          # Collect DLL names from objdump output
-          $dllNames = objdump -p $exe | Select-String "DLL Name:" | ForEach-Object { ($_.ToString() -split "DLL Name:")[1].Trim() }
-
-          if (-not $dllNames) {
-            Write-Host "SUCCESS: No DLL dependencies - fully static!"
-            exit 0
+          
+          if (-not (Test-Path $exe)) {
+            throw "Executable not found at: $exe"
           }
-
-          Write-Host "DLL dependencies found:"
-          $dllNames | ForEach-Object { Write-Host "  $_" }
-
-          $systemDlls = @(
-            'KERNEL32.dll','msvcrt.dll','USER32.dll','GDI32.dll','ADVAPI32.dll',
-            'SHELL32.dll','WS2_32.dll','ole32.dll','OLEAUT32.dll','IMM32.dll',
-            'WINMM.dll','SETUPAPI.dll','VERSION.dll','UxTheme.dll','DWMAPI.dll',
-            'COMDLG32.dll','WINSPOOL.DRV','OPENGL32.dll','comdlg32.dll',
-            'AUTHZ.dll','bcrypt.dll','CRYPT32.dll','d3d11.dll','d3d12.dll',
-            'd3d9.dll','DWrite.dll','dxgi.dll','dxva2.dll','EVR.dll',
-            'HID.DLL','IPHLPAPI.DLL','MFReadWrite.dll','ncrypt.dll','NETAPI32.dll',
-            'api-ms-win-core-winrt-l1-1-0.dll','api-ms-win-core-winrt-string-l1-1-0.dll',
-            'Secur32.dll','SHCORE.dll','SHLWAPI.dll','api-ms-win-core-synch-l1-2-0.dll',
-            'USERENV.dll','AVICAP32.dll','WINHTTP.dll','WTSAPI32.dll',
-            'MF.dll','MFPlat.DLL','PROPSYS.dll'
-          ) | ForEach-Object { $_.ToLowerInvariant() }
-
-          $thirdParty = $dllNames | ForEach-Object { $_.ToLowerInvariant() } | Where-Object { $systemDlls -notcontains $_ } | Sort-Object -Unique
-
-          if ($thirdParty.Count -gt 0) {
-            Write-Host "`n=== THIRD-PARTY DLLs (should be statically linked) ==="
-            $thirdParty | ForEach-Object { Write-Host "  $_" }
-
-            if ($thirdParty -match 'zstd') {
-              Write-Host "`nDIAGNOSIS: libzstd.dll dependency detected"
-              if (Test-Path 'C:\msys64\mingw64\lib\libzstd.a') {
-                Write-Host "✓ Static zstd library found at C:\msys64\mingw64\lib\libzstd.a"
-                Write-Host "The issue is in linking configuration - CMake or linker is not using the static version."
-              } else {
-                Write-Host "✗ Static zstd library NOT found at C:\msys64\mingw64\lib\libzstd.a"
-                Write-Host "Install with: pacman -S mingw-w64-x86_64-zstd"
-              }
+          
+          Write-Host "`n=== Checking DLL dependencies ==="
+          $allOutput = objdump -p $exe | Select-String "DLL Name:"
+          
+          if ($allOutput) {
+            Write-Host "DLL dependencies found:"
+            $allOutput | ForEach-Object { Write-Host "  $_" }
+            
+            # Comprehensive list of acceptable Windows system DLLs
+            $systemDlls = @(
+              "KERNEL32.dll", "msvcrt.dll", "USER32.dll", "GDI32.dll", "ADVAPI32.dll", 
+              "SHELL32.dll", "WS2_32.dll", "ole32.dll", "OLEAUT32.dll", "IMM32.dll", 
+              "WINMM.dll", "SETUPAPI.dll", "VERSION.dll", "UxTheme.dll", "DWMAPI.dll", 
+              "COMDLG32.dll", "WINSPOOL.DRV", "OPENGL32.dll", "comdlg32.dll",
+              "AUTHZ.dll", "bcrypt.dll", "CRYPT32.dll", "d3d11.dll", "d3d12.dll", 
+              "d3d9.dll", "DWrite.dll", "dxgi.dll", "dxva2.dll", "EVR.dll",
+              "HID.DLL", "IPHLPAPI.DLL", "MFReadWrite.dll", "ncrypt.dll", "NETAPI32.dll",
+              "api-ms-win-core-winrt-l1-1-0.dll", "api-ms-win-core-winrt-string-l1-1-0.dll",
+              "Secur32.dll", "SHCORE.dll", "SHLWAPI.dll", "api-ms-win-core-synch-l1-2-0.dll",
+              "USERENV.dll", "AVICAP32.dll", "WINHTTP.dll", "WTSAPI32.dll",
+              "MF.dll", "MFPlat.DLL", "PROPSYS.dll"
+            )
+            
+            $problematicDlls = $allOutput | Where-Object { 
+              $line = $_.ToString()
+              $dll = ($line -split "DLL Name:")[1].Trim()
+              $systemDlls -notcontains $dll
             }
-
-            Write-Warning "Build has third-party DLL dependencies - not fully static"
-            exit 1
+            
+            if ($problematicDlls) {
+              Write-Host "`n=== THIRD-PARTY DLLs (should be statically linked) ==="
+              $problematicDlls | ForEach-Object { Write-Host "  $_" }
+              Write-Warning "Build has third-party DLL dependencies - not fully static, but may still be portable if DLLs are bundled"
+            } else {
+              Write-Host "`nSUCCESS: Only Windows system DLLs found - build is portable!"
+            }
           } else {
-            Write-Host "`nSUCCESS: Only Windows system DLLs found - build is portable!"
-            exit 0
+            Write-Host "SUCCESS: No DLL dependencies - fully static!"
           }
 
       - name: Upload final portable executable

@@ -4,14 +4,25 @@ if(DEFINED FFMPEG_FOUND AND FFMPEG_FOUND)
   return()
 endif()
 
+# Ensure MINGW_ROOT is set for Windows builds
+if(WIN32 AND NOT DEFINED MINGW_ROOT)
+    if(DEFINED ENV{MINGW_ROOT})
+        set(MINGW_ROOT "$ENV{MINGW_ROOT}" CACHE PATH "MinGW root directory")
+    else()
+        # Default to standard MSYS2 location
+        set(MINGW_ROOT "C:/msys64/mingw64" CACHE PATH "MinGW root directory")
+    endif()
+    message(STATUS "Using MINGW_ROOT: ${MINGW_ROOT}")
+endif()
+
 # Initialize FFmpeg configuration variables
 set(FFMPEG_PKG_CONFIG ${USE_SHARED_FFMPEG})
 
 # Set ZLIB_LIBRARY for static zlib
 if(NOT ZLIB_LIBRARY)
-    if(DEFINED MINGW_ROOT)
+    if(DEFINED MINGW_ROOT AND WIN32)
         set(ZLIB_LIBRARY "${MINGW_ROOT}/lib/libz.a" CACHE FILEPATH "Path to static zlib library")
-    else()
+    elseif(WIN32)
         set(ZLIB_LIBRARY "C:/msys64/mingw64/lib/libz.a" CACHE FILEPATH "Path to static zlib library")
     endif()
 endif()
@@ -596,7 +607,28 @@ function(link_ffmpeg_libraries)
             
             # Platform-specific FFmpeg dependencies
             if(WIN32)
-                # Windows-specific FFmpeg dependencies  
+                # Windows-specific FFmpeg dependencies
+                # Verify MINGW_ROOT is set
+                if(NOT DEFINED MINGW_ROOT OR "${MINGW_ROOT}" STREQUAL "")
+                    message(FATAL_ERROR "MINGW_ROOT is not set. Please define it via -DMINGW_ROOT=C:/msys64/mingw64")
+                endif()
+                
+                message(STATUS "Building FFmpeg dependencies with MINGW_ROOT: ${MINGW_ROOT}")
+                
+                # Verify critical libraries exist
+                set(_REQUIRED_LIBS
+                    "${MINGW_ROOT}/lib/libbz2.a"
+                    "${MINGW_ROOT}/lib/liblzma.a"
+                    "${MINGW_ROOT}/lib/libwinpthread.a"
+                )
+                foreach(_lib ${_REQUIRED_LIBS})
+                    if(NOT EXISTS "${_lib}")
+                        message(WARNING "Required library not found: ${_lib}")
+                    else()
+                        message(STATUS "Found: ${_lib}")
+                    endif()
+                endforeach()
+                  
                 set(_FFMPEG_STATIC_DEPS
                     ${JPEG_LINK}
                     ${TURBOJPEG_LINK}
@@ -607,7 +639,11 @@ function(link_ffmpeg_libraries)
                     ${ZLIB_LIBRARY}      # zlib for compression
                     "${MINGW_ROOT}/lib/libbz2.a"    # bzip2 for compression
                     "${MINGW_ROOT}/lib/liblzma.a"   # lzma/xz for compression
-                    "${MINGW_ROOT}/lib/libmfx.a"    # Intel Media SDK for QSV
+                    "${MINGW_ROOT}/lib/libzstd.a"   # zstd for compression
+                    "${MINGW_ROOT}/lib/libbrotlidec.a"  # Brotli decompression
+                    "${MINGW_ROOT}/lib/libbrotlienc.a"  # Brotli compression
+                    "${MINGW_ROOT}/lib/libbrotlicommon.a"  # Brotli common
+                    "${MINGW_ROOT}/lib/libmfx.a"    # Intel Media SDK for QSV (optional)
                     -lmingwex       # MinGW extensions for setjmp etc.
                     "${MINGW_ROOT}/lib/libwinpthread.a"  # Windows pthreads for 64-bit time functions
                     # -liconv        # Character encoding conversion

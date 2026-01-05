@@ -198,8 +198,9 @@ fi
 # By default, do NOT force libmfx/NVENC linking; they should be optional and allowed to be missing at runtime.
 ENABLE_LIBMFX=""
 EXTRA_CFLAGS="-I${FFMPEG_INSTALL_PREFIX}/include"
-# Start with common link flags; add bz2/lzma only if present in known MinGW/MSYS2 lib dirs
-EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lmingwex -lwinpthread -static -static-libgcc -static-libstdc++"
+# Start with common link flags; add bz2/lzma/zstd only if present in known MinGW/MSYS2 lib dirs
+# Force static linking with -Wl,-Bstatic for third-party libs
+EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -Wl,-Bstatic -lz -lzstd -Wl,-Bdynamic -lmingwex -lwinpthread -static -static-libgcc -static-libstdc++"
 # Probe candidate lib dirs for libbz2/liblzma (respect EXTERNAL_MINGW_POSIX if set)
 CANDIDATE_LIB_DIRS="${EXTERNAL_MINGW_POSIX:-/c/mingw64} /c/msys64/mingw64 /mingw64"
 for d in $CANDIDATE_LIB_DIRS; do

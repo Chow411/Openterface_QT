@@ -441,14 +441,25 @@ jobs:
             echo "MSYS_MINGW_PATH not set; skipping copy of static libs"
           fi
 
-          # Debug: check static libraries for libb2, brotli, turbojpeg, libusb
+          # Debug: check static libraries for libb2, brotli, turbojpeg, libusb, zstd
           echo "Checking for static libraries to be linked:"
-          if [ -f "${MSYS_MINGW_PATH}/lib/libb2.a" ]; then echo "FOUND: libb2.a" cp "${MSYS_MINGW_PATH}/lib/libb2.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libb2.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then echo "FOUND: libbrotlidec.a" cp "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libbrotlidec.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" ]; then echo "FOUND: libbrotlicommon.a" cp "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libbrotlicommon.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" ]; then echo "FOUND: libturbojpeg.a" cp "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libturbojpeg.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" ]; then echo "FOUND: libusb-1.0.a" cp "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libusb-1.0.a"; fi
-          if [ -f "${MSYS_MINGW_PATH}/lib/libzstd.a" ]; then echo "FOUND: libzstd.a" cp "${MSYS_MINGW_PATH}/lib/libzstd.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libzstd.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libb2.a" ]; then echo "FOUND: libb2.a"; cp "${MSYS_MINGW_PATH}/lib/libb2.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libb2.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" ]; then echo "FOUND: libbrotlidec.a"; cp "${MSYS_MINGW_PATH}/lib/libbrotlidec.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libbrotlidec.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" ]; then echo "FOUND: libbrotlicommon.a"; cp "${MSYS_MINGW_PATH}/lib/libbrotlicommon.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libbrotlicommon.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" ]; then echo "FOUND: libturbojpeg.a"; cp "${MSYS_MINGW_PATH}/lib/libturbojpeg.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libturbojpeg.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" ]; then echo "FOUND: libusb-1.0.a"; cp "${MSYS_MINGW_PATH}/lib/libusb-1.0.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libusb-1.0.a"; fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libzstd.a" ]; then echo "FOUND: libzstd.a"; cp "${MSYS_MINGW_PATH}/lib/libzstd.a" "${WIN_MINGW_LIB}/"; else echo "MISSING: libzstd.a"; fi
+          
+          # Force static linking by removing or renaming dynamic libraries that conflict
+          echo "Removing/hiding dynamic libraries to force static linking:"
+          if [ -f "${MSYS_MINGW_PATH}/bin/libzstd.dll" ]; then 
+            echo "Temporarily hiding libzstd.dll"
+            mv "${MSYS_MINGW_PATH}/bin/libzstd.dll" "${MSYS_MINGW_PATH}/bin/libzstd.dll.bak" || true
+          fi
+          if [ -f "${MSYS_MINGW_PATH}/lib/libzstd.dll.a" ]; then 
+            echo "Temporarily hiding libzstd.dll.a import library"
+            mv "${MSYS_MINGW_PATH}/lib/libzstd.dll.a" "${MSYS_MINGW_PATH}/lib/libzstd.dll.a.bak" || true
+          fi
           
           # Ensure a clean build dir
           rm -rf build
@@ -468,8 +479,10 @@ jobs:
           pkg-config --exists bzip2 && echo "pkg-config bzip2 libs: $(pkg-config --libs bzip2)" || echo "pkg-config bzip2 not found"
           pkg-config --exists zlib && echo "pkg-config zlib libs: $(pkg-config --libs zlib)" || echo "pkg-config zlib not found"
 
-          # Force static linking by setting linker flags
-          export LDFLAGS="-L${MSYS_MINGW_PATH}/lib -static-libgcc -static-libstdc++"
+          # Force static linking by setting linker flags and CMAKE variables
+          export LDFLAGS="-L${MSYS_MINGW_PATH}/lib -static-libgcc -static-libstdc++ -static"
+          export CMAKE_FIND_LIBRARY_SUFFIXES=".a"
+          export CMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -static"
 
           # Build EXTRA CMake flags to prefer explicit static libs when present (from FFmpeg prefix or MINGW)
           EXTRA=""
@@ -493,7 +506,10 @@ jobs:
             -DCMAKE_FIND_ROOT_PATH="${MSYS_MINGW_PATH}" \
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -L${MSYS_MINGW_PATH}/lib -L/c/ffmpeg-static/lib" \
+            -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -static -L${MSYS_MINGW_PATH}/lib -L/c/ffmpeg-static/lib" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++ -static" \
+            -DCMAKE_MODULE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -static" \
             -DPKG_CONFIG_PATH="${PKG_CONFIG_PATH}" \
             -DZLIB_LIBRARY="${MSYS_MINGW_PATH}/lib/libz.a" \
             -DZLIB_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
@@ -506,10 +522,15 @@ jobs:
             -DOPENSSL_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
             -DLIBUSB_LIBRARIES="${MSYS_MINGW_PATH}/lib/libusb-1.0.a" \
             -DZSTD_LIBRARY="${MSYS_MINGW_PATH}/lib/libzstd.a" \
+            -DZSTD_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
+            -Dzstd_LIBRARY="${MSYS_MINGW_PATH}/lib/libzstd.a" \
+            -DPkgConfig_zstd_LINK_LIBRARIES="${MSYS_MINGW_PATH}/lib/libzstd.a" \
             -DTURBOJPEG_LIBRARY="${MSYS_MINGW_PATH}/lib/libturbojpeg.a" \
             -DBZIP2_INCLUDE_DIR="${MSYS_MINGW_PATH}/include" \
             -DBUILD_SHARED_LIBS=OFF \
-            -DSTATIC_LINKAGE=ON ${EXTRA}
+            -DSTATIC_LINKAGE=ON \
+            -DCMAKE_LINK_SEARCH_START_STATIC=ON \
+            -DCMAKE_LINK_SEARCH_END_STATIC=ON ${EXTRA}
 
           # Post-config verification: show any references to dll.a and key libs in CMake cache
           grep -R --line-number "dll.a" CMakeCache.txt || true
@@ -544,6 +565,16 @@ jobs:
         run: |
           cd build
           mingw32-make VERBOSE=1 -j$(nproc)
+          
+          # Restore any backed up dynamic libraries after build
+          if [ -f "$MINGW_ROOT/bin/libzstd.dll.bak" ]; then
+            echo "Restoring libzstd.dll"
+            mv "$MINGW_ROOT/bin/libzstd.dll.bak" "$MINGW_ROOT/bin/libzstd.dll" || true
+          fi
+          if [ -f "$MINGW_ROOT/lib/libzstd.dll.a.bak" ]; then
+            echo "Restoring libzstd.dll.a import library"
+            mv "$MINGW_ROOT/lib/libzstd.dll.a.bak" "$MINGW_ROOT/lib/libzstd.dll.a" || true
+          fi
 
       - name: Verify static linking (no DLL dependencies)
         shell: powershell

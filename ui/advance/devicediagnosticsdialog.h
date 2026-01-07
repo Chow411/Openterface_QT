@@ -16,6 +16,7 @@
 #include <QIcon>
 #include <QFrame>
 #include <QDateTime>
+#include <QSvgWidget>
 #include "diagnostics/diagnosticstypes.h"
 
 class TestItem : public QListWidgetItem
@@ -68,6 +69,9 @@ private:
     void setupRightPanel();
     void showTestPage(int index);
     void updateNavigationButtons();
+    void updateConnectionSvg();
+    void startSvgAnimation();
+    void stopSvgAnimation();
     
     // UI Components
     QHBoxLayout* m_mainLayout;
@@ -99,6 +103,11 @@ private:
 
     // Diagnostics backend
     DiagnosticsManager* m_manager;
+    
+    // SVG display for connection status
+    QSvgWidget* m_connectionSvg;
+    QTimer* m_svgAnimationTimer;
+    bool m_svgAnimationState;  // Toggle between two SVG states
 };
 
 #endif // DEVICEDIAGNOSTICSDIALOG_H

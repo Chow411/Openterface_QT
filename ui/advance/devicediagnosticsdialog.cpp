@@ -9,7 +9,9 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QFileInfo>
+#include <QSvgWidget>
 #include "diagnostics/diagnosticsmanager.h"
+#include "diagnostics/diagnostics_constants.h"
 
 Q_LOGGING_CATEGORY(log_device_diagnostics, "opf.diagnostics")
 
@@ -75,12 +77,23 @@ DeviceDiagnosticsDialog::DeviceDiagnosticsDialog(QWidget *parent)
     , m_nextButton(nullptr)
     , m_checkNowButton(nullptr)
     , m_currentTestIndex(0)
+    , m_connectionSvg(nullptr)
+    , m_svgAnimationTimer(nullptr)
+    , m_svgAnimationState(false)
 {
-    setWindowTitle(tr("Hardware Diagnostics"));
+    setWindowTitle(tr(Diagnostics::WINDOW_TITLE));
     setMinimumSize(900, 600);
     setAttribute(Qt::WA_DeleteOnClose);
     
     setupUI();
+
+    // Initialize SVG animation timer
+    m_svgAnimationTimer = new QTimer(this);
+    m_svgAnimationTimer->setInterval(500);  // Toggle every 500ms
+    connect(m_svgAnimationTimer, &QTimer::timeout, this, [this]() {
+        m_svgAnimationState = !m_svgAnimationState;
+        updateConnectionSvg();
+    });
 
     // Backend manager for test data and logic
     m_manager = new DiagnosticsManager(this);
@@ -105,18 +118,26 @@ DeviceDiagnosticsDialog::DeviceDiagnosticsDialog(QWidget *parent)
             switch (st) {
             case TestStatus::NotStarted:
                 icon = style()->standardIcon(QStyle::SP_ComputerIcon);
+                stopSvgAnimation();
                 break;
             case TestStatus::InProgress:
                 icon = style()->standardIcon(QStyle::SP_BrowserReload);
+                // Start animation for Target (1) or Host (2) Plug & Play tests
+                if (idx == 1 || idx == 2) {
+                    startSvgAnimation();
+                }
                 break;
             case TestStatus::Completed:
                 icon = style()->standardIcon(QStyle::SP_DialogApplyButton);
+                stopSvgAnimation();
                 break;
             case TestStatus::Failed:
                 icon = style()->standardIcon(QStyle::SP_DialogCancelButton);
+                stopSvgAnimation();
                 break;
             }
             m_statusIconLabel->setPixmap(icon.pixmap(24, 24));
+            updateConnectionSvg();
         }
         updateNavigationButtons();
     });
@@ -179,29 +200,49 @@ void DeviceDiagnosticsDialog::setupRightPanel()
     m_rightLayout->setContentsMargins(15, 15, 15, 15);
     m_rightLayout->setSpacing(15);
     
-    // Top section: Title + SVG icon
+    // Top section: Title + SVG icon (left column holds title + reminder)
     QHBoxLayout* titleLayout = new QHBoxLayout();
     titleLayout->setSpacing(10);
-    
+
+    // Left column: title row (title + status icon) and reminder underneath
+    QVBoxLayout* leftColumn = new QVBoxLayout();
+    leftColumn->setSpacing(6);
+
+    QHBoxLayout* titleRow = new QHBoxLayout();
+    titleRow->setSpacing(8);
+
     m_testTitleLabel = new QLabel(this);
     m_testTitleLabel->setStyleSheet("QLabel { font-size: 16px; font-weight: bold; }");
-    titleLayout->addWidget(m_testTitleLabel);
-    
-    // SVG Icon (using system icon for now, can be replaced with custom SVG)
+    titleRow->addWidget(m_testTitleLabel);
+
+    // Status icon next to the title
     m_statusIconLabel = new QLabel(this);
     m_statusIconLabel->setFixedSize(24, 24);
     m_statusIconLabel->setScaledContents(true);
     m_statusIconLabel->setPixmap(style()->standardIcon(QStyle::SP_ComputerIcon).pixmap(24, 24));
-    titleLayout->addWidget(m_statusIconLabel);
-    
-    titleLayout->addStretch(); // Push everything to the left
-    m_rightLayout->addLayout(titleLayout);
-    
-    // Small reminder text
+    titleRow->addWidget(m_statusIconLabel);
+
+    titleRow->addStretch(); // push title and icon to the left within the left column
+    leftColumn->addLayout(titleRow);
+
+    // Small reminder text directly under the title
     m_reminderLabel = new QLabel(this);
     m_reminderLabel->setStyleSheet("QLabel { font-size: 11px; }");
     m_reminderLabel->setWordWrap(true);
-    m_rightLayout->addWidget(m_reminderLabel);
+    leftColumn->addWidget(m_reminderLabel);
+
+    // Give left column a smaller proportion (40%) and SVG the larger (60%)
+    titleLayout->addLayout(leftColumn, 2);
+
+    // Connection status strip (wide, taller with fixed gray background)
+    m_connectionSvg = new QSvgWidget(this);
+    m_connectionSvg->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_connectionSvg->setFixedHeight(160);
+    m_connectionSvg->setStyleSheet("background-color: #6b6b6b; border-radius: 6px; padding: 10px;");
+    // Assign stretch factor 3 so SVG gets approximately 60% of the horizontal space
+    titleLayout->addWidget(m_connectionSvg, 3);
+
+    m_rightLayout->addLayout(titleLayout);
     
     // Add separator line
     QFrame* line1 = new QFrame(this);
@@ -217,7 +258,7 @@ void DeviceDiagnosticsDialog::setupRightPanel()
     logFileLabel->setStyleSheet("QLabel { font-weight: bold; }");
     logFileLayout->addWidget(logFileLabel);
     
-    m_logFileButton = new QPushButton(tr("diagnostics_log.txt"), this);
+    m_logFileButton = new QPushButton(tr(Diagnostics::LOG_FILE_NAME), this);
     m_logFileButton->setStyleSheet(
         "QPushButton {"
         "   text-decoration: underline;"
@@ -251,7 +292,7 @@ void DeviceDiagnosticsDialog::setupRightPanel()
         "   font-family: 'Consolas', 'Monaco', monospace;"
         "}"
     );
-    m_logDisplayText->setPlainText(tr("Test logs will appear here..."));
+    m_logDisplayText->setPlainText(tr(Diagnostics::LOG_PLACEHOLDER));
     m_rightLayout->addWidget(m_logDisplayText);
     
     // Spacer to push buttons to bottom
@@ -279,15 +320,6 @@ void DeviceDiagnosticsDialog::setupRightPanel()
     m_checkNowButton = new QPushButton(tr("Check Now"), this);
     m_checkNowButton->setIcon(style()->standardIcon(QStyle::SP_DialogApplyButton));
     m_checkNowButton->setMinimumHeight(35);
-    m_checkNowButton->setDefault(true);  // Make it the default button
-    m_checkNowButton->setStyleSheet(
-        "QPushButton {"
-        "   font-weight: bold;"
-        "   border-radius: 5px;"
-        "   padding: 8px 16px;"
-        "   min-width: 100px;"
-        "}"
-    );
     connect(m_checkNowButton, &QPushButton::clicked, this, &DeviceDiagnosticsDialog::onCheckNowClicked);
     
     m_buttonLayout->addWidget(m_restartButton);
@@ -314,33 +346,18 @@ void DeviceDiagnosticsDialog::showTestPage(int index)
     // Update UI
     m_testTitleLabel->setText(m_testTitles[index]);
     
-    // Update reminder text based on test
-    QString reminder;
-    switch (index) {
-        case 0:
-            reminder = tr("Check all physical connections before testing");
-            break;
-        case 1:
-            reminder = tr("Prepare to disconnect/reconnect target device");
-            break;
-        case 2:
-            reminder = tr("Ensure host device is stable");
-            break;
-        case 3:
-            reminder = tr("Serial communication test may take time");
-            break;
-        case 4:
-            reminder = tr("WARNING: This will reset device settings");
-            break;
-        case 5:
-            reminder = tr("High speed test requires stable connection");
-            break;
-        case 6:
-            reminder = tr("Stress test may run for several minutes");
-            break;
-        default:
-            reminder = tr("Follow the test instructions carefully");
-    }
+    // Update reminder text based on test (moved to diagnostics constants)
+    const char* reminders[] = {
+        Diagnostics::REMINDERS[0],
+        Diagnostics::REMINDERS[1],
+        Diagnostics::REMINDERS[2],
+        Diagnostics::REMINDERS[3],
+        Diagnostics::REMINDERS[4],
+        Diagnostics::REMINDERS[5],
+        Diagnostics::REMINDERS[6]
+    };
+
+    QString reminder = (index >= 0 && index < 7) ? tr(reminders[index]) : tr(Diagnostics::FOLLOW_INSTRUCTIONS);
     m_reminderLabel->setText(reminder);
     
     // Update status icon based on current test status (from manager)
@@ -368,6 +385,10 @@ void DeviceDiagnosticsDialog::showTestPage(int index)
             break;
     }
     m_statusIconLabel->setPixmap(icon.pixmap(24, 24));
+    
+    // Update connection SVG based on test index and status
+    stopSvgAnimation();  // Stop any previous animation
+    updateConnectionSvg();
     
     // Update list selection
     m_testList->setCurrentRow(index);
@@ -402,11 +423,13 @@ void DeviceDiagnosticsDialog::updateNavigationButtons()
 void DeviceDiagnosticsDialog::onRestartClicked()
 {
     QMessageBox::StandardButton reply = QMessageBox::question(
-        this, tr("Restart Diagnostics"), 
-        tr("This will reset all test results and start over. Continue?"),
+        this, tr(Diagnostics::RESTART_TITLE),
+        tr(Diagnostics::RESTART_CONFIRM),
         QMessageBox::Yes | QMessageBox::No);
         
     if (reply == QMessageBox::Yes) {
+        // Stop any SVG animation
+        stopSvgAnimation();
         // Clear UI log and delegate reset to manager
         m_logDisplayText->clear();
         if (m_manager) m_manager->resetAllTests();
@@ -462,7 +485,7 @@ void DeviceDiagnosticsDialog::onOpenLogFileClicked()
         QFile logFile(logPath);
         if (logFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
             QTextStream out(&logFile);
-            out << QString("Hardware Diagnostics Log - %1\n").arg(QDateTime::currentDateTime().toString());
+            out << QString(tr(Diagnostics::TEST_LOG_HEADER)).arg(QDateTime::currentDateTime().toString());
             out << "=" << QString("=").repeated(50) << "\n\n";
             logFile.close();
         }
@@ -470,8 +493,8 @@ void DeviceDiagnosticsDialog::onOpenLogFileClicked()
 
     // Open the log file with system default application
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(logPath))) {
-        QMessageBox::warning(this, tr("Error"), 
-                           tr("Could not open log file: %1").arg(logPath));
+        QMessageBox::warning(this, tr(Diagnostics::LOG_OPEN_ERROR_TITLE),
+                           tr(Diagnostics::LOG_OPEN_ERROR).arg(logPath));
     }
 }
 
@@ -483,10 +506,77 @@ void DeviceDiagnosticsDialog::onLogAppended(const QString &entry)
 
 void DeviceDiagnosticsDialog::onDiagnosticsCompleted(bool allSuccessful)
 {
+    stopSvgAnimation();  // Stop animation when diagnostics complete
     QString message = allSuccessful ?
-        tr("All diagnostic tests completed successfully!") :
-        tr("Diagnostic tests completed with some failures. Please check the results.");
+        tr(Diagnostics::DIAGNOSTICS_COMPLETE_SUCCESS) :
+        tr(Diagnostics::DIAGNOSTICS_COMPLETE_FAIL);
 
     QMessageBox::information(this, tr("Diagnostics Complete"), message);
+}
+
+void DeviceDiagnosticsDialog::updateConnectionSvg()
+{
+    if (!m_connectionSvg) return;
+    
+    TestStatus status = TestStatus::NotStarted;
+    if (m_manager) {
+        status = m_manager->testStatus(m_currentTestIndex);
+    }
+    
+    QString svgPath;
+    
+    switch (m_currentTestIndex) {
+        case 0:  // Overall Connection
+            if (status == TestStatus::NotStarted) {
+                // Before check: H0T0V0
+                svgPath = ":/images/H0T0V0.svg";
+            } else {
+                // During/after check: H1T1V1
+                svgPath = ":/images/H1T1V1.svg";
+            }
+            break;
+            
+        case 1:  // Target Plug & Play
+            if (status == TestStatus::InProgress) {
+                // During check: alternate between H1T1V1 and H1T0V1
+                svgPath = m_svgAnimationState ? ":/images/H1T0V1.svg" : ":/images/H1T1V1.svg";
+            } else {
+                // Before/after check: H1T1V1
+                svgPath = ":/images/H1T1V1.svg";
+            }
+            break;
+            
+        case 2:  // Host Plug & Play
+            if (status == TestStatus::InProgress) {
+                // During check: alternate between H1T1V1 and H0T1V1
+                svgPath = m_svgAnimationState ? ":/images/H0T1V1.svg" : ":/images/H1T1V1.svg";
+            } else {
+                // Before/after check: H1T1V1
+                svgPath = ":/images/H1T1V1.svg";
+            }
+            break;
+            
+        default:  // All other tests (3-6): always H1T1V1
+            svgPath = ":/images/H1T1V1.svg";
+            break;
+    }
+    
+    m_connectionSvg->load(svgPath);
+}
+
+void DeviceDiagnosticsDialog::startSvgAnimation()
+{
+    if (m_svgAnimationTimer && !m_svgAnimationTimer->isActive()) {
+        m_svgAnimationState = false;
+        m_svgAnimationTimer->start();
+    }
+}
+
+void DeviceDiagnosticsDialog::stopSvgAnimation()
+{
+    if (m_svgAnimationTimer && m_svgAnimationTimer->isActive()) {
+        m_svgAnimationTimer->stop();
+        m_svgAnimationState = false;
+    }
 }
 

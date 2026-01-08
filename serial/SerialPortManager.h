@@ -36,29 +36,36 @@
 #include <QWaitCondition>
 #include <QEventLoop>
 #include <atomic>
+#include <memory>
 
 #include "ch9329.h"
+#include "chipstrategy/IChipStrategy.h"
+#include "chipstrategy/ChipStrategyFactory.h"
+#include "protocol/SerialProtocol.h"
+#include "watchdog/ConnectionWatchdog.h"
 
 Q_DECLARE_LOGGING_CATEGORY(log_core_serial)
 
 // Forward declaration
 class DeviceInfo;
 
-// Chip type enumeration
+// Chip type enumeration (kept for backward compatibility)
+// New code should use ChipTypeId from ChipStrategyFactory.h
 enum class ChipType : uint32_t {
     UNKNOWN = 0,
     CH9329 = 0x1A867523,     // 1A86:7523 - Supports both 9600 and 115200, requires commands for baudrate switching and reset
-    CH32V208 = 0x1A86FE0C        // 1A86:FE0C - Only supports 115200, uses simple close/reopen for baudrate changes
+    CH32V208 = 0x1A86FE0C    // 1A86:FE0C - Only supports 115200, uses simple close/reopen for baudrate changes
 };
 
-// Struct to hold configuration command results
+// Struct to hold configuration command results (kept for backward compatibility)
+// New code should use ChipConfigResult from IChipStrategy.h
 struct ConfigResult {
     bool success = false;
     int workingBaudrate = 9600;  // Use literal value instead of SerialPortManager::DEFAULT_BAUDRATE
     uint8_t mode = 0;
 };
 
-class SerialPortManager : public QObject
+class SerialPortManager : public QObject, public IRecoveryHandler
 {
     Q_OBJECT
 
@@ -122,7 +129,7 @@ public:
     void connectToHotplugMonitor();
     void disconnectFromHotplugMonitor();
     
-    // Enhanced stability features
+    // Enhanced stability features (delegated to ConnectionWatchdog - Phase 3 refactoring)
     void enableAutoRecovery(bool enable = true);
     void setMaxRetryAttempts(int maxRetries);
     void setMaxConsecutiveErrors(int maxErrors);
@@ -130,6 +137,11 @@ public:
     int getConsecutiveErrorCount() const;
     int getConnectionRetryCount() const;
     void forceRecovery();
+    
+    // IRecoveryHandler interface implementation (Phase 3 refactoring)
+    bool performRecovery(int attempt) override;
+    void onRecoveryFailed() override;
+    void onRecoverySuccess() override;
     
     // Get current baudrate
     int getCurrentBaudrate() const;
@@ -246,12 +258,21 @@ private:
     QString m_currentSerialPortChain;
     ChipType m_currentChipType = ChipType::UNKNOWN;
     
-    // Enhanced stability members
+    // Chip strategy for chip-specific operations (Phase 1 refactoring)
+    std::unique_ptr<IChipStrategy> m_chipStrategy;
+    
+    // Protocol layer for packet building/parsing (Phase 2 refactoring)
+    std::unique_ptr<SerialProtocol> m_protocol;
+    
+    // Connection watchdog for monitoring and recovery (Phase 3 refactoring)
+    std::unique_ptr<ConnectionWatchdog> m_watchdog;
+    
+    // Enhanced stability members (some delegated to ConnectionWatchdog)
     std::atomic<bool> m_isShuttingDown = false;
     std::atomic<int> m_connectionRetryCount = 0;
     std::atomic<int> m_consecutiveErrors = 0;
-    QTimer* m_connectionWatchdog;
-    QTimer* m_errorRecoveryTimer;
+    QTimer* m_connectionWatchdog;      // Legacy timer - to be removed after full migration
+    QTimer* m_errorRecoveryTimer;      // Legacy timer - to be removed after full migration
     QTimer* m_usbStatusCheckTimer;  // New timer for periodic USB status checks
     QMutex m_serialPortMutex;
     QQueue<QByteArray> m_commandQueue;

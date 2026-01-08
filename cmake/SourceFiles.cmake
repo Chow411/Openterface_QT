@@ -115,6 +115,12 @@ set(SCRIPT_SOURCES
 set(SERIAL_SOURCES
     serial/SerialPortManager.cpp serial/SerialPortManager.h
     serial/ch9329.h
+    serial/chipstrategy/IChipStrategy.h
+    serial/chipstrategy/CH9329Strategy.cpp serial/chipstrategy/CH9329Strategy.h
+    serial/chipstrategy/CH32V208Strategy.cpp serial/chipstrategy/CH32V208Strategy.h
+    serial/chipstrategy/ChipStrategyFactory.cpp serial/chipstrategy/ChipStrategyFactory.h
+    serial/protocol/SerialProtocol.cpp serial/protocol/SerialProtocol.h
+    serial/watchdog/ConnectionWatchdog.cpp serial/watchdog/ConnectionWatchdog.h
 )
 
 # Server sources

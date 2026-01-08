@@ -43,6 +43,12 @@ private:
     void startHostPlugPlayTest();
     void onHostStatusCheckTimeout();
     bool checkHostConnectionStatus();
+    void startSerialConnectionTest();
+    bool performSerialConnectionTest();
+    void startFactoryResetTest();
+    bool performFactoryResetTest();
+    void startHighBaudrateTest();
+    bool performHighBaudrateTest();
     void checkAllTestsCompletion();
 
     QStringList m_testTitles;

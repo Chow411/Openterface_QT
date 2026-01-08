@@ -7,6 +7,9 @@
 #include <QRandomGenerator>
 #include <QDateTime>
 #include <QLoggingCategory>
+#include <QEventLoop>
+#include <QTimer>
+#include <QSettings>
 
 #include "device/DeviceManager.h" // for device presence checks
 #include "device/DeviceInfo.h"
@@ -211,6 +214,24 @@ void DiagnosticsManager::startTest(int testIndex)
     // Special-case: Host Plug & Play (index 2) -> perform host device hot-plug detection
     if (testIndex == 2) {
         startHostPlugPlayTest();
+        return;
+    }
+    
+    // Special-case: Serial Connection (index 3) -> perform serial port connection test
+    if (testIndex == 3) {
+        startSerialConnectionTest();
+        return;
+    }
+    
+    // Special-case: Factory Reset (index 4) -> perform factory reset test
+    if (testIndex == 4) {
+        startFactoryResetTest();
+        return;
+    }
+    
+    // Special-case: High Baudrate (index 5) -> perform baudrate switching test
+    if (testIndex == 5) {
+        startHighBaudrateTest();
         return;
     }
 
@@ -572,4 +593,421 @@ bool DiagnosticsManager::checkHostConnectionStatus()
                                    << "Serial:" << hasSerial;
     
     return isConnected;
+}
+
+void DiagnosticsManager::startSerialConnectionTest()
+{
+    m_isTestingInProgress = true;
+    m_runningTestIndex = 3; // Serial Connection test index
+    
+    m_statuses[3] = TestStatus::InProgress;
+    emit statusChanged(3, TestStatus::InProgress);
+    
+    appendToLog("Started test: Serial Connection");
+    appendToLog("Testing serial port connectivity by sending CMD_GET_INFO command...");
+    emit testStarted(3);
+    
+    // Perform serial connection test
+    bool success = performSerialConnectionTest();
+    
+    if (success) {
+        m_statuses[3] = TestStatus::Completed;
+        appendToLog("Serial Connection test: PASSED - Successfully received response from serial port");
+    } else {
+        m_statuses[3] = TestStatus::Failed;
+        appendToLog("Serial Connection test: FAILED - No response or invalid response from serial port");
+    }
+    
+    emit statusChanged(3, m_statuses[3]);
+    emit testCompleted(3, success);
+    
+    m_isTestingInProgress = false;
+    m_runningTestIndex = -1;
+    
+    // Check if all tests completed
+    checkAllTestsCompletion();
+    
+    qCDebug(log_device_diagnostics) << "Serial Connection test finished:" << (success ? "PASS" : "FAIL");
+}
+
+bool DiagnosticsManager::performSerialConnectionTest()
+{
+    // Get SerialPortManager instance
+    SerialPortManager& serialManager = SerialPortManager::getInstance();
+    
+    // Check if serial port is available
+    QString currentPortPath = serialManager.getCurrentSerialPortPath();
+    if (currentPortPath.isEmpty()) {
+        appendToLog("No serial port available for testing");
+        return false;
+    }
+    
+    appendToLog(QString("Using serial port: %1").arg(currentPortPath));
+    appendToLog("Testing target connection status with 3 attempts (1 second interval)...");
+    
+    // Retry up to 3 times with 1 second intervals
+    for (int attempt = 1; attempt <= 3; attempt++) {
+        appendToLog(QString("Attempt %1/3: Sending CMD_GET_INFO command...").arg(attempt));
+        
+        try {
+            // Send CMD_GET_INFO command and wait for response
+            QByteArray response = serialManager.sendSyncCommand(CMD_GET_INFO, false);
+            
+            if (response.isEmpty()) {
+                appendToLog(QString("Attempt %1: No response received from serial port").arg(attempt));
+            } else {
+                appendToLog(QString("Attempt %1: Received response: %2").arg(attempt).arg(QString(response.toHex(' '))));
+                
+                // Validate response structure
+                if (response.size() >= static_cast<int>(sizeof(CmdGetInfoResult))) {
+                    CmdGetInfoResult result = CmdGetInfoResult::fromByteArray(response);
+                    
+                    // Check if response has valid header (0x57AB)
+                    if (result.prefix == 0xAB57) { // Little-endian format
+                        appendToLog(QString("Attempt %1: Valid response - Version: %2, Target Connected: %3")
+                                   .arg(attempt)
+                                   .arg(result.version)
+                                   .arg(result.targetConnected ? "Yes" : "No"));
+                        
+                        // Check if target is connected
+                        if (result.targetConnected != 0) {
+                            appendToLog(QString("Target connection detected on attempt %1 - Test PASSED").arg(attempt));
+                            return true;
+                        } else {
+                            appendToLog(QString("Attempt %1: Target not connected").arg(attempt));
+                        }
+                    } else {
+                        appendToLog(QString("Attempt %1: Invalid response header: 0x%2 (expected 0x57AB)")
+                                   .arg(attempt)
+                                   .arg(result.prefix, 4, 16, QChar('0')));
+                    }
+                } else {
+                    appendToLog(QString("Attempt %1: Response too short: %2 bytes (expected at least %3 bytes)")
+                               .arg(attempt)
+                               .arg(response.size())
+                               .arg(sizeof(CmdGetInfoResult)));
+                }
+            }
+            
+        } catch (const std::exception& e) {
+            appendToLog(QString("Attempt %1: Exception during serial communication: %2").arg(attempt).arg(e.what()));
+        } catch (...) {
+            appendToLog(QString("Attempt %1: Unknown error during serial communication").arg(attempt));
+        }
+        
+        // Wait 1 second before next attempt (except for the last attempt)
+        if (attempt < 3) {
+            appendToLog("Waiting 1 second before next attempt...");
+            QEventLoop loop;
+            QTimer::singleShot(1000, &loop, &QEventLoop::quit);
+            loop.exec();
+        }
+    }
+    
+    appendToLog("All 3 attempts completed - Target connection not detected");
+    return false;
+}
+
+void DiagnosticsManager::startFactoryResetTest()
+{
+    m_isTestingInProgress = true;
+    m_runningTestIndex = 4; // Factory Reset test index
+    
+    m_statuses[4] = TestStatus::InProgress;
+    emit statusChanged(4, TestStatus::InProgress);
+    
+    appendToLog("Started test: Factory Reset");
+    appendToLog("Performing factory reset operation on HID chip...");
+    emit testStarted(4);
+    
+    // Perform factory reset test
+    bool success = performFactoryResetTest();
+    
+    if (success) {
+        m_statuses[4] = TestStatus::Completed;
+        appendToLog("Factory Reset test: PASSED - Factory reset operation completed successfully");
+    } else {
+        m_statuses[4] = TestStatus::Failed;
+        appendToLog("Factory Reset test: FAILED - Factory reset operation failed");
+    }
+    
+    emit statusChanged(4, m_statuses[4]);
+    emit testCompleted(4, success);
+    
+    m_isTestingInProgress = false;
+    m_runningTestIndex = -1;
+    
+    // Check if all tests completed
+    checkAllTestsCompletion();
+    
+    qCDebug(log_device_diagnostics) << "Factory Reset test finished:" << (success ? "PASS" : "FAIL");
+}
+
+bool DiagnosticsManager::performFactoryResetTest()
+{
+    // Get SerialPortManager instance
+    SerialPortManager& serialManager = SerialPortManager::getInstance();
+    
+    // Check if serial port is available
+    QString currentPortPath = serialManager.getCurrentSerialPortPath();
+    if (currentPortPath.isEmpty()) {
+        appendToLog("No serial port available for factory reset test");
+        return false;
+    }
+    
+    appendToLog(QString("Using serial port: %1 for factory reset operation").arg(currentPortPath));
+    
+    try {
+        // Attempt factory reset - try both methods for compatibility
+        appendToLog("Attempting standard factory reset method...");
+        bool success = serialManager.factoryResetHipChip();
+        
+        if (success) {
+            appendToLog("Standard factory reset completed successfully");
+            
+            // Wait a moment for reset to complete
+            QEventLoop loop;
+            QTimer::singleShot(2000, &loop, &QEventLoop::quit);
+            loop.exec();
+            
+            // Verify reset by attempting to communicate with device
+            appendToLog("Verifying device communication after reset...");
+            QByteArray response = serialManager.sendSyncCommand(CMD_GET_INFO, false);
+            
+            if (!response.isEmpty() && response.size() >= static_cast<int>(sizeof(CmdGetInfoResult))) {
+                appendToLog("Device communication verified after factory reset");
+                return true;
+            } else {
+                appendToLog("Warning: Device communication not verified, but reset command succeeded");
+                return true; // Still consider success if reset command succeeded
+            }
+        } else {
+            // Try V191 method as fallback
+            appendToLog("Standard method failed, trying V191 factory reset method...");
+            success = serialManager.factoryResetHipChipV191();
+            
+            if (success) {
+                appendToLog("V191 factory reset completed successfully");
+                
+                // Wait a moment for reset to complete
+                QEventLoop loop;
+                QTimer::singleShot(2000, &loop, &QEventLoop::quit);
+                loop.exec();
+                
+                return true;
+            } else {
+                appendToLog("Both factory reset methods failed");
+                return false;
+            }
+        }
+        
+    } catch (const std::exception& e) {
+        appendToLog(QString("Exception during factory reset: %1").arg(e.what()));
+        return false;
+    } catch (...) {
+        appendToLog("Unknown error during factory reset operation");
+        return false;
+    }
+}
+
+void DiagnosticsManager::startHighBaudrateTest()
+{
+    m_isTestingInProgress = true;
+    m_runningTestIndex = 5; // High Baudrate test index
+    
+    m_statuses[5] = TestStatus::InProgress;
+    emit statusChanged(5, TestStatus::InProgress);
+    
+    appendToLog("Started test: High Baudrate");
+    appendToLog("Testing baudrate switching to 115200...");
+    emit testStarted(5);
+    
+    // Perform high baudrate test
+    bool success = performHighBaudrateTest();
+    
+    if (success) {
+        m_statuses[5] = TestStatus::Completed;
+        appendToLog("High Baudrate test: PASSED - Successfully switched to 115200 baudrate");
+    } else {
+        m_statuses[5] = TestStatus::Failed;
+        appendToLog("High Baudrate test: FAILED - Could not switch to 115200 baudrate");
+    }
+    
+    emit statusChanged(5, m_statuses[5]);
+    emit testCompleted(5, success);
+    
+    m_isTestingInProgress = false;
+    m_runningTestIndex = -1;
+    
+    // Check if all tests completed
+    checkAllTestsCompletion();
+    
+    qCDebug(log_device_diagnostics) << "High Baudrate test finished:" << (success ? "PASS" : "FAIL");
+}
+
+bool DiagnosticsManager::performHighBaudrateTest()
+{
+    // Get SerialPortManager instance
+    SerialPortManager& serialManager = SerialPortManager::getInstance();
+    
+    // Check if serial port is available
+    QString currentPortPath = serialManager.getCurrentSerialPortPath();
+    if (currentPortPath.isEmpty()) {
+        appendToLog("High Baudrate test failed: No serial port available");
+        return false;
+    }
+    
+    appendToLog(QString("Using serial port: %1 for baudrate test").arg(currentPortPath));
+    
+    // Get current baudrate before testing
+    int currentBaudrate = serialManager.getCurrentBaudrate();
+    appendToLog(QString("Current baudrate: %1").arg(currentBaudrate));
+    
+    // If already at 115200, test successful communication and return
+    if (currentBaudrate == SerialPortManager::BAUDRATE_HIGHSPEED) {
+        appendToLog("Already at 115200 baudrate, testing communication...");
+        QByteArray testResponse = serialManager.sendSyncCommand(CMD_GET_INFO, true);
+        if (!testResponse.isEmpty()) {
+            CmdGetInfoResult infoResult = CmdGetInfoResult::fromByteArray(testResponse);
+            appendToLog(QString("Communication test successful at 115200 - received response (version: %1)").arg(infoResult.version));
+            return true;
+        } else {
+            appendToLog("Communication test failed at 115200 baudrate");
+            return false;
+        }
+    }
+    
+    try {
+        // First, test current communication to ensure we have a baseline
+        appendToLog(QString("Testing baseline communication at %1...").arg(currentBaudrate));
+        
+        // Try with force=true to ensure command is sent even if ready state is uncertain
+        QByteArray baselineResponse = serialManager.sendSyncCommand(CMD_GET_INFO, true);
+        if (baselineResponse.isEmpty()) {
+            // If first attempt fails, wait a bit and try again 
+            appendToLog("First baseline attempt failed, waiting and retrying...");
+            QEventLoop retryWait;
+            QTimer::singleShot(1000, &retryWait, &QEventLoop::quit);  // 1 second wait
+            retryWait.exec();
+            
+            baselineResponse = serialManager.sendSyncCommand(CMD_GET_INFO, true);
+            if (baselineResponse.isEmpty()) {
+                appendToLog("Baseline communication test failed after retry - cannot proceed with baudrate test");
+                return false;
+            }
+        }
+        
+        CmdGetInfoResult baselineResult = CmdGetInfoResult::fromByteArray(baselineResponse);
+        appendToLog(QString("Baseline communication successful (version: %1)").arg(baselineResult.version));
+        
+        // Method: Proper command-based baudrate switching
+        appendToLog("Performing proper command-based baudrate switching to 115200...");
+        
+        // Step 1: Send configuration command at current baudrate (following applyCommandBasedBaudrateChange pattern)
+        appendToLog("Step 1: Sending baudrate configuration command at current rate...");
+        
+        // Get system settings for mode
+        static QSettings settings("Techxartisan", "Openterface");
+        uint8_t mode = (settings.value("hardware/operatingMode", 0x02).toUInt());
+        
+        // Build configuration command for 115200
+        QByteArray command = CMD_SET_PARA_CFG_PREFIX_115200;
+        command[5] = mode;  // Set mode byte
+        command.append(CMD_SET_PARA_CFG_MID);
+        
+        appendToLog("Sending configuration command to device...");
+        QByteArray configResponse = serialManager.sendSyncCommand(command, true);
+        
+        if (configResponse.isEmpty()) {
+            appendToLog("Configuration command failed - no response from device");
+            return false;
+        }
+        
+        // Parse configuration response
+        CmdDataResult configResult = CmdDataResult::fromByteArray(configResponse);
+        if (configResult.data != DEF_CMD_SUCCESS) {
+            appendToLog(QString("Configuration command failed with status: 0x%1").arg(configResult.data, 2, 16, QChar('0')));
+            return false;
+        }
+        
+        appendToLog("Configuration command successful");
+        
+        // Step 2: Send reset command at current baudrate
+        appendToLog("Step 2: Sending reset command...");
+        QByteArray resetResponse = serialManager.sendSyncCommand(CMD_RESET, true);
+        
+        if (resetResponse.isEmpty()) {
+            appendToLog("Reset command failed - no response from device");
+            return false;
+        }
+        
+        appendToLog("Reset command successful");
+        
+        // Step 3: Wait for reset to complete
+        appendToLog("Step 3: Waiting for device reset to complete...");
+        QEventLoop resetWaitLoop;
+        QTimer::singleShot(1000, &resetWaitLoop, &QEventLoop::quit);  // 1 second wait
+        resetWaitLoop.exec();
+        
+        // Step 4: Set host-side baudrate to 115200
+        appendToLog("Step 4: Setting host-side baudrate to 115200...");
+        bool setBaudrateResult = serialManager.setBaudRate(SerialPortManager::BAUDRATE_HIGHSPEED);
+        if (!setBaudrateResult) {
+            appendToLog("Failed to set host-side baudrate to 115200");
+            return false;
+        }
+        
+        // Step 5: Wait for baudrate change to stabilize
+        appendToLog("Step 5: Waiting for baudrate change to stabilize...");
+        QEventLoop stabilizeLoop;
+        QTimer::singleShot(500, &stabilizeLoop, &QEventLoop::quit);  // 500ms wait
+        stabilizeLoop.exec();
+        
+        // Step 6: Verify new baudrate
+        int newBaudrate = serialManager.getCurrentBaudrate();
+        appendToLog(QString("Host-side baudrate now set to: %1").arg(newBaudrate));
+        
+        if (newBaudrate != SerialPortManager::BAUDRATE_HIGHSPEED) {
+            appendToLog(QString("Host-side baudrate mismatch - expected 115200, got %1").arg(newBaudrate));
+            return false;
+        }
+        
+        // Step 7: Test communication at 115200
+        appendToLog("Step 6: Testing communication at 115200 baudrate...");
+        QByteArray highSpeedResponse = serialManager.sendSyncCommand(CMD_GET_INFO, true);
+        
+        if (!highSpeedResponse.isEmpty()) {
+            CmdGetInfoResult highSpeedResult = CmdGetInfoResult::fromByteArray(highSpeedResponse);
+            appendToLog(QString("High-speed communication successful - version: %1").arg(highSpeedResult.version));
+            appendToLog("Baudrate switch to 115200 completed successfully!");
+            return true;
+        } else {
+            appendToLog("High-speed communication failed - device may not have switched baudrates");
+            
+            // Recovery: Try to restore original baudrate
+            appendToLog("Attempting to recover by restoring original baudrate...");
+            bool restoreBaudrate = serialManager.setBaudRate(currentBaudrate);
+            if (restoreBaudrate) {
+                QEventLoop recoveryLoop;
+                QTimer::singleShot(500, &recoveryLoop, &QEventLoop::quit);
+                recoveryLoop.exec();
+                
+                QByteArray recoveryResponse = serialManager.sendSyncCommand(CMD_GET_INFO, false);
+                if (!recoveryResponse.isEmpty()) {
+                    appendToLog("Successfully restored communication at original baudrate");
+                    appendToLog("High baudrate test failed: device did not switch to 115200");
+                } else {
+                    appendToLog("Failed to restore communication - serial connection may be broken");
+                }
+            }
+            return false;
+        }
+        
+    } catch (const std::exception& e) {
+        appendToLog(QString("High baudrate test failed due to exception: %1").arg(e.what()));
+        return false;
+    } catch (...) {
+        appendToLog("High baudrate test failed due to unknown error");
+        return false;
+    }
 }

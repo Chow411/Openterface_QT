@@ -7,6 +7,8 @@
 #include <QVector>
 #include "diagnosticstypes.h" // for TestStatus
 
+Q_DECLARE_LOGGING_CATEGORY(log_device_diagnostics)
+
 class DiagnosticsManager : public QObject
 {
     Q_OBJECT
@@ -35,12 +37,36 @@ private slots:
 
 private:
     void appendToLog(const QString &message);
+    void startTargetPlugPlayTest();
+    void onTargetStatusCheckTimeout();
+    bool checkTargetConnectionStatus();
+    void startHostPlugPlayTest();
+    void onHostStatusCheckTimeout();
+    bool checkHostConnectionStatus();
+    void checkAllTestsCompletion();
 
     QStringList m_testTitles;
     QVector<TestStatus> m_statuses;
     QTimer *m_testTimer;
+    QTimer *m_targetCheckTimer;
+    QTimer *m_hostCheckTimer;
     int m_runningTestIndex;
     bool m_isTestingInProgress;
+    
+    // Target Plug & Play test state
+    bool m_targetPreviouslyConnected;
+    bool m_targetCurrentlyConnected;
+    bool m_targetUnplugDetected;
+    bool m_targetReplugDetected;
+    int m_targetTestElapsedTime;
+    int m_targetPlugCount;
+    
+    // Host Plug & Play test state
+    bool m_hostPreviouslyConnected;
+    bool m_hostCurrentlyConnected;
+    bool m_hostUnplugDetected;
+    bool m_hostReplugDetected;
+    int m_hostTestElapsedTime;
 };
 
 #endif // DIAGNOSTICSMANAGER_H

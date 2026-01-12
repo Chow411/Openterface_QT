@@ -43,6 +43,7 @@
 #include "chipstrategy/ChipStrategyFactory.h"
 #include "protocol/SerialProtocol.h"
 #include "watchdog/ConnectionWatchdog.h"
+#include "FactoryResetManager.h"
 
 Q_DECLARE_LOGGING_CATEGORY(log_core_serial)
 
@@ -360,6 +361,10 @@ private:
     std::atomic<bool> m_factoryResetResult = false;
     QMutex m_factoryResetMutex;
     QWaitCondition m_factoryResetCondition;
+
+    // Factory reset manager (extracted for compatibility and testability)
+    friend class FactoryResetManager;
+    std::unique_ptr<FactoryResetManager> m_factoryResetManager;
     
     // Command tracking for auto-restart logic
     std::atomic<int> m_commandsSent = 0;

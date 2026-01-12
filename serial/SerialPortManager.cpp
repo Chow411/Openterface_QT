@@ -21,6 +21,7 @@
 */
 
 #include "SerialPortManager.h"
+#include "FactoryResetManager.h"
 #include "SerialCommandCoordinator.h"
 #include "SerialStateManager.h"
 #include "SerialStatistics.h"
@@ -215,6 +216,11 @@ SerialPortManager::SerialPortManager(QObject *parent) : QObject(parent), serialP
     //             // Check if we need to connect to a device
     //             checkDeviceConnections(devices);
     //         });
+
+    // Initialize FactoryResetManager and forward its signals for backward compatibility
+    m_factoryResetManager = std::make_unique<FactoryResetManager>(this);
+    connect(m_factoryResetManager.get(), &FactoryResetManager::factoryReset, this, &SerialPortManager::factoryReset, Qt::QueuedConnection);
+    connect(m_factoryResetManager.get(), &FactoryResetManager::factoryResetCompleted, this, &SerialPortManager::factoryResetCompleted, Qt::QueuedConnection);
 
     observeSerialPortNotification();
     m_lastCommandTime.start();
@@ -960,59 +966,11 @@ bool SerialPortManager::factoryResetHipChip(){
 
 // Internal implementation that runs in the worker thread
 bool SerialPortManager::handleFactoryResetInternal() {
-    qCDebug(log_core_serial) << "Factory reset Hid chip now (internal)...";
-
-    // Clear stored baudrate on factory reset
-    clearStoredBaudrate();
-
-    if (!serialPort) {
-        qCWarning(log_core_serial) << "Serial port is null, cannot factory reset";
-        emit factoryResetCompleted(false);
-        return false;
+    // Delegate to FactoryResetManager for implementation
+    if (m_factoryResetManager) {
+        return m_factoryResetManager->handleFactoryResetInternal();
     }
-
-    QString currentPortName = serialPort->portName();  // Save current port name
-
-    if(serialPort->setRequestToSend(true)){
-        emit factoryReset(true);
-        qCDebug(log_core_serial) << "Set RTS to low";
-        QTimer::singleShot(4000, this, [this, currentPortName]() {
-            bool success = false;
-            if (serialPort && serialPort->setRequestToSend(false)) {
-                qCDebug(log_core_serial) << "Set RTS to high";
-                emit factoryReset(false);
-                
-                // Use full reconnection process instead of simple restartPort
-                QTimer::singleShot(500, this, [this, currentPortName]() {
-                    qCDebug(log_core_serial) << "Reinitializing connection after factory reset";
-                    
-                    // Close current connection
-                    if (serialPort && serialPort->isOpen()) {
-                        closePort();
-                    }
-                    
-                    // Wait longer for device reboot to complete after factory reset
-                    // Factory reset requires more stabilization time than normal reset
-                    QTimer::singleShot(2000, this, [this, currentPortName]() {
-                        qCDebug(log_core_serial) << "Reconnecting to port after factory reset:" << currentPortName;
-                        
-                        // Use full connection initialization process
-                        onSerialPortConnected(currentPortName);
-                        
-                        // Use polling to wait for ready state instead of fixed delay
-                        // onSerialPortConnected triggers async retry logic, so we need to poll
-                        startReadyStatePolling(currentPortName);
-                    });
-                });
-                
-                success = true;
-            } else {
-                // If RTS setting fails, report failure directly
-                emit factoryResetCompleted(false);
-            }
-        });
-        return true;
-    }
+    qCWarning(log_core_serial) << "FactoryResetManager not initialized";
     emit factoryResetCompleted(false);
     return false;
 }
@@ -1045,60 +1003,10 @@ bool SerialPortManager::factoryResetHipChipV191(){
 
 // Internal implementation that runs in the worker thread
 bool SerialPortManager::handleFactoryResetV191Internal() {
-    qCDebug(log_core_serial) << "Factory reset Hid chip for 1.9.1 now (internal)...";
-    emit statusUpdate("Factory reset Hid chip now.");
-
-    // Clear stored baudrate on factory reset
-    clearStoredBaudrate();
-
-    if (!serialPort) {
-        qCWarning(log_core_serial) << "Serial port is null, cannot factory reset";
-        emit factoryResetCompleted(false);
-        return false;
+    if (m_factoryResetManager) {
+        return m_factoryResetManager->handleFactoryResetV191Internal();
     }
-
-    bool success = false;
-
-    // CH32V208 chip only supports 115200, don't try 9600
-    if (isChipTypeCH32V208()) {
-        qCInfo(log_core_serial) << "CH32V208 chip detected - attempting factory reset at 115200 only";
-        QByteArray retByte = sendSyncCommand(CMD_SET_DEFAULT_CFG, true);
-        if (retByte.size() > 0) {
-            qCDebug(log_core_serial) << "Factory reset the hid chip success.";
-            emit statusUpdate("Factory reset the hid chip success.");
-            success = true;
-        } else {
-            qCWarning(log_core_serial) << "CH32V208 chip factory reset failed - chip may not support this command";
-            emit statusUpdate("Factory reset the hid chip failure.");
-        }
-        emit factoryResetCompleted(success);
-        return success;
-    }
-
-    // CH9329 chip - try current baudrate first, then alternative
-    QByteArray retByte = sendSyncCommand(CMD_SET_DEFAULT_CFG, true);
-    if (retByte.size() > 0) {
-        qCDebug(log_core_serial) << "Factory reset the hid chip success.";
-        emit statusUpdate("Factory reset the hid chip success.");
-        emit factoryResetCompleted(true);
-        return true;
-    } else{
-        qCDebug(log_core_serial) << "Factory reset the hid chip fail.";
-        // toggle to another baudrate
-        serialPort->close();
-        setBaudRate(anotherBaudrate());
-        emit statusUpdate("Factory reset the hid chip@9600.");
-        if(serialPort->open(QIODevice::ReadWrite)){
-            QByteArray retByte = sendSyncCommand(CMD_SET_DEFAULT_CFG, true);
-            if (retByte.size() > 0) {
-                qCDebug(log_core_serial) << "Factory reset the hid chip success.";
-                emit statusUpdate("Factory reset the hid chip success@9600.");
-                emit factoryResetCompleted(true);
-                return true;
-            }
-        }
-    }
-    emit statusUpdate("Factory reset the hid chip failure.");
+    qCWarning(log_core_serial) << "FactoryResetManager not initialized";
     emit factoryResetCompleted(false);
     return false;
 }
@@ -1135,201 +1043,22 @@ bool SerialPortManager::factoryResetHipChipV191Sync(int timeoutMs) {
  * Internal synchronous factory reset implementation - RTS pin method
  */
 bool SerialPortManager::handleFactoryResetSyncInternal(int timeoutMs) {
-    qCDebug(log_core_serial) << "Starting synchronous factory reset internal (RTS method)...";
-    
-    if (!serialPort) {
-        qCWarning(log_core_serial) << "Serial port is null, cannot factory reset";
-        return false;
+    if (m_factoryResetManager) {
+        return m_factoryResetManager->handleFactoryResetSyncInternal(timeoutMs);
     }
-    
-    if (!serialPort->isOpen()) {
-        qCWarning(log_core_serial) << "Serial port is not open, cannot factory reset";
-        return false;
-    }
-    
-    QString currentPortName = serialPort->portName();
-    qCInfo(log_core_serial) << "Factory reset on port:" << currentPortName;
-    
-    try {
-        // Step 1: Set RTS to low (start reset)
-        qCInfo(log_core_serial) << "Step 1: Setting RTS to low for factory reset";
-        if (!serialPort->setRequestToSend(true)) {
-            qCWarning(log_core_serial) << "Failed to set RTS to low for factory reset";
-            return false;
-        }
-        
-        qCInfo(log_core_serial) << "RTS set to low, starting 4-second reset period";
-        emit factoryReset(true);
-        
-        // Step 2: Wait 4 seconds while RTS is low
-        QEventLoop waitLoop;
-        QTimer::singleShot(4000, &waitLoop, &QEventLoop::quit);
-        waitLoop.exec();
-        
-        // Step 3: Set RTS to high (end reset)
-        qCInfo(log_core_serial) << "Step 2: Setting RTS to high (end reset)";
-        if (!serialPort->setRequestToSend(false)) {
-            qCWarning(log_core_serial) << "Failed to set RTS to high after factory reset";
-            emit factoryReset(false);
-            return false;
-        }
-        
-        qCInfo(log_core_serial) << "RTS set to high - factory reset signal complete";
-        emit factoryReset(false);
-        
-        // Step 4: Close current connection and wait for device reboot
-        qCInfo(log_core_serial) << "Step 3: Closing port and waiting for device reboot";
-        if (serialPort && serialPort->isOpen()) {
-            closePort();
-        }
-        
-        QEventLoop stabilizeLoop;
-        QTimer::singleShot(2000, &stabilizeLoop, &QEventLoop::quit); // Wait for device reboot
-        stabilizeLoop.exec();
-        
-        // Step 5: Attempt reconnection with verification
-        qCInfo(log_core_serial) << "Step 4: Attempting reconnection after factory reset...";
-        
-        // Try reconnection multiple times with increasing delays
-        bool reconnectSuccess = false;
-        for (int attempt = 1; attempt <= 5; attempt++) {
-            qCInfo(log_core_serial) << "Reconnection attempt" << attempt << "/5";
-            
-            // Attempt to reconnect
-            onSerialPortConnected(currentPortName);
-            
-            // Wait for connection to stabilize
-            QEventLoop connectWait;
-            QTimer::singleShot(1000, &connectWait, &QEventLoop::quit);
-            connectWait.exec();
-            
-            // Verify connection by testing communication
-            if (ready && serialPort && serialPort->isOpen()) {
-                qCDebug(log_core_serial) << "Port is ready and open, testing communication...";
-                QByteArray response = sendSyncCommand(CMD_GET_INFO, true);
-                if (!response.isEmpty() && response.size() >= static_cast<int>(sizeof(CmdGetInfoResult))) {
-                    CmdGetInfoResult result = CmdGetInfoResult::fromByteArray(response);
-                    if (result.prefix == 0xAB57) {
-                        qCInfo(log_core_serial) << "Factory reset reconnection successful on attempt" << attempt;
-                        reconnectSuccess = true;
-                        break;
-                    } else {
-                        qCDebug(log_core_serial) << "Invalid response prefix:" << QString::number(result.prefix, 16);
-                    }
-                } else {
-                    qCDebug(log_core_serial) << "No response or invalid response size:" << response.size();
-                }
-            } else {
-                qCDebug(log_core_serial) << "Port not ready or not open. Ready:" << ready << "Open:" << (serialPort ? serialPort->isOpen() : false);
-            }
-            
-            if (attempt < 5) {
-                qCDebug(log_core_serial) << "Reconnection attempt" << attempt << "failed, waiting" << (1000 * attempt) << "ms before retry...";
-                QEventLoop retryWait;
-                QTimer::singleShot(1000 * attempt, &retryWait, &QEventLoop::quit); // Progressive delay
-                retryWait.exec();
-            } else {
-                qCWarning(log_core_serial) << "All reconnection attempts failed";
-            }
-        }
-        
-        if (reconnectSuccess) {
-            qCInfo(log_core_serial) << "Synchronous factory reset completed successfully";
-            return true;
-        } else {
-            qCWarning(log_core_serial) << "Synchronous factory reset failed - device not responding after all attempts";
-            return false;
-        }
-        
-    } catch (const std::exception& e) {
-        qCCritical(log_core_serial) << "Exception during factory reset:" << e.what();
-        return false;
-    } catch (...) {
-        qCCritical(log_core_serial) << "Unknown exception during factory reset";
-        return false;
-    }
+    qCWarning(log_core_serial) << "FactoryResetManager not initialized";
+    return false;
 }
 
 /*
  * Internal synchronous factory reset V191 implementation - command method
  */
 bool SerialPortManager::handleFactoryResetV191SyncInternal(int timeoutMs) {
-    qCDebug(log_core_serial) << "Starting synchronous factory reset V191 internal (command method)...";
-    
-    if (!serialPort) {
-        qCWarning(log_core_serial) << "Serial port is null, cannot factory reset";
-        return false;
+    if (m_factoryResetManager) {
+        return m_factoryResetManager->handleFactoryResetV191SyncInternal(timeoutMs);
     }
-    
-    if (!serialPort->isOpen()) {
-        qCWarning(log_core_serial) << "Serial port is not open, cannot factory reset";
-        return false;
-    }
-    
-    QString currentPortName = serialPort->portName();
-    qCInfo(log_core_serial) << "V191 Factory reset on port:" << currentPortName;
-    
-    try {
-        // Try sending CMD_SET_DEFAULT_CFG command
-        qCInfo(log_core_serial) << "Step 1: Sending factory reset command (CMD_SET_DEFAULT_CFG)";
-        QByteArray retByte = sendSyncCommand(CMD_SET_DEFAULT_CFG, true);
-        
-        if (retByte.size() > 0) {
-            qCInfo(log_core_serial) << "Factory reset command sent successfully";
-            
-            // Wait for device to apply settings
-            qCInfo(log_core_serial) << "Step 2: Waiting for device to apply settings...";
-            QEventLoop waitLoop;
-            QTimer::singleShot(2000, &waitLoop, &QEventLoop::quit); // Increased wait time
-            waitLoop.exec();
-            
-            // Step 3: Verify with multiple test commands
-            qCInfo(log_core_serial) << "Step 3: Verifying factory reset with communication tests...";
-            bool verificationSuccess = false;
-            
-            for (int attempt = 1; attempt <= 3; attempt++) {
-                qCInfo(log_core_serial) << "Verification attempt" << attempt << "/3";
-                QByteArray verifyByte = sendSyncCommand(CMD_GET_INFO, true);
-                
-                if (!verifyByte.isEmpty() && verifyByte.size() >= static_cast<int>(sizeof(CmdGetInfoResult))) {
-                    CmdGetInfoResult result = CmdGetInfoResult::fromByteArray(verifyByte);
-                    if (result.prefix == 0xAB57) {
-                        qCInfo(log_core_serial) << "V191 factory reset verification successful on attempt" << attempt << "- version:" << result.version;
-                        verificationSuccess = true;
-                        break;
-                    } else {
-                        qCDebug(log_core_serial) << "Invalid response prefix:" << QString::number(result.prefix, 16);
-                    }
-                } else {
-                    qCDebug(log_core_serial) << "No response or invalid response size:" << verifyByte.size();
-                }
-                
-                if (attempt < 3) {
-                    QEventLoop retryWait;
-                    QTimer::singleShot(500, &retryWait, &QEventLoop::quit);
-                    retryWait.exec();
-                }
-            }
-            
-            if (verificationSuccess) {
-                qCInfo(log_core_serial) << "V191 factory reset completed successfully";
-                return true;
-            } else {
-                qCWarning(log_core_serial) << "V191 factory reset verification failed - device not responding properly";
-                return false;
-            }
-        } else {
-            qCWarning(log_core_serial) << "Factory reset command failed - no response from device";
-            return false;
-        }
-        
-    } catch (const std::exception& e) {
-        qCCritical(log_core_serial) << "Exception during V191 factory reset:" << e.what();
-        return false;
-    } catch (...) {
-        qCCritical(log_core_serial) << "Unknown exception during V191 factory reset";
-        return false;
-    }
+    qCWarning(log_core_serial) << "FactoryResetManager not initialized";
+    return false;
 }
 
 /*

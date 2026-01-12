@@ -49,6 +49,11 @@ private:
     bool performFactoryResetTest();
     void startHighBaudrateTest();
     bool performHighBaudrateTest();
+    void startStressTest();
+    void onStressTestTimeout();
+    void finishStressTest();
+    bool sendStressMouseCommand();
+    bool sendStressKeyboardCommand();
     void checkAllTestsCompletion();
 
     QStringList m_testTitles;
@@ -73,6 +78,11 @@ private:
     bool m_hostUnplugDetected;
     bool m_hostReplugDetected;
     int m_hostTestElapsedTime;
+    
+    // Stress Test state
+    int m_stressTotalCommands;
+    int m_stressSuccessfulCommands;
+    QTimer *m_stressTestTimer;
 };
 
 #endif // DIAGNOSTICSMANAGER_H

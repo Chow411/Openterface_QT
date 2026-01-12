@@ -104,6 +104,10 @@ public:
     bool reconfigureHidChip(int targetBaudrate = DEFAULT_BAUDRATE);
     bool factoryResetHipChipV191();
     bool factoryResetHipChip();
+    
+    // Synchronous factory reset methods for diagnostics
+    bool factoryResetHipChipSync(int timeoutMs = 10000);
+    bool factoryResetHipChipV191Sync(int timeoutMs = 5000);
     void restartSwitchableUSB();
     void setUSBconfiguration(int targetBaudrate = DEFAULT_BAUDRATE);
     void changeUSBDescriptor();
@@ -143,8 +147,20 @@ public:
     void onRecoveryFailed() override;
     void onRecoverySuccess() override;
     
+    // Factory reset helper - polls for ready state after reconnection
+    void startReadyStatePolling(const QString& portName);
+    
     // Get current baudrate
     int getCurrentBaudrate() const;
+    
+    // Statistics tracking for diagnostics
+    void startStats();
+    void stopStats();
+    void resetStats();
+    int getCommandsSent() const { return m_statsSent; }
+    int getResponsesReceived() const { return m_statsReceived; }
+    double getResponseRate() const;
+    qint64 getStatsElapsedMs() const;
     
     // Chip type detection and management
     ChipType detectChipType(const QString &portName) const;
@@ -231,6 +247,13 @@ private:
     bool handleResetHidChipInternal(int targetBaudrate);
     bool handleFactoryResetInternal();
     bool handleFactoryResetV191Internal();
+    
+    // Synchronous reset internal implementations (run in worker thread)
+    bool handleFactoryResetSyncInternal(int timeoutMs);
+    bool handleFactoryResetV191SyncInternal(int timeoutMs);
+    
+    // Helper for blocking wait with timeout
+    bool waitForFactoryResetCompletion(int timeoutMs);
 
     QSet<QString> availablePorts;
     
@@ -300,6 +323,12 @@ private:
     QWaitCondition m_syncResponseCondition;
     unsigned char m_pendingSyncExpectedKey = 0;
     
+    // Internal state tracking for sync factory reset operations
+    std::atomic<bool> m_factoryResetInProgress = false;
+    std::atomic<bool> m_factoryResetResult = false;
+    QMutex m_factoryResetMutex;
+    QWaitCondition m_factoryResetCondition;
+    
     // Command tracking for auto-restart logic
     std::atomic<int> m_commandsSent = 0;
     std::atomic<int> m_commandsReceived = 0;
@@ -308,6 +337,12 @@ private:
     static const int COMMAND_TRACKING_INTERVAL = 5000; // 5 seconds
     static const int MAX_SERIAL_RESETS = 3;
     static constexpr double COMMAND_LOSS_THRESHOLD = 0.30; // 30% loss rate
+    
+    // Statistics tracking for diagnostics
+    std::atomic<bool> m_isStatsEnabled = false;
+    std::atomic<int> m_statsSent = 0;
+    std::atomic<int> m_statsReceived = 0;
+    QDateTime m_statsStartTime;
     
     // Enhanced error handling
     void handleSerialError(QSerialPort::SerialPortError error);

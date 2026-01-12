@@ -15,6 +15,7 @@
 #include "device/DeviceInfo.h"
 #include "serial/SerialPortManager.h"
 #include "serial/ch9329.h"
+#include "global.h" // for GlobalVar to get screen resolution
 
 
 DiagnosticsManager::DiagnosticsManager(QObject *parent)
@@ -34,6 +35,9 @@ DiagnosticsManager::DiagnosticsManager(QObject *parent)
     , m_hostUnplugDetected(false)
     , m_hostReplugDetected(false)
     , m_hostTestElapsedTime(0)
+    , m_stressTotalCommands(0)
+    , m_stressSuccessfulCommands(0)
+    , m_stressTestTimer(nullptr)
 {
     // Initialize test titles
     m_testTitles = {
@@ -62,6 +66,11 @@ DiagnosticsManager::DiagnosticsManager(QObject *parent)
     m_hostCheckTimer = new QTimer(this);
     m_hostCheckTimer->setInterval(500); // Check every 500ms
     connect(m_hostCheckTimer, &QTimer::timeout, this, &DiagnosticsManager::onHostStatusCheckTimeout);
+    
+    // Setup Stress Test timer
+    m_stressTestTimer = new QTimer(this);
+    m_stressTestTimer->setInterval(50); // Send command every 50ms (600 commands in 30 seconds)
+    connect(m_stressTestTimer, &QTimer::timeout, this, &DiagnosticsManager::onStressTestTimeout);
 }
 
 TestStatus DiagnosticsManager::testStatus(int index) const
@@ -234,6 +243,12 @@ void DiagnosticsManager::startTest(int testIndex)
         startHighBaudrateTest();
         return;
     }
+    
+    // Special-case: Stress Test (index 6) -> perform mouse/keyboard stress testing
+    if (testIndex == 6) {
+        startStressTest();
+        return;
+    }
 
     // Fallback: generic timed test simulation (unchanged behavior for other tests)
     m_isTestingInProgress = true;
@@ -302,6 +317,7 @@ void DiagnosticsManager::resetAllTests()
     if (m_testTimer->isActive()) m_testTimer->stop();
     if (m_targetCheckTimer->isActive()) m_targetCheckTimer->stop();
     if (m_hostCheckTimer->isActive()) m_hostCheckTimer->stop();
+    if (m_stressTestTimer && m_stressTestTimer->isActive()) m_stressTestTimer->stop();
 
     appendToLog("=== DIAGNOSTICS RESTARTED ===");
     appendToLog("All test results have been reset.");
@@ -745,67 +761,118 @@ void DiagnosticsManager::startFactoryResetTest()
 
 bool DiagnosticsManager::performFactoryResetTest()
 {
-    // Get SerialPortManager instance
     SerialPortManager& serialManager = SerialPortManager::getInstance();
     
-    // Check if serial port is available
     QString currentPortPath = serialManager.getCurrentSerialPortPath();
     if (currentPortPath.isEmpty()) {
         appendToLog("No serial port available for factory reset test");
         return false;
     }
     
-    appendToLog(QString("Using serial port: %1 for factory reset operation").arg(currentPortPath));
+    appendToLog(QString("Using serial port: %1 for factory reset test").arg(currentPortPath));
     
     try {
-        // Attempt factory reset - try both methods for compatibility
-        appendToLog("Attempting standard factory reset method...");
-        bool success = serialManager.factoryResetHipChip();
+        // Step 1: Test current communication before reset
+        appendToLog("Step 1: Testing communication before factory reset...");
+        QByteArray preResetResponse = serialManager.sendSyncCommand(CMD_GET_INFO, true);
+        bool preResetSuccess = false;
         
-        if (success) {
-            appendToLog("Standard factory reset completed successfully");
+        if (!preResetResponse.isEmpty() && preResetResponse.size() >= static_cast<int>(sizeof(CmdGetInfoResult))) {
+            CmdGetInfoResult preResult = CmdGetInfoResult::fromByteArray(preResetResponse);
+            if (preResult.prefix == 0xAB57) {
+                appendToLog(QString("Pre-reset communication successful - version: %1").arg(preResult.version));
+                preResetSuccess = true;
+            }
+        }
+        
+        if (!preResetSuccess) {
+            appendToLog("Pre-reset communication failed - device may not be responding");
+            return false;
+        }
+        
+        // Step 2: Attempt standard factory reset (RTS pin method)
+        appendToLog("Step 2: Performing standard factory reset (RTS pin method)...");
+        appendToLog("This will hold RTS pin low for 4 seconds, then reconnect...");
+        
+        bool resetSuccess = serialManager.factoryResetHipChipSync(10000); // 10 second timeout
+        
+        if (resetSuccess) {
+            appendToLog("Step 2: Standard factory reset completed successfully");
             
-            // Wait a moment for reset to complete
-            QEventLoop loop;
-            QTimer::singleShot(2000, &loop, &QEventLoop::quit);
-            loop.exec();
+            // Step 3: Verify communication after reset
+            appendToLog("Step 3: Verifying communication after factory reset...");
             
-            // Verify reset by attempting to communicate with device
-            appendToLog("Verifying device communication after reset...");
-            QByteArray response = serialManager.sendSyncCommand(CMD_GET_INFO, false);
+            // Test communication multiple times to ensure stability
+            bool communicationVerified = false;
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                appendToLog(QString("Communication verification attempt %1/3...").arg(attempt));
+                
+                QByteArray postResetResponse = serialManager.sendSyncCommand(CMD_GET_INFO, true);
+                if (!postResetResponse.isEmpty() && postResetResponse.size() >= static_cast<int>(sizeof(CmdGetInfoResult))) {
+                    CmdGetInfoResult postResult = CmdGetInfoResult::fromByteArray(postResetResponse);
+                    if (postResult.prefix == 0xAB57) {
+                        appendToLog(QString("Post-reset communication successful on attempt %1 - version: %2")
+                                   .arg(attempt).arg(postResult.version));
+                        communicationVerified = true;
+                        break;
+                    } else {
+                        appendToLog(QString("Attempt %1: Invalid response header: 0x%2")
+                                   .arg(attempt).arg(postResult.prefix, 4, 16, QChar('0')));
+                    }
+                } else {
+                    appendToLog(QString("Attempt %1: No valid response received").arg(attempt));
+                }
+                
+                if (attempt < 3) {
+                    appendToLog("Waiting 1 second before retry...");
+                    QEventLoop waitLoop;
+                    QTimer::singleShot(1000, &waitLoop, &QEventLoop::quit);
+                    waitLoop.exec();
+                }
+            }
             
-            if (!response.isEmpty() && response.size() >= static_cast<int>(sizeof(CmdGetInfoResult))) {
-                appendToLog("Device communication verified after factory reset");
+            if (communicationVerified) {
+                appendToLog("Step 3: Factory reset verification successful!");
+                appendToLog("Device has been reset to factory defaults and is responding correctly.");
                 return true;
             } else {
-                appendToLog("Warning: Device communication not verified, but reset command succeeded");
-                return true; // Still consider success if reset command succeeded
+                appendToLog("Step 3: Factory reset verification failed - device not responding properly");
+                return false;
             }
         } else {
-            // Try V191 method as fallback
-            appendToLog("Standard method failed, trying V191 factory reset method...");
-            success = serialManager.factoryResetHipChipV191();
+            appendToLog("Step 2: Standard factory reset failed");
             
-            if (success) {
-                appendToLog("V191 factory reset completed successfully");
+            // Step 4: Try V191 command method as fallback
+            appendToLog("Step 4: Trying V191 factory reset method (command-based) as fallback...");
+            
+            bool v191Success = serialManager.factoryResetHipChipV191Sync(5000); // 5 second timeout
+            
+            if (v191Success) {
+                appendToLog("Step 4: V191 factory reset completed successfully");
                 
-                // Wait a moment for reset to complete
-                QEventLoop loop;
-                QTimer::singleShot(2000, &loop, &QEventLoop::quit);
-                loop.exec();
-                
-                return true;
+                // Verify communication
+                QByteArray v191Response = serialManager.sendSyncCommand(CMD_GET_INFO, true);
+                if (!v191Response.isEmpty() && v191Response.size() >= static_cast<int>(sizeof(CmdGetInfoResult))) {
+                    CmdGetInfoResult v191Result = CmdGetInfoResult::fromByteArray(v191Response);
+                    if (v191Result.prefix == 0xAB57) {
+                        appendToLog(QString("V191 factory reset verification successful - version: %1").arg(v191Result.version));
+                        return true;
+                    }
+                }
+                appendToLog("V191 factory reset completed but verification failed");
+                return false;
             } else {
-                appendToLog("Both factory reset methods failed");
+                appendToLog("Step 4: V191 factory reset also failed");
+                appendToLog("Both factory reset methods failed - device may not support factory reset");
                 return false;
             }
         }
         
     } catch (const std::exception& e) {
-        appendToLog(QString("Exception during factory reset: %1").arg(e.what()));
+        appendToLog(QString("Factory reset test exception: %1").arg(e.what()));
         return false;
     } catch (...) {
-        appendToLog("Unknown error during factory reset operation");
+        appendToLog("Unknown exception occurred during factory reset test");
         return false;
     }
 }
@@ -957,13 +1024,13 @@ bool DiagnosticsManager::performHighBaudrateTest()
             return false;
         }
         
-        // Step 5: Wait for baudrate change to stabilize
+        // Step 5: 增加波特率切换等待时间
         appendToLog("Step 5: Waiting for baudrate change to stabilize...");
         QEventLoop stabilizeLoop;
-        QTimer::singleShot(500, &stabilizeLoop, &QEventLoop::quit);  // 500ms wait
+        QTimer::singleShot(1500, &stabilizeLoop, &QEventLoop::quit); // 增加到1.5秒
         stabilizeLoop.exec();
         
-        // Step 6: Verify new baudrate
+        // Step 6: 验证波特率设置
         int newBaudrate = serialManager.getCurrentBaudrate();
         appendToLog(QString("Host-side baudrate now set to: %1").arg(newBaudrate));
         
@@ -972,13 +1039,40 @@ bool DiagnosticsManager::performHighBaudrateTest()
             return false;
         }
         
-        // Step 7: Test communication at 115200
-        appendToLog("Step 6: Testing communication at 115200 baudrate...");
-        QByteArray highSpeedResponse = serialManager.sendSyncCommand(CMD_GET_INFO, true);
+        // Step 7: 多次尝试高速通信测试
+        appendToLog("Step 7: Testing communication at 115200 baudrate...");
         
-        if (!highSpeedResponse.isEmpty()) {
-            CmdGetInfoResult highSpeedResult = CmdGetInfoResult::fromByteArray(highSpeedResponse);
-            appendToLog(QString("High-speed communication successful - version: %1").arg(highSpeedResult.version));
+        bool communicationSuccess = false;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            appendToLog(QString("High-speed communication attempt %1/3...").arg(attempt));
+            
+            QByteArray highSpeedResponse = serialManager.sendSyncCommand(CMD_GET_INFO, true);
+            
+            if (!highSpeedResponse.isEmpty()) {
+                CmdGetInfoResult highSpeedResult = CmdGetInfoResult::fromByteArray(highSpeedResponse);
+                if (highSpeedResult.prefix == 0xAB57) {
+                    appendToLog(QString("High-speed communication successful on attempt %1 - version: %2")
+                               .arg(attempt).arg(highSpeedResult.version));
+                    communicationSuccess = true;
+                    break;
+                } else {
+                    appendToLog(QString("Attempt %1: Invalid response header: 0x%2")
+                               .arg(attempt).arg(highSpeedResult.prefix, 4, 16, QChar('0')));
+                }
+            } else {
+                appendToLog(QString("Attempt %1: No response received").arg(attempt));
+            }
+            
+            // 在重试之间等待
+            if (attempt < 3) {
+                appendToLog("Waiting 500ms before retry...");
+                QEventLoop retryWait;
+                QTimer::singleShot(500, &retryWait, &QEventLoop::quit);
+                retryWait.exec();
+            }
+        }
+        
+        if (communicationSuccess) {
             appendToLog("Baudrate switch to 115200 completed successfully!");
             return true;
         } else {
@@ -1010,4 +1104,201 @@ bool DiagnosticsManager::performHighBaudrateTest()
         appendToLog("High baudrate test failed due to unknown error");
         return false;
     }
+}
+
+void DiagnosticsManager::startStressTest()
+{
+    m_isTestingInProgress = true;
+    m_runningTestIndex = 6; // Stress Test index
+    
+    // Reset test counters
+    m_stressTotalCommands = 0;
+    m_stressSuccessfulCommands = 0;
+    
+    m_statuses[6] = TestStatus::InProgress;
+    emit statusChanged(6, TestStatus::InProgress);
+    
+    appendToLog("Started test: Stress Test");
+    appendToLog("Testing communication reliability with async commands...");
+    appendToLog("Will send 600 commands over 30 seconds and measure response rate.");
+    appendToLog("Target response rate: >90% for PASS");
+    emit testStarted(6);
+    
+    // Check if serial port is available
+    SerialPortManager& serialManager = SerialPortManager::getInstance();
+    QString currentPortPath = serialManager.getCurrentSerialPortPath();
+    if (currentPortPath.isEmpty()) {
+        appendToLog("Stress test failed: No serial port available");
+        m_statuses[6] = TestStatus::Failed;
+        emit statusChanged(6, TestStatus::Failed);
+        emit testCompleted(6, false);
+        m_isTestingInProgress = false;
+        m_runningTestIndex = -1;
+        checkAllTestsCompletion();
+        return;
+    }
+    
+    appendToLog(QString("Using serial port: %1 for stress test").arg(currentPortPath));
+    
+    // Start statistics tracking
+    serialManager.startStats();
+    
+    // Start stress test timer
+    m_stressTestTimer->start();
+    
+    // Set a timeout for the entire test (35 seconds to allow for completion)
+    QTimer::singleShot(35000, this, [this]() {
+        if (m_runningTestIndex == 6) {
+            finishStressTest();
+        }
+    });
+    
+    qCDebug(log_device_diagnostics) << "Started Stress Test with async commands and statistics tracking";
+}
+
+void DiagnosticsManager::onStressTestTimeout()
+{
+    // Check if we've sent enough commands
+    if (m_stressTotalCommands >= 600) {
+        finishStressTest();
+        return;
+    }
+    
+    // Send alternating mouse and keyboard commands
+    bool success = false;
+    if (m_stressTotalCommands % 2 == 0) {
+        // Send mouse command (relative movement)
+        success = sendStressMouseCommand();
+    } else {
+        // Send keyboard command (press and release a key)
+        success = sendStressKeyboardCommand();
+    }
+    
+    if (success) {
+        m_stressTotalCommands++;
+        m_stressSuccessfulCommands++;
+    } else {
+        m_stressTotalCommands++;
+    }
+    
+    // Log progress every 100 commands with real-time statistics
+    if (m_stressTotalCommands % 100 == 0) {
+        SerialPortManager& serialManager = SerialPortManager::getInstance();
+        double responseRate = serialManager.getResponseRate();
+        qint64 elapsedMs = serialManager.getStatsElapsedMs();
+        
+        appendToLog(QString("Progress: %1/600 commands sent, response rate: %2% (elapsed: %3s)")
+                   .arg(m_stressTotalCommands)
+                   .arg(responseRate, 0, 'f', 1)
+                   .arg(elapsedMs / 1000.0, 0, 'f', 1));
+    }
+}
+
+bool DiagnosticsManager::sendStressMouseCommand()
+{
+    SerialPortManager& serialManager = SerialPortManager::getInstance();
+    
+    try {
+        // Get target device resolution from GlobalVar
+        int targetWidth = GlobalVar::instance().getInputWidth();
+        int targetHeight = GlobalVar::instance().getInputHeight();
+        
+        // Generate random absolute coordinates within the target screen resolution
+        int randomX = QRandomGenerator::global()->bounded(0, targetWidth);
+        int randomY = QRandomGenerator::global()->bounded(0, targetHeight);
+        
+        // Create absolute mouse movement command using the correct format
+        QByteArray mouseCmd;
+        mouseCmd.append(MOUSE_ABS_ACTION_PREFIX); // Absolute mouse prefix from ch9329.h
+        mouseCmd.append(static_cast<char>(0x00)); // Button state (no buttons)
+        
+        // Encode X coordinate (little-endian 16-bit)
+        mouseCmd.append(static_cast<char>(randomX & 0xFF));        // X low byte
+        mouseCmd.append(static_cast<char>((randomX >> 8) & 0xFF)); // X high byte
+        
+        // Encode Y coordinate (little-endian 16-bit)
+        mouseCmd.append(static_cast<char>(randomY & 0xFF));        // Y low byte
+        mouseCmd.append(static_cast<char>((randomY >> 8) & 0xFF)); // Y high byte
+        
+        mouseCmd.append(static_cast<char>(0x00)); // Wheel (0)
+        
+        // Use async command instead of sync
+        return serialManager.sendAsyncCommand(mouseCmd, false);
+        
+    } catch (...) {
+        return false;
+    }
+}
+
+bool DiagnosticsManager::sendStressKeyboardCommand()
+{
+    SerialPortManager& serialManager = SerialPortManager::getInstance();
+    
+    try {
+        // Send a simple key press using the correct format
+        QByteArray keyPressCmd = CMD_SEND_KB_GENERAL_DATA; // Correct prefix from ch9329.h
+        keyPressCmd[5] = 0x00; // Modifier keys (none)
+        keyPressCmd[6] = 0x00; // Reserved
+        keyPressCmd[7] = 0x47; // Scroll Lock key code
+        keyPressCmd[8] = 0x00; // Key 2
+        keyPressCmd[9] = 0x00; // Key 3
+        keyPressCmd[10] = 0x00; // Key 4
+        keyPressCmd[11] = 0x00; // Key 5
+        keyPressCmd[12] = 0x00; // Key 6
+        
+        // Use async command - only send key press for simplicity in stress test
+        return serialManager.sendAsyncCommand(keyPressCmd, false);
+        
+    } catch (...) {
+        return false;
+    }
+}
+
+void DiagnosticsManager::finishStressTest()
+{
+    if (m_stressTestTimer && m_stressTestTimer->isActive()) {
+        m_stressTestTimer->stop();
+    }
+    
+    SerialPortManager& serialManager = SerialPortManager::getInstance();
+    
+    // Stop statistics and get final results
+    serialManager.stopStats();
+    
+    int commandsSent = serialManager.getCommandsSent();
+    int responsesReceived = serialManager.getResponsesReceived();
+    double responseRate = serialManager.getResponseRate();
+    qint64 elapsedMs = serialManager.getStatsElapsedMs();
+    
+    appendToLog(QString("Stress test completed in %1 seconds")
+               .arg(elapsedMs / 1000.0, 0, 'f', 1));
+    appendToLog(QString("Commands sent: %1, Responses received: %2")
+               .arg(commandsSent)
+               .arg(responsesReceived));
+    appendToLog(QString("Response rate: %1%").arg(responseRate, 0, 'f', 1));
+    
+    // Determine if test passed (>90% response rate)
+    bool success = (responseRate > 90.0);
+    
+    if (success) {
+        m_statuses[6] = TestStatus::Completed;
+        appendToLog(QString("Stress Test: PASSED - Response rate %1% exceeds 90% threshold")
+                   .arg(responseRate, 0, 'f', 1));
+    } else {
+        m_statuses[6] = TestStatus::Failed;
+        appendToLog(QString("Stress Test: FAILED - Response rate %1% is below 90% threshold")
+                   .arg(responseRate, 0, 'f', 1));
+    }
+    
+    emit statusChanged(6, m_statuses[6]);
+    emit testCompleted(6, success);
+    
+    m_isTestingInProgress = false;
+    m_runningTestIndex = -1;
+    
+    // Check if all tests completed
+    checkAllTestsCompletion();
+    
+    qCDebug(log_device_diagnostics) << "Stress Test finished:" << (success ? "PASS" : "FAIL")
+                                   << "Response rate:" << responseRate << "%";
 }

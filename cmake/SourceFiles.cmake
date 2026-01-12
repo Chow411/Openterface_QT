@@ -114,6 +114,10 @@ set(SCRIPT_SOURCES
 # Serial sources
 set(SERIAL_SOURCES
     serial/SerialPortManager.cpp serial/SerialPortManager.h
+    serial/SerialCommandCoordinator.cpp serial/SerialCommandCoordinator.h
+    serial/SerialStateManager.cpp serial/SerialStateManager.h
+    serial/SerialStatistics.cpp serial/SerialStatistics.h
+    serial/SerialFacade.cpp serial/SerialFacade.h
     serial/ch9329.h
     serial/chipstrategy/IChipStrategy.h
     serial/chipstrategy/CH9329Strategy.cpp serial/chipstrategy/CH9329Strategy.h

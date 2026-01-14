@@ -10,6 +10,9 @@
 #include <QEventLoop>
 #include <QTimer>
 #include <QSettings>
+#include <QThread>
+
+#include "LogWriter.h"
 
 #include "device/DeviceManager.h" // for device presence checks
 #include "device/DeviceInfo.h"
@@ -71,6 +74,13 @@ DiagnosticsManager::DiagnosticsManager(QObject *parent)
     m_stressTestTimer = new QTimer(this);
     m_stressTestTimer->setInterval(50); // Send command every 50ms (600 commands in 30 seconds)
     connect(m_stressTestTimer, &QTimer::timeout, this, &DiagnosticsManager::onStressTestTimeout);
+
+    // Initialize asynchronous logging
+    m_logThread = new QThread(this);
+    m_logWriter = new LogWriter(getLogFilePath(), this);
+    m_logWriter->moveToThread(m_logThread);
+    connect(this, &DiagnosticsManager::logMessage, m_logWriter, &LogWriter::writeLog);
+    m_logThread->start();
 }
 
 TestStatus DiagnosticsManager::testStatus(int index) const
@@ -107,14 +117,8 @@ void DiagnosticsManager::appendToLog(const QString &message)
     // Emit to UI
     emit logAppended(logEntry);
 
-    // Also write to file
-    QString logPath = getLogFilePath();
-    QFile logFile(logPath);
-    if (logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-        QTextStream out(&logFile);
-        out << logEntry << "\n";
-        logFile.close();
-    }
+    // Write to file asynchronously
+    emit logMessage(logEntry);
 }
 
 void DiagnosticsManager::startTest(int testIndex)
@@ -1316,4 +1320,12 @@ void DiagnosticsManager::finishStressTest()
     
     qCDebug(log_device_diagnostics) << "Stress Test finished:" << (success ? "PASS" : "FAIL")
                                    << "Response rate:" << responseRate << "%";
+}
+
+DiagnosticsManager::~DiagnosticsManager()
+{
+    if (m_logThread) {
+        m_logThread->quit();
+        m_logThread->wait();
+    }
 }

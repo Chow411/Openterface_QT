@@ -37,6 +37,7 @@
 #include <QtSerialPort>
 #include <QElapsedTimer>
 #include <QSysInfo>
+#include <QStandardPaths>
 
 
 Q_LOGGING_CATEGORY(log_core_serial, "opf.core.serial")
@@ -229,6 +230,14 @@ SerialPortManager::SerialPortManager(QObject *parent) : QObject(parent), serialP
     
     // Connect to hotplug monitor for automatic device management
     connectToHotplugMonitor();
+    
+    // Initialize asynchronous logging
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/serial_log.txt";
+    m_logThread = new QThread(this);
+    m_logWriter = new LogWriter(logPath, this);
+    m_logWriter->moveToThread(m_logThread);
+    connect(this, &SerialPortManager::logMessage, m_logWriter, &LogWriter::writeLog);
+    m_logThread->start();
     
     qCDebug(log_core_serial) << "SerialPortManager initialized with DeviceManager integration and enhanced stability features";
 }
@@ -1128,6 +1137,18 @@ SerialPortManager::~SerialPortManager() {
     if (serialPort) {
         delete serialPort;
         serialPort = nullptr;
+    }
+    
+    // Clean up logging thread
+    if (m_logThread) {
+        m_logThread->quit();
+        m_logThread->wait();
+        delete m_logThread;
+        m_logThread = nullptr;
+    }
+    if (m_logWriter) {
+        delete m_logWriter;
+        m_logWriter = nullptr;
     }
     
     qCDebug(log_core_serial) << "Serial port manager destroyed";
@@ -2408,4 +2429,11 @@ bool SerialPortManager::getCapsLockState()
 bool SerialPortManager::getScrollLockState() 
 {
     return m_stateManager ? m_stateManager->getScrollLockState() : false;
+}
+
+void SerialPortManager::log(const QString& message)
+{
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+    QString logEntry = QString("[%1] %2").arg(timestamp, message);
+    emit logMessage(logEntry);
 }

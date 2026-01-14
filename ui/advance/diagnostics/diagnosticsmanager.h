@@ -45,6 +45,7 @@ private:
     bool checkHostConnectionStatus();
     void startSerialConnectionTest();
     bool performSerialConnectionTest();
+    bool testSerialConnectionAtBaudrate(int baudrate);
     void startFactoryResetTest();
     bool performFactoryResetTest();
     void startHighBaudrateTest();

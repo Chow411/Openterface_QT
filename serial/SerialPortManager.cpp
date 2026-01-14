@@ -104,7 +104,7 @@ SerialPortManager::SerialPortManager(QObject *parent) : QObject(parent), serialP
     connect(m_commandCoordinator.get(), &SerialCommandCoordinator::dataSent, this, &SerialPortManager::dataSent);
     connect(m_commandCoordinator.get(), &SerialCommandCoordinator::dataReceived, this, &SerialPortManager::dataReceived);
     connect(m_commandCoordinator.get(), &SerialCommandCoordinator::commandExecuted, this, [this](const QByteArray& cmd, bool success) {
-        qCDebug(log_core_serial) << "Command executed:" << cmd.toHex(' ') << "Success:" << success;
+        qCDebug(log_core_serial) << "Tx: :" << cmd.toHex(' ') << "Success:" << success;
     });
     
     // Connect state manager signals to SerialPortManager signals
@@ -1414,7 +1414,7 @@ void SerialPortManager::readData() {
     if (parsed.status != STATUS_SUCCESS && (parsed.commandCode >= 0xC0 && parsed.commandCode <= 0xCF)) {
         dumpError(parsed.status, packet);
     } else {
-        qCDebug(log_core_serial).nospace().noquote() << "Data Received(" << serialPort->portName() << "@" 
+        qCDebug(log_core_serial).nospace().noquote() << "RX (" << serialPort->portName() << "@" 
             << (serialPort ? serialPort->baudRate() : 0) << "bps): " << packet.toHex(' ');
         
         latestUpdateTime = QDateTime::currentDateTime();

@@ -23,6 +23,7 @@
 #include "../device/HotplugMonitor.h"
 #include "../ui/globalsetting.h"
 #include "../device/platform/AbstractPlatformDeviceManager.h"
+#include "platformhidadapter.h"
 
 #ifdef _WIN32
 #include <hidclass.h>
@@ -49,6 +50,14 @@ VideoHid::VideoHid(QObject *parent) : QObject(parent), m_inTransaction(false) {
     
     // Connect to hotplug monitor for automatic device management
     connectToHotplugMonitor();
+
+    // Create platform adapter responsible for platform-specific HID operations
+    m_platformAdapter.reset(PlatformHidAdapter::create(this));
+    if (m_platformAdapter) {
+        qCDebug(log_host_hid) << "PlatformHidAdapter initialized. Initial HID path:" << m_platformAdapter->getHIDDevicePath();
+    } else {
+        qCDebug(log_host_hid) << "No PlatformHidAdapter available for this platform.";
+    }
 }
 
 VideoHid::~VideoHid() {
@@ -1127,14 +1136,25 @@ bool VideoHid::usbXdataWrite4Byte(quint16 u16_address, QByteArray data) {
 }
 
 bool VideoHid::getFeatureReport(uint8_t* buffer, size_t bufferLength) {
+    // Prefer adapter if available
+    if (m_platformAdapter) {
+        return m_platformAdapter->getFeatureReport(buffer, bufferLength);
+    }
 #ifdef _WIN32
     return this->getFeatureReportWindows(buffer, bufferLength);
 #elif __linux__
     return this->getFeatureReportLinux(buffer, bufferLength);
+#else
+    Q_UNUSED(buffer); Q_UNUSED(bufferLength);
+    return false;
 #endif
 }
 
 bool VideoHid::sendFeatureReport(uint8_t* buffer, size_t bufferLength) {
+    // Prefer adapter if available
+    if (m_platformAdapter) {
+        return m_platformAdapter->sendFeatureReport(buffer, bufferLength);
+    }
 #ifdef _WIN32
     int retries = 2;
     while (retries-- > 0) {
@@ -1152,6 +1172,9 @@ bool VideoHid::sendFeatureReport(uint8_t* buffer, size_t bufferLength) {
         }
         qCDebug(log_host_hid)  << "Retrying sendFeatureReportLinux...";
     }
+    return false;
+#else
+    Q_UNUSED(buffer); Q_UNUSED(bufferLength);
     return false;
 #endif
 }
@@ -1171,6 +1194,54 @@ void VideoHid::closeHIDDeviceHandle() {
             hidFd = -1;
         }
     #endif
+}
+
+// Platform wrapper implementations used by PlatformHidAdapter
+bool VideoHid::platform_openDevice() {
+#ifdef _WIN32
+    return openHIDDeviceHandle();
+#elif __linux__
+    return openHIDDevice();
+#else
+    return false;
+#endif
+}
+
+void VideoHid::platform_closeDevice() {
+    closeHIDDeviceHandle();
+}
+
+bool VideoHid::platform_sendFeatureReport(uint8_t* reportBuffer, size_t bufferSize) {
+#ifdef _WIN32
+    return sendFeatureReportWindows(reinterpret_cast<BYTE*>(reportBuffer), static_cast<DWORD>(bufferSize));
+#elif __linux__
+    return sendFeatureReportLinux(reportBuffer, static_cast<int>(bufferSize));
+#else
+    Q_UNUSED(reportBuffer); Q_UNUSED(bufferSize);
+    return false;
+#endif
+}
+
+bool VideoHid::platform_getFeatureReport(uint8_t* reportBuffer, size_t bufferSize) {
+#ifdef _WIN32
+    return getFeatureReportWindows(reinterpret_cast<BYTE*>(reportBuffer), static_cast<DWORD>(bufferSize));
+#elif __linux__
+    return getFeatureReportLinux(reportBuffer, static_cast<int>(bufferSize));
+#else
+    Q_UNUSED(reportBuffer); Q_UNUSED(bufferSize);
+    return false;
+#endif
+}
+
+QString VideoHid::platform_getHIDDevicePath() {
+#ifdef _WIN32
+    std::wstring wpath = getHIDDevicePath();
+    return QString::fromStdWString(wpath);
+#elif __linux__
+    return getHIDDevicePath();
+#else
+    return QString();
+#endif
 }
 
 bool VideoHid::beginTransaction() {

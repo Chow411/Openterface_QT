@@ -12,6 +12,8 @@
 #include <chrono>
 #include <QMutex>
 #include <QRecursiveMutex>
+#include <memory>
+#include "platformhidadapter.h"
 
 #include "../ui/statusevents.h"
 
@@ -72,6 +74,10 @@ class VideoHid : public QObject
 
     friend class FirmwareWriter; // Add FirmwareWriter as friend
     friend class FirmwareReader; // Add FirmwareReader as friend
+    friend class PlatformHidAdapter; // Allow platform adapter to call platform_* helpers
+    // Also allow concrete adapters access (friend not inherited)
+    friend class WindowsHidAdapter;
+    friend class LinuxHidAdapter;
 
 public:
     static VideoHid* getPointer(){
@@ -198,6 +204,17 @@ private:
 
     bool openHIDDeviceHandle();
     void closeHIDDeviceHandle();
+
+    // Platform adapter for HID operations (introduced to encapsulate Windows/Linux differences)
+    std::unique_ptr<PlatformHidAdapter> m_platformAdapter{nullptr};
+
+    // Thin wrappers used by the adapter to call the existing platform-specific implementations
+    bool platform_openDevice();
+    void platform_closeDevice();
+    bool platform_sendFeatureReport(uint8_t* reportBuffer, size_t bufferSize);
+    bool platform_getFeatureReport(uint8_t* reportBuffer, size_t bufferSize);
+    QString platform_getHIDDevicePath();
+
     using StringCallback = std::function<void(const QString&)>;
     // Polling thread used to poll device status periodically. Replaces the previous QTimer-based approach.
     class PollingThread; // forward-declared below in the cpp file (no moc required)

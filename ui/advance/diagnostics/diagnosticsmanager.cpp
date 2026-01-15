@@ -173,6 +173,15 @@ void DiagnosticsManager::startTest(int testIndex)
             }
         }
 
+        // Also append a full device tree for richer diagnostics
+        QString deviceTree = DeviceManager::getInstance().getDeviceTree();
+        if (!deviceTree.isEmpty()) {
+            appendToLog("Device tree:");
+            for (const QString &line : deviceTree.split('\n')) {
+                appendToLog(QString("  %1").arg(line));
+            }
+        }
+
         // Individual checks logged; now determine overall success
         bool success = (foundHid && foundSerial && foundCamera && foundAudio);
 

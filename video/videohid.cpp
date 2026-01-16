@@ -13,6 +13,7 @@
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QEventLoop>
+#include <QPointer>
 
 #include "ms2109.h"
 #include "ms2130s.h"
@@ -62,6 +63,8 @@ VideoHid::VideoHid(QObject *parent) : QObject(parent), m_inTransaction(false) {
 }
 
 VideoHid::~VideoHid() {
+    // Ensure we disconnect from hotplug monitor prior to stopping to avoid callbacks into a destroyed object
+    disconnectFromHotplugMonitor();
     // Ensure we stop polling and close any open device before destruction
     stop();
 }
@@ -795,6 +798,34 @@ void VideoHid::setEventCallback(StatusEventCallback* callback) {
     eventCallback = callback;
 }
 
+// Slot: perform a write to EEPROM in the VideoHid thread context and return success
+bool VideoHid::performWriteEeprom(quint16 address, const QByteArray &data)
+{
+    qCDebug(log_host_hid) << "performWriteEeprom called in thread:" << QThread::currentThread();
+    return writeEeprom(address, data);
+}
+
+// Slot scheduled to run in VideoHid's thread when a device is unplugged
+void VideoHid::handleScheduledDisconnect(const QString &oldPath)
+{
+    qCDebug(log_host_hid) << "handleScheduledDisconnect running in thread:" << QThread::currentThread();
+    stop();
+    emit hidDeviceDisconnected(oldPath);
+}
+
+// Slot scheduled to run in VideoHid's thread when a new device is plugged in
+void VideoHid::handleScheduledConnect()
+{
+    qCDebug(log_host_hid) << "handleScheduledConnect running in thread:" << QThread::currentThread();
+    // Add longer delay to allow device to fully stabilize after plugging in
+    QThread::msleep(500);
+    // Ensure chip detection and start happen on this object's thread
+    detectChipType();
+    qCInfo(log_host_hid) << "Verified chip type on new device: " << (m_chipImpl ? m_chipImpl->name() : QString("Unknown"));
+    start();
+    emit hidDeviceConnected(m_currentHIDDevicePath);
+}
+
 void VideoHid::clearDevicePathCache() {
     qCDebug(log_host_hid) << "Clearing HID device path cache";
     m_cachedDevicePath.clear();
@@ -1301,10 +1332,11 @@ void VideoHid::connectToHotplugMonitor()
                 if (m_currentHIDPortChain == device.portChain) {
                     qCInfo(log_host_hid) << "Stopping HID device for unplugged device at port:" << device.portChain;
                     QString oldPath = m_currentHIDDevicePath;
-                    // Defer stop() to avoid blocking the hotplug thread
-                    QTimer::singleShot(0, this, [this, oldPath]() {
-                        stop();
-                        emit hidDeviceDisconnected(oldPath);
+                    // Defer stop() to avoid blocking the hotplug thread - use QPointer and invokeMethod to avoid acting on destroyed object
+                    QPointer<VideoHid> safeThis(this);
+                    QTimer::singleShot(0, [safeThis, oldPath]() {
+                        if (!safeThis) return;
+                        QMetaObject::invokeMethod(safeThis, "handleScheduledDisconnect", Qt::QueuedConnection, Q_ARG(QString, oldPath));
                     });
                     qCInfo(log_host_hid) << "✓ HID device stop scheduled for unplugged device at port:" << device.portChain;
                 } else {
@@ -1336,21 +1368,11 @@ void VideoHid::connectToHotplugMonitor()
                 if (switchSuccess) {
                     qCInfo(log_host_hid) << "✓ HID device auto-switched to new device at port:" << device.portChain;
                     
-                    // Defer the start and stabilization to avoid blocking the hotplug thread
-                    QTimer::singleShot(0, this, [this]() {
-                        // Add longer delay to allow device to fully stabilize after plugging in
-                        qCDebug(log_host_hid) << "Waiting for device stabilization after hotplug...";
-                        QThread::msleep(500);
-                        
-                        // Explicitly detect chip type when new device is plugged in
-                        // Note: This is also called in switchToHIDDeviceByPortChain, but we call it again here
-                        // for redundancy and to ensure it's explicitly tied to the new device plugged in event
-                        detectChipType();
-                        qCInfo(log_host_hid) << "Verified chip type on new device: " << (m_chipImpl ? m_chipImpl->name() : QString("Unknown"));
-                        
-                        // Start the HID device
-                        start();
-                        emit hidDeviceConnected(m_currentHIDDevicePath);
+                    // Defer the start and stabilization to avoid blocking the hotplug thread - schedule safely
+                    QPointer<VideoHid> safeThis(this);
+                    QTimer::singleShot(0, [safeThis]() {
+                        if (!safeThis) return;
+                        QMetaObject::invokeMethod(safeThis, "handleScheduledConnect", Qt::QueuedConnection);
                     });
                 } else {
                     qCDebug(log_host_hid) << "HID device auto-switch failed for port:" << device.portChain;
@@ -1936,8 +1958,8 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
         for (DWORD i = 0; i < bufferSize && i < 20; i++) { // Limit to first 20 bytes for readability
             hexData += QString("%1 ").arg(reportBuffer[i], 2, 16, QChar('0')).toUpper();
         }
-        qCDebug(log_host_hid) << "Sending feature report with size:" << bufferSize 
-                             << "data (hex):" << hexData;
+        // qCDebug(log_host_hid) << "Sending feature report with size:" << bufferSize 
+        //                      << "data (hex):" << hexData;
     }
     
     // For MS2130S, make sure reportBuffer[0] is the report ID (usually 0)
@@ -1954,9 +1976,9 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     
     if (HidD_GetPreparsedData(deviceHandle, &preparsedData)) {
         if (HidP_GetCaps(preparsedData, &caps) == HIDP_STATUS_SUCCESS) {
-            qCDebug(log_host_hid) << "Device capabilities - Feature Report Byte Length:" << caps.FeatureReportByteLength
-                                 << "Input Report Byte Length:" << caps.InputReportByteLength
-                                 << "Output Report Byte Length:" << caps.OutputReportByteLength;
+            // qCDebug(log_host_hid) << "Device capabilities - Feature Report Byte Length:" << caps.FeatureReportByteLength
+            //                      << "Input Report Byte Length:" << caps.InputReportByteLength
+            //                      << "Output Report Byte Length:" << caps.OutputReportByteLength;
             
             // MS2130S reports a very large feature report size, but we know it works with smaller sizes
             if (caps.FeatureReportByteLength > 1000 && m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
@@ -2122,9 +2144,9 @@ bool VideoHid::getFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     if (HidD_GetPreparsedData(deviceHandle, &preparsedData)) {
         HIDP_CAPS caps;
         if (HidP_GetCaps(preparsedData, &caps) == HIDP_STATUS_SUCCESS) {
-            qCDebug(log_host_hid) << "Device capabilities - Feature Report Byte Length:" << caps.FeatureReportByteLength
-                                 << "Input Report Byte Length:" << caps.InputReportByteLength
-                                 << "Output Report Byte Length:" << caps.OutputReportByteLength;
+            // qCDebug(log_host_hid) << "Device capabilities - Feature Report Byte Length:" << caps.FeatureReportByteLength
+            //                      << "Input Report Byte Length:" << caps.InputReportByteLength
+            //                      << "Output Report Byte Length:" << caps.OutputReportByteLength;
         }
         HidD_FreePreparsedData(preparsedData);
     }
@@ -2353,8 +2375,9 @@ bool VideoHid::writeChunk(quint16 address, const QByteArray &data) {
             return false;
         }
         written_size += chunk_length;
+        qCDebug(log_host_hid) << "writeChunk: emitting firmwareWriteChunkComplete, written_size=" << written_size << " addr=" << QString("0x%1").arg(_address, 4, 16, QChar('0')).toUpper();
         emit firmwareWriteChunkComplete(written_size);
-        _address += chunkSize;
+        _address += chunkSize; 
     }
     return true;
 }
@@ -2418,6 +2441,8 @@ void VideoHid::loadFirmwareToEeprom() {
     
     // Connect progress and status signals if needed
     connect(worker, &FirmwareWriter::progress, this, [this](int percent) {
+        // Update last-known percent so UI can poll it if signals are missed
+        m_lastFirmwarePercent.store(percent);
         qCDebug(log_host_hid) << "Firmware write progress: " << percent << "%";
         emit firmwareWriteProgress(percent);
     });

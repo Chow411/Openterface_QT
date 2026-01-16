@@ -17,6 +17,9 @@
 
 #include "../ui/statusevents.h"
 
+// Safe stoi helper declared as free function (was incorrectly placed in signals)
+int safe_stoi(std::string str, int defaultValue = 0);
+
 // Chipset enumeration
 enum class VideoChipType {
     MS2109,
@@ -122,6 +125,10 @@ public:
     FirmwareResult isLatestFirmware();
 
     void switchToHost();
+
+    // Returns the latest firmware write percent reported (thread-safe)
+    int getFirmwareWritePercent() const { return m_lastFirmwarePercent.load(); }
+
     void switchToTarget();
     
     // New USB switch status query method using serial command (for CH32V208 chips)
@@ -172,7 +179,6 @@ public:
 
 signals:
     // Add new signals
-    int safe_stoi(std::string str, int defaultValue = 0);
     void firmwareWriteProgress(int percent);
     void firmwareWriteComplete(bool success);
     void firmwareWriteChunkComplete(int writtenBytes);
@@ -270,6 +276,10 @@ private:
     uint16_t written_size = 0;
     uint32_t read_size = 0;
 
+    // Last firmware write percent (updated from writer thread and read by UI)
+    std::atomic_int m_lastFirmwarePercent{0};
+
+
 #ifdef _WIN32
     std::wstring getHIDDevicePath();
     std::wstring getProperDevicePath(const std::wstring& deviceInstancePath);
@@ -300,6 +310,15 @@ private:
     Q_INVOKABLE void detectChipType();
     VideoChipType getChipType() const { return m_chipType; }
     VideoChip* getChipImpl() const { return m_chipImpl.get(); }
+
+public slots:
+    // Called by FirmwareWriter via a queued/blocking invoke to ensure EEPROM writes run in VideoHid's thread
+    bool performWriteEeprom(quint16 address, const QByteArray &data);
+
+private slots:
+    // Internal slots used to safely schedule hotplug-driven actions into VideoHid's thread
+    void handleScheduledDisconnect(const QString &oldPath);
+    void handleScheduledConnect();
 };
 
 #endif // VIDEOHID_H

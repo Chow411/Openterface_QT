@@ -85,6 +85,7 @@ class VideoHid : public QObject
     // Allow chip implementations to call lower-level usb helpers
     friend class VideoChip;
     friend class Ms2109Chip;
+    friend class Ms2109sChip;
     friend class Ms2130sChip;
 
 public:
@@ -154,6 +155,7 @@ public:
     
     // USB read/write methods for both chip types
     QPair<QByteArray, bool> usbXdataRead4ByteMS2109(quint16 u16_address);
+    QPair<QByteArray, bool> usbXdataRead4ByteMS2109S(quint16 u16_address);
     QPair<QByteArray, bool> usbXdataRead4ByteMS2130S(quint16 u16_address);
 
     void loadFirmwareToEeprom();

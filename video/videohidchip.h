@@ -3,6 +3,7 @@
 
 #include "videohid.h"
 #include "ms2109.h"
+#include "ms2109s.h"
 #include "ms2130s.h"
 
 class VideoHid;
@@ -51,6 +52,26 @@ public:
         s.height_h = ADDR_INPUT_HEIGHT_H; s.height_l = ADDR_INPUT_HEIGHT_L;
         s.fps_h = ADDR_INPUT_FPS_H; s.fps_l = ADDR_INPUT_FPS_L;
         s.clk_h = ADDR_INPUT_PIXELCLK_H; s.clk_l = ADDR_INPUT_PIXELCLK_L;
+        return s;
+    }
+    QPair<QByteArray, bool> read4Byte(quint16 address) override;
+    bool write4Byte(quint16 address, const QByteArray &data) override;
+};
+
+// MS2109S implementation
+class Ms2109sChip : public VideoChip {
+public:
+    explicit Ms2109sChip(VideoHid* owner) : VideoChip(owner) {}
+    VideoChipType type() const override { return VideoChipType::MS2109S; }
+    QString name() const override { return "MS2109S"; }
+    quint16 addrSpdifout() const override { return MS2109S_ADDR_SPDIFOUT; }
+    quint16 addrGpio0() const override { return MS2109S_ADDR_GPIO0; }
+    VideoHidRegisterSet getRegisterSet() const override {
+        VideoHidRegisterSet s;
+        s.width_h = MS2109S_ADDR_INPUT_WIDTH_H; s.width_l = MS2109S_ADDR_INPUT_WIDTH_L;
+        s.height_h = MS2109S_ADDR_INPUT_HEIGHT_H; s.height_l = MS2109S_ADDR_INPUT_HEIGHT_L;
+        s.fps_h = MS2109S_ADDR_INPUT_FPS_H; s.fps_l = MS2109S_ADDR_INPUT_FPS_L;
+        s.clk_h = MS2109S_ADDR_INPUT_PIXELCLK_H; s.clk_l = MS2109S_ADDR_INPUT_PIXELCLK_L;
         return s;
     }
     QPair<QByteArray, bool> read4Byte(quint16 address) override;

@@ -149,6 +149,7 @@ set(VIDEO_SOURCES
     video/firmwarewriter.cpp video/firmwarewriter.h
     video/firmwarereader.cpp video/firmwarereader.h
     video/ms2109.h
+    video/videohidchip.cpp video/videohidchip.h
 )
 
 # UI core sources

@@ -24,6 +24,7 @@
 #include "../ui/globalsetting.h"
 #include "../device/platform/AbstractPlatformDeviceManager.h"
 #include "platformhidadapter.h"
+#include "videohidchip.h"
 
 #ifdef _WIN32
 #include <hidclass.h>
@@ -214,13 +215,19 @@ void VideoHid::detectChipType() {
     
     if (isMS2130S) {
         m_chipType = VideoChipType::MS2130S;
+        m_chipImpl = std::make_unique<Ms2130sChip>(this);
     } else if (isMS2109) {
         m_chipType = VideoChipType::MS2109;
+        m_chipImpl = std::make_unique<Ms2109Chip>(this);
     } else {
         qCDebug(log_host_hid) << "Unknown chipset in device path:" << devicePath;
         // If we couldn't detect the type but had a previous valid type, keep using it
         if (previousChipType != VideoChipType::UNKNOWN) {
             m_chipType = previousChipType;
+            // Ensure the implementation matches the previous type
+            if (m_chipType == VideoChipType::MS2130S) m_chipImpl = std::make_unique<Ms2130sChip>(this);
+            else if (m_chipType == VideoChipType::MS2109) m_chipImpl = std::make_unique<Ms2109Chip>(this);
+
             qCDebug(log_host_hid) << "Falling back to previous chip type";
         }
     }
@@ -286,9 +293,7 @@ void VideoHid::start() {
     QThread::msleep(500);
 
     // Log the detected chip type
-    qCDebug(log_host_hid) << "Starting polling thread with chip type:" << 
-                         (m_chipType == VideoChipType::MS2109 ? "MS2109" :
-                          m_chipType == VideoChipType::MS2130S ? "MS2130S" : "Unknown");
+    qCDebug(log_host_hid) << "Starting polling thread with chip type:" << (m_chipImpl ? m_chipImpl->name() : QString("Unknown"));
     // Start the polling thread to get the HDMI connection status every m_pollIntervalMs
     m_pollingThread = new PollingThread(this, m_pollIntervalMs);
     m_pollingThread->start();
@@ -308,7 +313,10 @@ void VideoHid::stop() {
     
     // Close the HID device when stopping
     endTransaction();
-    qCDebug(log_host_hid)  << "VideoHid stopped successfully.";
+    // Reset chip implementation and type to force re-detection on next start
+    m_chipImpl.reset();
+    m_chipType = VideoChipType::UNKNOWN;
+    qCDebug(log_host_hid)  << "VideoHid stopped successfully and chip state cleared.";
 }
 
 /*
@@ -341,37 +349,18 @@ float VideoHid::getFps() {
  * false means switchable usb connects to the host
  */
 bool VideoHid::getGpio0() {
-    uint16_t gpio_addr;
-    
-    if (m_chipType == VideoChipType::MS2130S) {
-        gpio_addr = MS2130S_ADDR_GPIO0;
-    } else {
-        gpio_addr = ADDR_GPIO0;
-    }
-    
+    uint16_t gpio_addr = ADDR_GPIO0;
+    // Prefer chip implementation when available
+    if (m_chipImpl) gpio_addr = m_chipImpl->addrGpio0();
+
     bool result = readRegisterSafe(gpio_addr, 0, "gpio0") & 0x01;
     return result;
 }
 
 float VideoHid::getPixelclk() {
-    uint16_t clk_h_addr, clk_l_addr;
-    
-    // Use the appropriate registers based on chip type
-    if (m_chipType == VideoChipType::MS2130S) {
-        clk_h_addr = MS2130S_ADDR_INPUT_PIXELCLK_H;
-        clk_l_addr = MS2130S_ADDR_INPUT_PIXELCLK_L;
-        qCDebug(log_host_hid) << "getPixelclk: Using MS2130S registers" 
-                            << QString::number(clk_h_addr, 16).toUpper() << "/"
-                            << QString::number(clk_l_addr, 16).toUpper();
-    } else {
-        // Default to MS2109 registers
-        clk_h_addr = ADDR_INPUT_PIXELCLK_H;
-        clk_l_addr = ADDR_INPUT_PIXELCLK_L;
-        qCDebug(log_host_hid) << "getPixelclk: Using MS2109 registers"
-                            << QString::number(clk_h_addr, 16).toUpper() << "/"
-                            << QString::number(clk_l_addr, 16).toUpper();
-    }
-    
+    VideoHidRegisterSet set = getRegisterSetForCurrentChip();
+    qCDebug(log_host_hid) << "getPixelclk: Using registers from chip impl" << (m_chipImpl ? m_chipImpl->name() : QString("Unknown"));
+
     VideoHidResolutionInfo info = getInputStatus();
     normalizeResolution(info);
     qCDebug(log_host_hid) << "getPixelclk: Returning Pixel Clock=" << info.pixclk << "MHz (from registers)";
@@ -382,14 +371,10 @@ float VideoHid::getPixelclk() {
 bool VideoHid::getSpdifout() {
     int bit = 1;
     int mask = 0xFE;  // Mask for potential future use
-    uint16_t spdifout_addr;
-    
-    if (m_chipType == VideoChipType::MS2130S) {
-        spdifout_addr = MS2130S_ADDR_SPDIFOUT;
-    } else {
-        spdifout_addr = ADDR_SPDIFOUT;
-    }
-    
+    uint16_t spdifout_addr = ADDR_SPDIFOUT;
+
+    if (m_chipImpl) spdifout_addr = m_chipImpl->addrSpdifout();
+
     if (GlobalVar::instance().getCaptureCardFirmwareVersion() < "24081309") {
         qCDebug(log_host_hid)  << "Firmware version is less than 24081309";
         bit = 0x10;
@@ -423,14 +408,9 @@ void VideoHid::switchToTarget() {
 void VideoHid::setSpdifout(bool enable) {
     int bit = 1;
     int mask = 0xFE;
-    uint16_t spdifout_addr;
-    
-    // Select the appropriate register based on chip type
-    if (m_chipType == VideoChipType::MS2130S) {
-        spdifout_addr = MS2130S_ADDR_SPDIFOUT;
-    } else {
-        spdifout_addr = ADDR_SPDIFOUT;
-    }
+    quint16 spdifout_addr = ADDR_SPDIFOUT;
+    // Prefer chip implementation when available
+    if (m_chipImpl) spdifout_addr = m_chipImpl->addrSpdifout();
     
     if (GlobalVar::instance().getCaptureCardFirmwareVersion() < "24081309") {
         qCDebug(log_host_hid)  << "Firmware version is less than 24081309";
@@ -465,21 +445,11 @@ std::string VideoHid::getFirmwareVersion() {
     }
     
     try {
-        // Define register addresses based on chip type
-        uint16_t ver0_addr, ver1_addr, ver2_addr, ver3_addr;
-        
-        if (m_chipType == VideoChipType::MS2130S) {
-            ver0_addr = MS2130S_ADDR_FIRMWARE_VERSION_0;
-            ver1_addr = MS2130S_ADDR_FIRMWARE_VERSION_1;
-            ver2_addr = MS2130S_ADDR_FIRMWARE_VERSION_2;
-            ver3_addr = MS2130S_ADDR_FIRMWARE_VERSION_3;
-        } else {
-            // Default to MS2109 registers
-            ver0_addr = ADDR_FIRMWARE_VERSION_0;
-            ver1_addr = ADDR_FIRMWARE_VERSION_1;
-            ver2_addr = ADDR_FIRMWARE_VERSION_2;
-            ver3_addr = ADDR_FIRMWARE_VERSION_3;
-        }
+        // Define register addresses based on chip implementation
+        quint16 ver0_addr = m_chipImpl ? m_chipImpl->addrFirmwareVersion0() : ADDR_FIRMWARE_VERSION_0;
+        quint16 ver1_addr = m_chipImpl ? m_chipImpl->addrFirmwareVersion1() : ADDR_FIRMWARE_VERSION_1;
+        quint16 ver2_addr = m_chipImpl ? m_chipImpl->addrFirmwareVersion2() : ADDR_FIRMWARE_VERSION_2;
+        quint16 ver3_addr = m_chipImpl ? m_chipImpl->addrFirmwareVersion3() : ADDR_FIRMWARE_VERSION_3;
         
         // Read all version bytes
         version_0 = usbXdataRead4Byte(ver0_addr).first.toHex().toInt(&ok, 16);
@@ -627,14 +597,14 @@ QString VideoHid::getLatestFirmwareFilenName(QString &url, int timeoutMs) {
 bool VideoHid::isHdmiConnected() {
     uint16_t status_addr;
     
-    // Use the appropriate register based on chip type
-    if (m_chipType == VideoChipType::MS2130S) {
+    // Use the appropriate register based on chip implementation
+    if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
         status_addr = MS2130S_ADDR_HDMI_CONNECTION_STATUS;
-        qCDebug(log_host_hid) << "Using MS2130S HDMI status register:" << QString::number(status_addr, 16);
+        qCDebug(log_host_hid) << "Using" << m_chipImpl->name() << "HDMI status register:" << QString::number(status_addr, 16);
     } else {
         // Default to MS2109 register
         status_addr = ADDR_HDMI_CONNECTION_STATUS;
-        qCDebug(log_host_hid) << "Using MS2109 HDMI status register:" << QString::number(status_addr, 16);
+        qCDebug(log_host_hid) << "Using" << (m_chipImpl ? m_chipImpl->name() : QString("MS2109")) << "HDMI status register:" << QString::number(status_addr, 16);
     }
     
     QPair<QByteArray, bool> result = usbXdataRead4Byte(status_addr);
@@ -651,26 +621,17 @@ bool VideoHid::isHdmiConnected() {
 
 // Get register set for current chip
 VideoHidRegisterSet VideoHid::getRegisterSetForCurrentChip() const {
+    if (m_chipImpl) return m_chipImpl->getRegisterSet();
+    // Fallback to MS2109 default registers
     VideoHidRegisterSet rs;
-    if (m_chipType == VideoChipType::MS2130S) {
-        rs.width_h = MS2130S_ADDR_INPUT_WIDTH_H;
-        rs.width_l = MS2130S_ADDR_INPUT_WIDTH_L;
-        rs.height_h = MS2130S_ADDR_INPUT_HEIGHT_H;
-        rs.height_l = MS2130S_ADDR_INPUT_HEIGHT_L;
-        rs.fps_h = MS2130S_ADDR_INPUT_FPS_H;
-        rs.fps_l = MS2130S_ADDR_INPUT_FPS_L;
-        rs.clk_h = MS2130S_ADDR_INPUT_PIXELCLK_H;
-        rs.clk_l = MS2130S_ADDR_INPUT_PIXELCLK_L;
-    } else {
-        rs.width_h = ADDR_INPUT_WIDTH_H;
-        rs.width_l = ADDR_INPUT_WIDTH_L;
-        rs.height_h = ADDR_INPUT_HEIGHT_H;
-        rs.height_l = ADDR_INPUT_HEIGHT_L;
-        rs.fps_h = ADDR_INPUT_FPS_H;
-        rs.fps_l = ADDR_INPUT_FPS_L;
-        rs.clk_h = ADDR_INPUT_PIXELCLK_H;
-        rs.clk_l = ADDR_INPUT_PIXELCLK_L;
-    }
+    rs.width_h = ADDR_INPUT_WIDTH_H;
+    rs.width_l = ADDR_INPUT_WIDTH_L;
+    rs.height_h = ADDR_INPUT_HEIGHT_H;
+    rs.height_l = ADDR_INPUT_HEIGHT_L;
+    rs.fps_h = ADDR_INPUT_FPS_H;
+    rs.fps_l = ADDR_INPUT_FPS_L;
+    rs.clk_h = ADDR_INPUT_PIXELCLK_H;
+    rs.clk_l = ADDR_INPUT_PIXELCLK_L;
     return rs;
 }
 
@@ -748,12 +709,12 @@ VideoHidResolutionInfo VideoHid::getInputStatus() {
 // Normalize resolution based on chip-specific quirks
 void VideoHid::normalizeResolution(VideoHidResolutionInfo &info) {
     if (!info.hdmiConnected) return;
-    if (m_chipType == VideoChipType::MS2109) {
+    if (m_chipImpl ? m_chipImpl->type() == VideoChipType::MS2109 : false) {
         if (info.pixclk > 189.0f) {
             if (info.width != 4096) info.width *= 2;
             if (info.height != 2160) info.height *= 2;
         }
-    } else if (m_chipType == VideoChipType::MS2130S) {
+    } else if (m_chipImpl ? m_chipImpl->type() == VideoChipType::MS2130S : false) {
         if (info.width == 3840 && info.height == 1080) {
             info.height = 2160;
         }
@@ -776,11 +737,12 @@ void VideoHid::handleSpdifToggle(bool currentSwitchOnTarget) {
         mask = 0xEF;
     }
 
-    quint8 spdifout = readRegisterSafe(m_chipType == VideoChipType::MS2130S ? MS2130S_ADDR_SPDIFOUT : ADDR_SPDIFOUT, 0, "spdifout");
+    quint16 spdif_addr = m_chipImpl ? m_chipImpl->addrSpdifout() : ADDR_SPDIFOUT;
+    quint8 spdifout = readRegisterSafe(spdif_addr, 0, "spdifout");
     if (currentSwitchOnTarget) spdifout |= bit; else spdifout &= mask;
     QByteArray data(4, 0);
     data[0] = spdifout;
-    writeRegisterSafe(m_chipType == VideoChipType::MS2130S ? MS2130S_ADDR_SPDIFOUT : ADDR_SPDIFOUT, data, "handleSpdifToggle");
+    writeRegisterSafe(spdif_addr, data, "handleSpdifToggle");
     isHardSwitchOnTarget = currentSwitchOnTarget;
 }
 
@@ -796,7 +758,7 @@ void VideoHid::pollDeviceStatus() {
     try {
         bool currentSwitchOnTarget = getGpio0();
         bool hdmiConnected = isHdmiConnected();
-        qCDebug(log_host_hid) << "chip type" << (m_chipType == VideoChipType::MS2109 ? "MS2109" : (m_chipType == VideoChipType::MS2130S ? "MS2130S" : "Unknown"));
+        qCDebug(log_host_hid) << "chip type" << (m_chipImpl ? m_chipImpl->name() : QString("Unknown"));
         if (eventCallback) {
             VideoHidResolutionInfo info = getInputStatus();
             normalizeResolution(info);
@@ -818,7 +780,7 @@ void VideoHid::pollDeviceStatus() {
                 emit resolutionChangeUpdate(0, 0, 0, 0);
             }
 
-            if (m_chipType == VideoChipType::MS2109){
+            if (m_chipImpl ? m_chipImpl->type() == VideoChipType::MS2109 : false){
                 emit gpio0StatusChanged(currentSwitchOnTarget);
             }
             
@@ -859,20 +821,19 @@ QPair<QByteArray, bool> VideoHid::usbXdataRead4Byte(quint16 u16_address) {
     // Different approaches for different chip types
     qCDebug(log_host_hid).nospace().noquote() << QString("usbXdataRead4Byte called for address: 0x%1 chip type: %2")
         .arg(QString::number(u16_address, 16).rightJustified(4, '0').toUpper())
-        .arg(m_chipType == VideoChipType::MS2109 ? "MS2109" :
-             m_chipType == VideoChipType::MS2130S ? "MS2130S" : "Unknown");
-    auto result = (m_chipType == VideoChipType::MS2130S) ? usbXdataRead4ByteMS2130S(u16_address) : usbXdataRead4ByteMS2109(u16_address);
-    
+        .arg(m_chipImpl ? m_chipImpl->name() : QString("Unknown"));
+
+    QPair<QByteArray, bool> result;
+    if (m_chipImpl) {
+        result = m_chipImpl->read4Byte(u16_address);
+    } else {
+        // Fallback to legacy behavior
+        result = (m_chipType == VideoChipType::MS2130S) ? usbXdataRead4ByteMS2130S(u16_address) : usbXdataRead4ByteMS2109(u16_address);
+    }
+
     // Normalize the result to have the data byte at position 0
     if (result.second && !result.first.isEmpty()) {
-        quint8 dataByte;
-        if (m_chipType == VideoChipType::MS2130S) {
-            // MS2130S method already extracts data to position 0
-            dataByte = result.first.at(0);
-        } else {
-            // MS2109 returns data at position 0
-            dataByte = result.first.at(0);
-        }
+        quint8 dataByte = result.first.at(0);
         return qMakePair(QByteArray(1, dataByte), true);
     } else {
         return qMakePair(QByteArray(1, 0), false);
@@ -1079,8 +1040,8 @@ bool VideoHid::usbXdataWrite4Byte(quint16 u16_address, QByteArray data) {
     // Different control data size for different chip types
     QByteArray ctrlData;
     
-    // Select appropriate command and format based on chip type
-    if (m_chipType == VideoChipType::MS2130S) {
+    // Select appropriate command and format based on chip implementation
+    if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
         // MS2130S might need a different format or report ID
         // Try with standard 9-byte structure first
         ctrlData = QByteArray(9, 0); // Initialize with 9 bytes set to 0
@@ -1101,8 +1062,7 @@ bool VideoHid::usbXdataWrite4Byte(quint16 u16_address, QByteArray data) {
     // Display debug information about the write operation
     QString hexData = data.toHex(' ').toUpper();
     qCDebug(log_host_hid) << "Writing to address:" << QString("0x%1").arg(u16_address, 4, 16, QChar('0'))
-                         << "for chip type:" << (m_chipType == VideoChipType::MS2109 ? "MS2109" :
-                                                m_chipType == VideoChipType::MS2130S ? "MS2130S" : "Unknown")
+                         << "for chip type:" << (m_chipImpl ? m_chipImpl->name() : QString("Unknown"))
                          << "data:" << hexData
                          << "report buffer:" << ctrlData.toHex(' ').toUpper();
 
@@ -1111,7 +1071,7 @@ bool VideoHid::usbXdataWrite4Byte(quint16 u16_address, QByteArray data) {
         qCWarning(log_host_hid) << "Failed to write to address:" << QString("0x%1").arg(u16_address, 4, 16, QChar('0'));
         
         // For MS2130S, if the standard approach fails, try an alternative format
-        if (m_chipType == VideoChipType::MS2130S && !result) {
+        if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S && !result) {
             qCDebug(log_host_hid) << "Trying alternative format for MS2130S write operation";
             
             // Try an alternative format - some devices need a different structure
@@ -1274,14 +1234,13 @@ bool VideoHid::beginTransaction() {
         // Detect chip type if it's unknown
         if (m_chipType == VideoChipType::UNKNOWN) {
             detectChipType();
-            qCDebug(log_host_hid) << "Detected chip type:" << (m_chipType == VideoChipType::MS2130S ? "MS2130S" : 
-                                                              m_chipType == VideoChipType::MS2109 ? "MS2109" : "Unknown");
+            qCDebug(log_host_hid) << "Detected chip type:" << (m_chipImpl ? m_chipImpl->name() : QString("Unknown"));
             
             // Add stabilization delay for both chip types to ensure device is ready
-            if (m_chipType == VideoChipType::MS2130S) {
+            if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
                 qCDebug(log_host_hid) << "Performing MS2130S-specific initialization";
                 QThread::msleep(100);
-            } else if (m_chipType == VideoChipType::MS2109) {
+            } else if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2109) {
                 qCDebug(log_host_hid) << "Performing MS2109-specific initialization";
                 QThread::msleep(100);
             }
@@ -1298,7 +1257,7 @@ bool VideoHid::beginTransaction() {
 void VideoHid::endTransaction() {
     if (m_inTransaction) {
         // For MS2130S, perform any cleanup or specific finalization
-        if (m_chipType == VideoChipType::MS2130S) {
+        if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
             qCDebug(log_host_hid) << "Performing MS2130S-specific cleanup before closing transaction";
             // Add a short delay to ensure any pending operations complete
             QThread::msleep(10);
@@ -1387,9 +1346,7 @@ void VideoHid::connectToHotplugMonitor()
                         // Note: This is also called in switchToHIDDeviceByPortChain, but we call it again here
                         // for redundancy and to ensure it's explicitly tied to the new device plugged in event
                         detectChipType();
-                        qCInfo(log_host_hid) << "Verified chip type on new device: " << 
-                            (m_chipType == VideoChipType::MS2130S ? "MS2130S" : 
-                             m_chipType == VideoChipType::MS2109 ? "MS2109" : "Unknown");
+                        qCInfo(log_host_hid) << "Verified chip type on new device: " << (m_chipImpl ? m_chipImpl->name() : QString("Unknown"));
                         
                         // Start the HID device
                         start();
@@ -1728,8 +1685,7 @@ bool VideoHid::switchToHIDDeviceByPortChain(const QString& portChain)
             
             // After successful switch, detect the chip type
             detectChipType();
-            qCDebug(log_host_hid) << "Detected chip type:" << (m_chipType == VideoChipType::MS2130S ? "MS2130S" : 
-                                                              m_chipType == VideoChipType::MS2109 ? "MS2109" : "Unknown");
+            qCDebug(log_host_hid) << "Detected chip type:" << (m_chipImpl ? m_chipImpl->name() : QString("Unknown"));
         }
         
         return switchSuccess;
@@ -1985,10 +1941,10 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     }
     
     // For MS2130S, make sure reportBuffer[0] is the report ID (usually 0)
-    if (m_chipType == VideoChipType::MS2130S) {
+    if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
         // In case the MS2130S needs a specific report ID
         // reportBuffer[0] = 0; // This should already be set
-        qCDebug(log_host_hid) << "Using report ID" << (int)reportBuffer[0] << "for MS2130S device";
+        qCDebug(log_host_hid) << "Using report ID" << (int)reportBuffer[0] << "for" << m_chipImpl->name() << "device";
     }
 
     // Get device capabilities to better understand what's supported
@@ -2003,8 +1959,8 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
                                  << "Output Report Byte Length:" << caps.OutputReportByteLength;
             
             // MS2130S reports a very large feature report size, but we know it works with smaller sizes
-            if (caps.FeatureReportByteLength > 1000 && m_chipType == VideoChipType::MS2130S) {
-                qCDebug(log_host_hid) << "Detected very large feature report size for MS2130S, using standard size instead";
+            if (caps.FeatureReportByteLength > 1000 && m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
+                qCDebug(log_host_hid) << "Detected very large feature report size for" << m_chipImpl->name() << ", using standard size instead";
                 // Don't try to adjust the buffer - we'll use our predefined size
             }
             // For normal cases, warn about size mismatch
@@ -2019,9 +1975,9 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     // For MS2130S devices with large expected report sizes, use a direct method
     bool result = false;
     
-    if (m_chipType == VideoChipType::MS2130S) {
+    if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
         // For MS2130S, we need to use a special approach
-        qCDebug(log_host_hid) << "Using MS2130S-specific feature report method";
+        qCDebug(log_host_hid) << "Using" << m_chipImpl->name() << "specific feature report method";
         
         // Try method 1: Use direct IOCTL
         DWORD bytesReturned = 0;
@@ -2068,9 +2024,9 @@ bool VideoHid::sendFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
         qCWarning(log_host_hid) << "Failed to send feature report. Windows error:" << error;
         
         // Try with a different approach for MS2130S
-        if (m_chipType == VideoChipType::MS2130S) {
+        if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
             // Some devices require a different approach - try WriteFile
-            qCDebug(log_host_hid) << "Attempting alternative method (WriteFile) for MS2130S";
+            qCDebug(log_host_hid) << "Attempting alternative method (WriteFile) for" << m_chipImpl->name();
             
             // Try with a fixed small buffer
             BYTE smallBuffer[9] = {0};
@@ -2177,8 +2133,8 @@ bool VideoHid::getFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
     // For MS2130S devices, use a specialized approach first
     bool result = false;
     
-    if (m_chipType == VideoChipType::MS2130S) {
-        qCDebug(log_host_hid) << "Using MS2130S-specific get feature report method";
+    if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
+        qCDebug(log_host_hid) << "Using" << m_chipImpl->name() << "specific get feature report method";
         
         // Try with a fixed small buffer size that's known to work with MS2130S
         const DWORD MS2130S_BUFFER_SIZE = 64;
@@ -2224,9 +2180,9 @@ bool VideoHid::getFeatureReportWindows(BYTE* reportBuffer, DWORD bufferSize) {
         qCWarning(log_host_hid) << "Failed to get feature report. Windows error:" << error;
         
         // Try with a different approach for MS2130S
-        if (m_chipType == VideoChipType::MS2130S) {
+        if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
             // Some MS2130S devices might need a different approach
-            qCDebug(log_host_hid) << "Attempting alternative method for MS2130S get feature report";
+            qCDebug(log_host_hid) << "Attempting alternative method for" << m_chipImpl->name() << "get feature report";
             
             // Try ReadFile approach with a fixed, smaller buffer
             const DWORD SAFE_BUFFER_SIZE = 64;

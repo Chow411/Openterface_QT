@@ -58,6 +58,7 @@ typedef unsigned char BYTE;
 
 class FirmwareWriter; // Forward declaration
 class FirmwareReader; // Forward declaration
+class VideoChip; // Forward declaration for chip abstraction
 
 enum class FirmwareResult {
     Latest,
@@ -78,6 +79,10 @@ class VideoHid : public QObject
     // Also allow concrete adapters access (friend not inherited)
     friend class WindowsHidAdapter;
     friend class LinuxHidAdapter;
+    // Allow chip implementations to call lower-level usb helpers
+    friend class VideoChip;
+    friend class Ms2109Chip;
+    friend class Ms2130sChip;
 
 public:
     static VideoHid* getPointer(){
@@ -288,8 +293,13 @@ private:
     
     // Chipset identification and handling
     VideoChipType m_chipType = VideoChipType::UNKNOWN;
+
+    // Abstraction for chip-specific behavior
+    std::unique_ptr<VideoChip> m_chipImpl{nullptr};
+
     Q_INVOKABLE void detectChipType();
     VideoChipType getChipType() const { return m_chipType; }
+    VideoChip* getChipImpl() const { return m_chipImpl.get(); }
 };
 
 #endif // VIDEOHID_H

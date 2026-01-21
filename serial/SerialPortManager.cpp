@@ -114,7 +114,9 @@ SerialPortManager::SerialPortManager(QObject *parent) : QObject(parent), serialP
     connect(m_commandCoordinator.get(), &SerialCommandCoordinator::dataSent, this, &SerialPortManager::dataSent);
     connect(m_commandCoordinator.get(), &SerialCommandCoordinator::dataReceived, this, &SerialPortManager::dataReceived);
     connect(m_commandCoordinator.get(), &SerialCommandCoordinator::commandExecuted, this, [this](const QByteArray& cmd, bool success) {
-        qCDebug(log_core_serial) << "Tx: :" << cmd.toHex(' ') << "Success:" << success;
+        QString portName = serialPort ? serialPort->portName() : QString();
+        int baud = serialPort ? serialPort->baudRate() : 0;
+        qCDebug(log_core_serial).nospace().noquote() << "TX (" << portName << "@" << baud << "bps): " << cmd.toHex(' ') << " Success:" << (success ? "true" : "false");
     });
     
     // Connect state manager signals to SerialPortManager signals
@@ -1106,7 +1108,6 @@ void SerialPortManager::onGetInfoTimeout() {
     }
 
     sendAsyncCommand(CMD_GET_INFO, true);
-    qCDebug(log_core_serial) << "Sent periodic GET_INFO command asynchronously";
 }
 
 /*

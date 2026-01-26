@@ -201,6 +201,11 @@ void VideoHid::detectChipType() {
                     isMS2130S = true;
                     qCDebug(log_host_hid) << "Detected MS2130S chipset from hidraw sysfs (VID:345F PID:2132)";
                     break;
+                } else if (vidStr == QStringLiteral("345F") && pidStr == QStringLiteral("2109")) {
+                    // V3 devices (345F:2109) use MS2109S register mapping
+                    isMS2109S = true;
+                    qCDebug(log_host_hid) << "Detected MS2109S chipset from hidraw sysfs (VID:345F PID:2109)";
+                    break;
                 } else if (vidStr == QStringLiteral("534D") && pidStr == QStringLiteral("2109")) {
                     isMS2109 = true;
                     qCDebug(log_host_hid) << "Detected MS2109 chipset from hidraw sysfs (VID:534D PID:2109)";
@@ -217,10 +222,13 @@ void VideoHid::detectChipType() {
             ++up;
         }
         // If nothing found via sysfs, also consider matching the original device path content
-        if (!isMS2130S && !isMS2109) {
+        if (!isMS2130S && !isMS2109 && !isMS2109S) {
             if (devicePath.contains("345F", Qt::CaseInsensitive) && devicePath.contains("2132", Qt::CaseInsensitive)) {
                 isMS2130S = true;
                 qCDebug(log_host_hid) << "Detected MS2130S chipset from path (fallback)";
+            } else if (devicePath.contains("345F", Qt::CaseInsensitive) && devicePath.contains("2109", Qt::CaseInsensitive)) {
+                isMS2109S = true;
+                qCDebug(log_host_hid) << "Detected MS2109S chipset from path (fallback)";
             } else if (devicePath.contains("534D", Qt::CaseInsensitive) && devicePath.contains("2109", Qt::CaseInsensitive)) {
                 isMS2109 = true;
                 qCDebug(log_host_hid) << "Detected MS2109 chipset from path (fallback)";
@@ -298,7 +306,7 @@ void VideoHid::start() {
     isHardSwitchOnTarget = getSpdifout();
     qCDebug(log_host_hid)  << "SPDIFOUT:" << isHardSwitchOnTarget;    //SPDIFOUT
     if(eventCallback){
-        eventCallback->onSwitchableUsbToggle(isHardSwitchOnTarget);
+        // eventCallback->onSwitchableUsbToggle(isHardSwitchOnTarget);
         setSpdifout(isHardSwitchOnTarget); //Follow the hard switch by default
     }
 
@@ -410,14 +418,14 @@ void VideoHid::switchToHost() {
     qCDebug(log_host_hid)  << "Switch to host";
     setSpdifout(false);
     GlobalVar::instance().setSwitchOnTarget(false);
-    if(eventCallback) eventCallback->onSwitchableUsbToggle(false);
+    // if(eventCallback) eventCallback->onSwitchableUsbToggle(false);
 }
 
 void VideoHid::switchToTarget() {
     qCDebug(log_host_hid)  << "Switch to target";
     setSpdifout(true);
     GlobalVar::instance().setSwitchOnTarget(true);
-    if(eventCallback) eventCallback->onSwitchableUsbToggle(true);
+    // if(eventCallback) eventCallback->onSwitchableUsbToggle(true);
 }
 
 /*
@@ -772,7 +780,7 @@ void VideoHid::handleSpdifToggle(bool currentSwitchOnTarget) {
 
 void VideoHid::dispatchSwitchableUsbToggle(bool isToTarget) {
     if (eventCallback) {
-        eventCallback->onSwitchableUsbToggle(isToTarget);
+        // eventCallback->onSwitchableUsbToggle(isToTarget);
     }
 }
 

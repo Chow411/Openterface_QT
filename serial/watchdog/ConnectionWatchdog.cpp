@@ -23,33 +23,29 @@
 #include "ConnectionWatchdog.h"
 #include <QDebug>
 #include <QtMath>
+#include <QThread>
+#include <QMetaObject>
 
-Q_LOGGING_CATEGORY(log_watchdog, "opf.serial.watchdog")
 
 ConnectionWatchdog::ConnectionWatchdog(QObject *parent)
     : QObject(parent)
 {
-    // Initialize timers
-    m_watchdogTimer = new QTimer(this);
-    m_watchdogTimer->setSingleShot(true);
-    connect(m_watchdogTimer, &QTimer::timeout, this, &ConnectionWatchdog::onWatchdogTimeout);
-    
-    m_recoveryTimer = new QTimer(this);
-    m_recoveryTimer->setSingleShot(true);
-    connect(m_recoveryTimer, &QTimer::timeout, this, &ConnectionWatchdog::executeRecovery);
-    
-    // Initialize elapsed timers
+    // Timers are created lazily in start() to ensure correct thread affinity
+    m_watchdogTimer = nullptr;
+    m_recoveryTimer = nullptr;
+
+    // Initialize elapsed timers (no thread affinity)
     m_lastSuccessfulCommand.start();
     m_uptimeTimer.start();
     m_errorRateTimer.start();
     
-    qCDebug(log_watchdog) << "ConnectionWatchdog initialized";
+    qCDebug(log_core_serial) << "ConnectionWatchdog initialized";
 }
 
 ConnectionWatchdog::~ConnectionWatchdog()
 {
     stop();
-    qCDebug(log_watchdog) << "ConnectionWatchdog destroyed";
+    qCDebug(log_core_serial) << "ConnectionWatchdog destroyed";
 }
 
 // ========== Configuration ==========
@@ -57,7 +53,7 @@ ConnectionWatchdog::~ConnectionWatchdog()
 void ConnectionWatchdog::setConfig(const WatchdogConfig& config)
 {
     m_config = config;
-    qCDebug(log_watchdog) << "Watchdog config updated:"
+    qCDebug(log_core_serial) << "Watchdog config updated:"
                           << "interval=" << config.watchdogIntervalMs << "ms"
                           << "maxErrors=" << config.maxConsecutiveErrors
                           << "maxRetries=" << config.maxRetryAttempts
@@ -67,25 +63,25 @@ void ConnectionWatchdog::setConfig(const WatchdogConfig& config)
 void ConnectionWatchdog::setRecoveryHandler(IRecoveryHandler* handler)
 {
     m_recoveryHandler = handler;
-    qCDebug(log_watchdog) << "Recovery handler set:" << (handler ? "valid" : "null");
+    qCDebug(log_core_serial) << "Recovery handler set:" << (handler ? "valid" : "null");
 }
 
 void ConnectionWatchdog::setAutoRecoveryEnabled(bool enabled)
 {
     m_config.autoRecoveryEnabled = enabled;
-    qCDebug(log_watchdog) << "Auto recovery" << (enabled ? "enabled" : "disabled");
+    qCDebug(log_core_serial) << "Auto recovery" << (enabled ? "enabled" : "disabled");
 }
 
 void ConnectionWatchdog::setMaxRetryAttempts(int maxRetries)
 {
     m_config.maxRetryAttempts = maxRetries;
-    qCDebug(log_watchdog) << "Max retry attempts set to" << maxRetries;
+    qCDebug(log_core_serial) << "Max retry attempts set to" << maxRetries;
 }
 
 void ConnectionWatchdog::setMaxConsecutiveErrors(int maxErrors)
 {
     m_config.maxConsecutiveErrors = maxErrors;
-    qCDebug(log_watchdog) << "Max consecutive errors set to" << maxErrors;
+    qCDebug(log_core_serial) << "Max consecutive errors set to" << maxErrors;
 }
 
 // ========== Lifecycle ==========
@@ -93,7 +89,7 @@ void ConnectionWatchdog::setMaxConsecutiveErrors(int maxErrors)
 void ConnectionWatchdog::start()
 {
     if (m_isRunning) {
-        qCDebug(log_watchdog) << "Watchdog already running";
+        qCDebug(log_core_serial) << "Watchdog already running";
         return;
     }
     
@@ -102,12 +98,32 @@ void ConnectionWatchdog::start()
     m_uptimeTimer.restart();
     m_lastSuccessfulCommand.restart();
     
-    // Start watchdog timer
-    m_watchdogTimer->setInterval(m_config.watchdogIntervalMs);
-    m_watchdogTimer->start();
-    
-    setConnectionState(ConnectionState::Connected);
-    qCInfo(log_watchdog) << "Watchdog started with interval" << m_config.watchdogIntervalMs << "ms";
+    // Ensure timers are created in this object's current thread (thread-safe)
+    // Use QMetaObject::invokeMethod to ensure timer creation in correct thread
+    QMetaObject::invokeMethod(this, [this]() {
+        if (m_isShuttingDown) {
+            return;
+        }
+        
+        if (!m_watchdogTimer) {
+            m_watchdogTimer = new QTimer(this);
+            m_watchdogTimer->setSingleShot(true);
+            connect(m_watchdogTimer, &QTimer::timeout, this, &ConnectionWatchdog::onWatchdogTimeout);
+        }
+        
+        if (!m_recoveryTimer) {
+            m_recoveryTimer = new QTimer(this);
+            m_recoveryTimer->setSingleShot(true);
+            connect(m_recoveryTimer, &QTimer::timeout, this, &ConnectionWatchdog::executeRecovery);
+        }
+
+        // Start watchdog timer
+        m_watchdogTimer->setInterval(m_config.watchdogIntervalMs);
+        m_watchdogTimer->start();
+        
+        setConnectionState(ConnectionState::Connected);
+        qCInfo(log_core_serial) << "Watchdog started with interval" << m_config.watchdogIntervalMs << "ms";
+    }, Qt::QueuedConnection);
 }
 
 void ConnectionWatchdog::stop()
@@ -117,6 +133,7 @@ void ConnectionWatchdog::stop()
     }
     
     m_isRunning = false;
+    m_isShuttingDown = true;  // Set shutdown flag immediately to block new operations
     
     // Stop timers safely
     if (m_watchdogTimer && m_watchdogTimer->isActive()) {
@@ -128,7 +145,7 @@ void ConnectionWatchdog::stop()
     }
     
     setConnectionState(ConnectionState::Disconnected);
-    qCInfo(log_watchdog) << "Watchdog stopped";
+    qCInfo(log_core_serial) << "Watchdog stopped";
 }
 
 bool ConnectionWatchdog::isRunning() const
@@ -166,7 +183,7 @@ void ConnectionWatchdog::recordSuccess()
             m_recoveryHandler->onRecoverySuccess();
         }
         
-        qCInfo(log_watchdog) << "Recovery successful after" << m_retryAttemptCount.load() << "attempts";
+        qCInfo(log_core_serial) << "Recovery successful after" << m_retryAttemptCount.load() << "attempts";
         m_retryAttemptCount = 0;
     }
 }
@@ -179,7 +196,7 @@ void ConnectionWatchdog::recordError()
     
     updateErrorRate();
     
-    qCDebug(log_watchdog) << "Error recorded. Consecutive:" << m_consecutiveErrors.load()
+    qCDebug(log_core_serial) << "Error recorded. Consecutive:" << m_consecutiveErrors.load()
                           << "Total:" << m_totalErrors.load();
     
     // Check if we should transition to unstable state
@@ -188,12 +205,15 @@ void ConnectionWatchdog::recordError()
         setConnectionState(ConnectionState::Unstable);
     }
     
-    // Check if recovery is needed
-    if (isRecoveryNeeded()) {
-        emit errorThresholdReached(m_consecutiveErrors.load());
-        
-        if (m_config.autoRecoveryEnabled) {
-            scheduleRecovery();
+    // Check if recovery is needed - but DON'T if already recovering or a recovery is scheduled
+    if (isRecoveryNeeded() && m_connectionState != ConnectionState::Recovering) {
+        // Double-check: if recovery timer is already active, don't schedule another
+        if (!m_recoveryTimer || !m_recoveryTimer->isActive()) {
+            emit errorThresholdReached(m_consecutiveErrors.load());
+            
+            if (m_config.autoRecoveryEnabled) {
+                scheduleRecovery();
+            }
         }
     }
 }
@@ -205,7 +225,7 @@ void ConnectionWatchdog::resetCounters()
     m_errorsInWindow = 0;
     m_errorRateTimer.restart();
     
-    qCDebug(log_watchdog) << "Error counters reset";
+    qCDebug(log_core_serial) << "Error counters reset";
 }
 
 bool ConnectionWatchdog::isRecoveryNeeded() const
@@ -244,7 +264,7 @@ bool ConnectionWatchdog::isConnectionStable() const
 
 void ConnectionWatchdog::forceRecovery()
 {
-    qCInfo(log_watchdog) << "Force recovery requested";
+    qCInfo(log_core_serial) << "Force recovery requested";
     
     // Force error threshold to trigger recovery
     m_consecutiveErrors = m_config.maxConsecutiveErrors;
@@ -259,12 +279,12 @@ void ConnectionWatchdog::onWatchdogTimeout()
         return;
     }
     
-    qCDebug(log_watchdog) << "Watchdog check - last success:" 
+    qCDebug(log_core_serial) << "Watchdog check - last success:" 
                           << m_lastSuccessfulCommand.elapsed() << "ms ago";
     
     // Check if we haven't had successful communication
     if (m_lastSuccessfulCommand.elapsed() > m_config.communicationTimeoutMs) {
-        qCWarning(log_watchdog) << "Watchdog triggered - no communication for" 
+        qCWarning(log_core_serial) << "Watchdog triggered - no communication for" 
                                 << m_config.communicationTimeoutMs << "ms";
         
         emit watchdogTimeout();
@@ -279,7 +299,7 @@ void ConnectionWatchdog::onWatchdogTimeout()
     }
     
     // Restart watchdog timer
-    if (m_isRunning && !m_isShuttingDown) {
+    if (m_isRunning && !m_isShuttingDown && m_watchdogTimer) {
         m_watchdogTimer->start();
     }
 }
@@ -292,7 +312,7 @@ void ConnectionWatchdog::executeRecovery()
     
     m_retryAttemptCount++;
     
-    qCInfo(log_watchdog) << "Executing recovery attempt" << m_retryAttemptCount.load()
+    qCInfo(log_core_serial) << "Executing recovery attempt" << m_retryAttemptCount.load()
                          << "of" << m_config.maxRetryAttempts;
     
     emit recoveryStarted(m_retryAttemptCount.load());
@@ -307,16 +327,16 @@ void ConnectionWatchdog::executeRecovery()
     if (m_recoveryHandler) {
         success = m_recoveryHandler->performRecovery(m_retryAttemptCount.load());
     } else {
-        qCWarning(log_watchdog) << "No recovery handler set - cannot perform recovery";
+        qCWarning(log_core_serial) << "No recovery handler set - cannot perform recovery";
     }
     
     if (success) {
         recordSuccess();
     } else {
-        qCWarning(log_watchdog) << "Recovery attempt" << m_retryAttemptCount.load() << "failed";
+        qCWarning(log_core_serial) << "Recovery attempt" << m_retryAttemptCount.load() << "failed";
         
         if (m_retryAttemptCount >= m_config.maxRetryAttempts) {
-            qCCritical(log_watchdog) << "Maximum retry attempts reached. Recovery failed.";
+            qCCritical(log_core_serial) << "Maximum retry attempts reached. Recovery failed.";
             setConnectionState(ConnectionState::Failed);
             emit recoveryFailed();
             emit statusUpdate("Recovery failed - max retries exceeded");
@@ -339,7 +359,7 @@ void ConnectionWatchdog::setConnectionState(ConnectionState state)
         ConnectionState oldState = m_connectionState;
         m_connectionState = state;
         
-        qCDebug(log_watchdog) << "Connection state changed from" 
+        qCDebug(log_core_serial) << "Connection state changed from" 
                               << static_cast<int>(oldState) << "to" << static_cast<int>(state);
         
         emit connectionStateChanged(state);
@@ -353,18 +373,58 @@ void ConnectionWatchdog::scheduleRecovery()
     }
     
     if (m_retryAttemptCount >= m_config.maxRetryAttempts) {
-        qCWarning(log_watchdog) << "Cannot schedule recovery - max attempts reached";
+        qCWarning(log_core_serial) << "Cannot schedule recovery - max attempts reached";
         return;
     }
-    
     int delay = calculateRetryDelay();
-    
-    qCInfo(log_watchdog) << "Scheduling recovery in" << delay << "ms"
+
+    // Avoid scheduling if a recovery is already scheduled
+    bool alreadyScheduled = false;
+    if (QThread::currentThread() == thread()) {
+        if (m_recoveryTimer && m_recoveryTimer->isActive()) {
+            alreadyScheduled = true;
+        }
+    } else {
+        // Query the watchdog thread for the timer status in a thread-safe way
+        QMetaObject::invokeMethod(this, "isRecoveryScheduled", Qt::BlockingQueuedConnection,
+                                  Q_RETURN_ARG(bool, alreadyScheduled));
+    }
+
+    if (alreadyScheduled) {
+        qCDebug(log_core_serial) << "Recovery already scheduled, skipping duplicate schedule";
+        return;
+    }
+
+    qCInfo(log_core_serial) << "Scheduling recovery in" << delay << "ms"
                          << "(attempt" << (m_retryAttemptCount.load() + 1) << ")";
-    
-    m_recoveryTimer->stop();
-    m_recoveryTimer->setInterval(delay);
-    m_recoveryTimer->start();
+
+    // Use QMetaObject::invokeMethod to safely start the timer on this object's thread
+    QMetaObject::invokeMethod(this, [this, delay]() {
+        // Check shutdown and timer validity before accessing timer
+        if (m_isShuttingDown || !m_isRunning) {
+            return;
+        }
+
+        if (m_connectionState == ConnectionState::Recovering) {
+            return;
+        }
+
+        // Guard against null pointer and ensure timer exists
+        if (!m_recoveryTimer) {
+            qCWarning(log_core_serial) << "Recovery timer is null - cannot schedule recovery";
+            return;
+        }
+
+        if (m_recoveryTimer->isActive()) {
+            qCDebug(log_core_serial) << "(invoke) Recovery already scheduled, skipping";
+            return;
+        }
+
+        // Safe to access timer now
+        m_recoveryTimer->stop();
+        m_recoveryTimer->setInterval(delay);
+        m_recoveryTimer->start();
+    }, Qt::QueuedConnection);
 }
 
 int ConnectionWatchdog::calculateRetryDelay() const
@@ -382,4 +442,9 @@ void ConnectionWatchdog::updateErrorRate()
         m_errorsInWindow = 1;  // Count current error
         m_errorRateTimer.restart();
     }
+}
+
+bool ConnectionWatchdog::isRecoveryScheduled() const
+{
+    return m_recoveryTimer && m_recoveryTimer->isActive();
 }

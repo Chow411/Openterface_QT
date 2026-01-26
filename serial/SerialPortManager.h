@@ -53,6 +53,7 @@ class DeviceInfo;
 class SerialCommandCoordinator;
 class SerialStateManager;
 class SerialStatistics;
+class SerialHotplugHandler;
 
 // Chip type enumeration (kept for backward compatibility)
 // New code should use ChipTypeId from ChipStrategyFactory.h
@@ -201,8 +202,11 @@ public:
     // Chip type detection and management
     ChipType detectChipType(const QString &portName) const;
     ChipType getCurrentChipType() const { return m_currentChipType; }
-    bool isChipTypeCH32V208() const { return m_currentChipType == ChipType::CH32V208; }
-    bool isChipTypeCH9329() const { return m_currentChipType == ChipType::CH9329; }
+    inline bool isChipTypeCH32V208() const { return m_currentChipType == ChipType::CH32V208; }
+    inline bool isChipTypeCH9329() const { return m_currentChipType == ChipType::CH9329; }
+
+    // Query current target USB connection state (thread-safe via state manager)
+    bool getTargetUsbConnected() const;
     
     // New USB switch methods for CH32V208 serial port (firmware with new protocol)
     void switchUsbToHostViaSerial();      // Switch USB to host via serial command (57 AB 00 17...)
@@ -210,7 +214,15 @@ public:
     
     // Logging
     void log(const QString& message);
+    QString getSerialLogFilePath() const;
+    void setSerialLogFilePath(const QString& path);
     
+    // Enable/disable debug logging for diagnostics
+    static void enableDebugLogging(bool enabled);
+
+public slots:
+    void setDiagnosticsDialogActive(bool active);
+
 signals:
     void dataReceived(const QByteArray &data);
     void dataSent(const QByteArray &data);
@@ -265,6 +277,7 @@ private slots:
     void onSerialPortDisconnected(const QString &portName);
     void onSerialPortConnectionSuccess(const QString &portName);
     void onUsbStatusCheckTimeout();  // New slot for USB status check timer
+    void onGetInfoTimeout();  // New slot for periodic GET_INFO requests
     
     
 private:
@@ -277,11 +290,14 @@ private:
     int determineBaudrate() const;
     bool openPortWithRetries(const QString &portName, int tryBaudrate);
     ConfigResult sendAndProcessConfigCommand();
-    ConfigResult attemptBaudrateDetection();
     void handleChipSpecificLogic(const ConfigResult &config);
     void storeBaudrateIfNeeded(int workingBaudrate);
     
-    // Thread-safe reset internal implementations (run in worker thread)
+    // Thread-safe baudrate setting (must be called from worker thread to access serialPort)
+    bool setBaudRateInternal(int baudRate);
+    
+    // Thread-safe port closing (ensures QSocketNotifier operations happen in worker thread)
+    void closePortInternal();
     bool handleResetHidChipInternal(int targetBaudrate);
     bool handleFactoryResetInternal();
     bool handleFactoryResetV191Internal();
@@ -335,10 +351,26 @@ private:
     
     // Enhanced stability members (some delegated to ConnectionWatchdog)
     std::atomic<bool> m_isShuttingDown = false;
+
+    // Indicates an open operation is currently in progress to prevent concurrent opens
+    std::atomic<bool> m_openInProgress{false};
+
+    // Indicates a baud-rate change is in progress; used to suppress transient errors
+    std::atomic<bool> m_baudChangeInProgress{false};
+
+    // Flag set to true when device is detected as unplugged, preventing port operations until cleared
+    // This prevents race conditions where open attempts occur while device is being removed
+    std::atomic<bool> m_deviceUnpluggedDetected{false};
+    std::atomic<bool> m_deviceUnplugCleanupInProgress{false};
+
     // Legacy error counters removed - handled by SerialStatistics and ConnectionWatchdog
     QTimer* m_connectionWatchdog;
     QTimer* m_errorRecoveryTimer;
     QTimer* m_usbStatusCheckTimer;
+    QTimer* m_getInfoTimer;  // Timer for periodic GET_INFO requests
+    // Flag to suppress periodic GET_INFO while diagnostics dialog is active
+    bool m_suppressGetInfo = false;
+    QMutex m_diagMutex;
     QMutex m_serialPortMutex;
     QQueue<QByteArray> m_commandQueue;
     QMutex m_commandQueueMutex;
@@ -347,6 +379,8 @@ private:
     int m_maxConsecutiveErrors = 10;
     QElapsedTimer m_lastSuccessfulCommand;
     QElapsedTimer m_errorTrackingTimer;
+    QElapsedTimer m_lastErrorLogTime;      // Throttle error logging to prevent spam
+    static constexpr int ERROR_LOG_THROTTLE_MS = 50;  // Min milliseconds between error processes
     bool m_errorHandlerDisconnected = false;
     static const int MAX_ERRORS_PER_SECOND = 10;
     
@@ -371,15 +405,22 @@ private:
     // Factory reset manager (extracted for compatibility and testability)
     friend class FactoryResetManager;
     std::unique_ptr<FactoryResetManager> m_factoryResetManager;
+
+    // New: Serial hotplug handler (extracted from inline logic)
+    std::unique_ptr<SerialHotplugHandler> m_hotplugHandler;
     
-    // Command tracking for auto-restart logic
-    std::atomic<int> m_commandsSent = 0;
-    std::atomic<int> m_commandsReceived = 0;
-    std::atomic<int> m_serialResetCount = 0;
-    QTimer* m_commandTrackingTimer;
-    static const int COMMAND_TRACKING_INTERVAL = 5000; // 5 seconds
-    static const int MAX_SERIAL_RESETS = 3;
-    static constexpr double COMMAND_LOSS_THRESHOLD = 0.30; // 30% loss rate
+    // Async message send/receive statistics (simple tracking)
+    qint64 m_asyncMessagesSent = 0;
+    qint64 m_asyncMessagesReceived = 0;
+    QElapsedTimer m_asyncStatsTimer;
+    static const int ASYNC_STATS_INTERVAL_MS = 1000; // Report every 1 second
+    void checkAndLogAsyncMessageStatistics();
+    
+    // Async message imbalance detection (received >> sent)
+    static constexpr double ASYNC_IMBALANCE_THRESHOLD = 1.5; // 150% threshold
+    static const int ASYNC_IMBALANCE_TIMEOUT_MS = 3000; // 3 seconds tolerance
+    QElapsedTimer m_imbalanceDetectionTimer;
+    bool m_imbalanceDetected = false;
     
     // Legacy variables removed - functionality moved to specialized modules
     
@@ -418,8 +459,6 @@ private:
     
     // Command-based baudrate change for CH9329 and unknown chips
     void applyCommandBasedBaudrateChange(int baudRate, const QString& logPrefix);
-    // Schedule configuration retry attempts asynchronously without blocking the UI
-    void scheduleConfigRetry(const QString &portName, int attempt, int maxAttempts, int delayMs);
     
     // Command tracking methods
     void checkCommandLossRate();
@@ -428,6 +467,7 @@ private:
     // Logging
     QThread* m_logThread;
     LogWriter* m_logWriter;
+    QString m_logFilePath; // current serial log file path
 };
 
 #endif // SERIALPORTMANAGER_H

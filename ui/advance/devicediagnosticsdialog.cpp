@@ -13,6 +13,7 @@
 #include "diagnostics/diagnosticsmanager.h"
 #include "diagnostics/diagnostics_constants.h"
 #include "diagnostics/SupportEmailDialog.h"
+#include "../../serial/SerialPortManager.h"
 
 Q_LOGGING_CATEGORY(log_device_diagnostics, "opf.diagnostics")
 
@@ -153,11 +154,23 @@ DeviceDiagnosticsDialog::DeviceDiagnosticsDialog(QWidget *parent)
     connect(m_manager, &DiagnosticsManager::diagnosticsCompleted, this, [this](bool){ emit diagnosticsCompleted(); });
 
     qCDebug(log_device_diagnostics) << "Device Diagnostics Dialog created";
+
+    // Notify SerialPortManager to suppress periodic GET_INFO while diagnostics dialog is active
+    SerialPortManager* spm = &SerialPortManager::getInstance();
+    if (spm) {
+        QMetaObject::invokeMethod(spm, "setDiagnosticsDialogActive", Qt::QueuedConnection, Q_ARG(bool, true));
+    }
 }
 
 DeviceDiagnosticsDialog::~DeviceDiagnosticsDialog()
 {
     qCDebug(log_device_diagnostics) << "Device Diagnostics Dialog destroyed";
+
+    // Restore periodic GET_INFO polling in SerialPortManager
+    SerialPortManager* spm = &SerialPortManager::getInstance();
+    if (spm) {
+        QMetaObject::invokeMethod(spm, "setDiagnosticsDialogActive", Qt::QueuedConnection, Q_ARG(bool, false));
+    }
 }
 
 void DeviceDiagnosticsDialog::setupUI()
@@ -500,10 +513,19 @@ void DeviceDiagnosticsDialog::onOpenLogFileClicked()
         }
     }
 
-    // Open the log file with system default application
-    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(logPath))) {
+    // Open the log file directory with system default application
+    QString serialLog = m_manager->getSerialLogFilePath();
+    QFileInfo serialInfo(serialLog);
+    QString dirPath = QFileInfo(logPath).absolutePath();
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dirPath))) {
         QMessageBox::warning(this, tr(Diagnostics::LOG_OPEN_ERROR_TITLE),
-                           tr(Diagnostics::LOG_OPEN_ERROR).arg(logPath));
+                           tr(Diagnostics::LOG_OPEN_ERROR).arg(dirPath));
+    } else {
+        QString infoMsg = tr("Please attach the diagnostics_log.txt file to your email.");
+        if (!serialLog.isEmpty() && serialInfo.exists()) {
+            infoMsg += tr("\nAlso attach the serial log file: %1").arg(serialInfo.fileName());
+        }
+        QMessageBox::information(this, tr("Log File"), infoMsg);
     }
 }
 
@@ -530,7 +552,8 @@ void DeviceDiagnosticsDialog::onDiagnosticsCompleted(bool allSuccessful)
 
         // Show support email dialog
         QString logFilePath = m_manager->getLogFilePath();
-        SupportEmailDialog* dialog = new SupportEmailDialog(failedTests, logFilePath, true, this);
+        QString serialLog = m_manager->getSerialLogFilePath();
+        SupportEmailDialog* dialog = new SupportEmailDialog(failedTests, logFilePath, serialLog, true, this);
         dialog->exec();
     } else {
         QString message = tr(Diagnostics::DIAGNOSTICS_COMPLETE_SUCCESS);
@@ -580,7 +603,7 @@ void DeviceDiagnosticsDialog::updateConnectionSvg()
             }
             break;
             
-        default:  // All other tests (3-6): always H1T1V1
+        default:  // All other tests (3-7): always H1T1V1
             svgPath = ":/images/H1T1V1.svg";
             break;
     }
@@ -622,7 +645,8 @@ void DeviceDiagnosticsDialog::onSupportEmailClicked()
 
     // Show support email dialog
     QString logFilePath = m_manager->getLogFilePath();
-    SupportEmailDialog* dialog = new SupportEmailDialog(failedTests, logFilePath, m_diagnosticsCompleted, this);
+    QString serialLog = m_manager->getSerialLogFilePath();
+    SupportEmailDialog* dialog = new SupportEmailDialog(failedTests, logFilePath, serialLog, m_diagnosticsCompleted, this);
     dialog->exec();
 }
 

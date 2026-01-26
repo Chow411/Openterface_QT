@@ -30,7 +30,7 @@
 #include <atomic>
 #include <functional>
 
-Q_DECLARE_LOGGING_CATEGORY(log_watchdog)
+Q_DECLARE_LOGGING_CATEGORY(log_core_serial)
 
 /**
  * @brief Connection state enumeration
@@ -279,6 +279,7 @@ private:
     void scheduleRecovery();
     int calculateRetryDelay() const;
     void updateErrorRate();
+    Q_INVOKABLE bool isRecoveryScheduled() const;
     
     // Configuration
     WatchdogConfig m_config;

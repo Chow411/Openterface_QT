@@ -46,6 +46,7 @@
 #include <QDialog>
 #include <QLabel>
 #include <QDialogButtonBox>
+#include <QToolTip>
 
 VersionInfoManager::VersionInfoManager(QObject *parent)
     : QObject(parent)
@@ -245,6 +246,44 @@ void VersionInfoManager::handleUpdateCheckResponse(QNetworkReply *reply)
             label->setTextFormat(Qt::PlainText);
             label->setWordWrap(true);
             dlgLayout->addWidget(label, 0, Qt::AlignTop);
+
+            // show release page URL (clickable) + copy button so user can jump/download
+            QString releaseUrl = htmlUrl;
+            if (releaseUrl.isEmpty()) {
+                // fallback to the releases web page for this repository
+                releaseUrl = QStringLiteral("https://github.com/TechxArtisanStudio/Openterface_QT/releases");
+            }
+
+            // concise, user-friendly link text
+            QLabel *linkLabel = new QLabel(QString("<a href=\"%1\" style=\"color:#FFFFFF; text-decoration: underline;\">%2</a>").arg(releaseUrl, tr("Go to download new version")), &dlg);
+            linkLabel->setTextFormat(Qt::RichText);
+            linkLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
+            linkLabel->setOpenExternalLinks(true);
+            linkLabel->setToolTip(releaseUrl);
+            linkLabel->setAlignment(Qt::AlignHCenter);
+            // inline CSS on the anchor ensures the link text color is respected regardless of style/theme
+
+            // copy button placed on the next line (centered) for cleaner layout
+            QPushButton *copyUrlBtn = new QPushButton(tr("Copy URL"), &dlg);
+            copyUrlBtn->setToolTip(tr("Copy release page URL to clipboard"));
+            connect(copyUrlBtn, &QPushButton::clicked, &dlg, [releaseUrl, copyUrlBtn]() {
+                QClipboard *cb = QApplication::clipboard();
+                cb->setText(releaseUrl, QClipboard::Clipboard);
+#if defined(Q_OS_WIN)
+                cb->setText(releaseUrl, QClipboard::Selection);
+#endif
+                QToolTip::showText(copyUrlBtn->mapToGlobal(QPoint(copyUrlBtn->width()/2, copyUrlBtn->height()/2)),
+                                   QObject::tr("Copied to clipboard"), copyUrlBtn, QRect(), 1200);
+            });
+
+            QWidget *linkRow = new QWidget(&dlg);
+            QVBoxLayout *linkLayout = new QVBoxLayout(linkRow);
+            linkLayout->setContentsMargins(12, 6, 12, 0);
+            linkLayout->setSpacing(6);
+            linkLayout->addWidget(linkLabel, 0, Qt::AlignHCenter);
+            linkLayout->addWidget(copyUrlBtn, 0, Qt::AlignHCenter);
+            linkRow->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+            dlgLayout->addWidget(linkRow, 0, Qt::AlignHCenter);
 
             // reminder controls
             QCheckBox *remindCheck = new QCheckBox(tr("Remind me in 1 month"), &dlg);

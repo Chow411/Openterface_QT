@@ -255,7 +255,12 @@ void VersionInfoManager::handleUpdateCheckResponse(QNetworkReply *reply)
             }
 
             // concise, user-friendly link text
-            QLabel *linkLabel = new QLabel(QString("<a href=\"%1\" style=\"color:#FFFFFF; text-decoration: underline;\">%2</a>").arg(releaseUrl, tr("Go to download new version")), &dlg);
+            QLabel *linkLabel = new QLabel(&dlg);
+            QColor base = linkLabel->palette().color(QPalette::Window);
+            QColor inv(255 - base.red(), 255 - base.green(), 255 - base.blue());
+            QString linkHtml = QString("<a href=\"%1\" style=\"color:%2; text-decoration: underline;\">%3</a>")
+                                   .arg(releaseUrl).arg(inv.name()).arg(tr("Go to download new version"));
+            linkLabel->setText(linkHtml);
             linkLabel->setTextFormat(Qt::RichText);
             linkLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
             linkLabel->setOpenExternalLinks(true);

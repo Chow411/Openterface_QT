@@ -24,6 +24,7 @@
 #include "global.h"
 #include "ui_mainwindow.h"
 #include "globalsetting.h"
+#include <QTimer>
 #include "ui/statusbar/statusbarmanager.h"
 #include "host/HostManager.h"
 #include "host/cameramanager.h"
@@ -155,8 +156,16 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent)
     
     qCDebug(log_ui_mainwindow) << "MainWindow initialization complete, window ID:" << this->winId();
 
-    // Perform a non-forced update check on startup (honors user settings and 30-day throttle)
-    m_versionInfoManager->checkForUpdates(false);
+    // Perform a non-forced update check on startup (honors user settings and 30-day throttle).
+    // Schedule after the event loop starts so network/dialog code runs reliably.
+    QTimer::singleShot(0, this, [this]() {
+        if (GlobalSetting::instance().getUpdateNeverRemind()) {
+            qCDebug(log_ui_mainwindow) << "Startup update check skipped: 'never remind' is set";
+            return;
+        }
+        qCDebug(log_ui_mainwindow) << "Startup: invoking VersionInfoManager::checkForUpdates(false) (throttle applies)";
+        m_versionInfoManager->checkForUpdates(true);
+    });
 }
 
 void MainWindow::startServer(){

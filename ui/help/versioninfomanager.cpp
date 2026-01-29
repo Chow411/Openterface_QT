@@ -38,6 +38,14 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QVersionNumber>
+#include <QCheckBox>
+#include <QLayout>
+#include <QWidget>
+#include <QVBoxLayout>
+#include <QSizePolicy>
+#include <QDialog>
+#include <QLabel>
+#include <QDialogButtonBox>
 
 VersionInfoManager::VersionInfoManager(QObject *parent)
     : QObject(parent)
@@ -169,12 +177,31 @@ QString VersionInfoManager::getVideoPermissionStatus() const
     return videoDevices.isEmpty() ? "Not available or permission not granted" : "Available";
 }
 
-void VersionInfoManager::checkForUpdates()
+#include <QDateTime>
+#include "../globalsetting.h"
+
+void VersionInfoManager::checkForUpdates(bool force)
 {
+    GlobalSetting &gs = GlobalSetting::instance();
+
+    if (!force) {
+        if (gs.getUpdateNeverRemind()) {
+            qDebug() << "Update check skipped: user chose 'never remind'";
+            return;
+        }
+        qint64 last = gs.getUpdateLastChecked();
+        qint64 now = QDateTime::currentSecsSinceEpoch();
+        const qint64 THIRTY_DAYS = 30LL * 24 * 3600;
+        if (last > 0 && (now - last) < THIRTY_DAYS) {
+            qDebug() << "Update check skipped: last checked" << (now - last) << "seconds ago";
+            return;
+        }
+    }
+
     QNetworkRequest request((QUrl(GITHUB_REPO_API)));
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setHeader(QNetworkRequest::UserAgentHeader, "Openterface_QT Update Checker");
-    
+
     QNetworkReply *reply = networkManager->get(request);
     connect(reply, &QNetworkReply::finished, reply, [this, reply]() {
         handleUpdateCheckResponse(reply);
@@ -184,19 +211,20 @@ void VersionInfoManager::checkForUpdates()
 
 void VersionInfoManager::handleUpdateCheckResponse(QNetworkReply *reply)
 {
+    GlobalSetting &gs = GlobalSetting::instance();
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+
     if (reply->error() == QNetworkReply::NoError) {
         QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
         QJsonObject releaseInfo = doc.object();
-        
+
         QString latestVersion = releaseInfo["tag_name"].toString();
         QString currentVersion = QApplication::applicationVersion();
         QString htmlUrl = releaseInfo["html_url"].toString();
-        
-        // Remove 'v' prefix if present
+
         latestVersion.remove(QRegularExpression("^v"));
         currentVersion.remove(QRegularExpression("^v"));
-        
-        // just compare the first two segments
+
         QList<int> latestSegments = QVersionNumber::fromString(latestVersion).normalized().segments();
         QList<int> currentSegments = QVersionNumber::fromString(currentVersion).normalized().segments();
 
@@ -206,34 +234,109 @@ void VersionInfoManager::handleUpdateCheckResponse(QNetworkReply *reply)
         QVersionNumber latest = QVersionNumber(latestSegments);
         QVersionNumber current = QVersionNumber(currentSegments);
 
-        qDebug() << "version latest (first two segments): " << latest;
-        qDebug() << "version current (first two segments): " << current;
-        
-        QMessageBox msgBox;
-        msgBox.setWindowTitle(tr("Openterface Mini KVM"));
-        
+        /* use a custom dialog so the visual order is strictly: message -> checkboxes (vertical) -> buttons */
+        QDialog dlg;
+        dlg.setWindowTitle(tr("Openterface Mini KVM"));
+        QVBoxLayout *dlgLayout = new QVBoxLayout(&dlg);
+
         if (latest != current) {
-            msgBox.setText(tr("A new version is available!\nCurrent version: %1\nLatest version: %2\n")
-                          .arg(currentVersion)
-                          .arg(latestVersion));
-            QPushButton *updateButton = msgBox.addButton(tr("Update"), QMessageBox::AcceptRole);
-            msgBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
-            
-            msgBox.exec();
-            
-            if (msgBox.clickedButton() == updateButton) {
-                openGitHubReleasePage(htmlUrl);
+            // message label
+            QLabel *label = new QLabel(tr("A new version is available!\nCurrent version: %1\nLatest version: %2\n").arg(currentVersion).arg(latestVersion), &dlg);
+            label->setTextFormat(Qt::PlainText);
+            label->setWordWrap(true);
+            dlgLayout->addWidget(label, 0, Qt::AlignTop);
+
+            // reminder controls
+            QCheckBox *remindCheck = new QCheckBox(tr("Remind me in 1 month"), &dlg);
+            QCheckBox *neverCheck = new QCheckBox(tr("Never remind me"), &dlg);
+            connect(neverCheck, &QCheckBox::toggled, remindCheck, [remindCheck](bool on){ remindCheck->setChecked(false); remindCheck->setEnabled(!on); });
+            connect(remindCheck, &QCheckBox::toggled, neverCheck, [neverCheck](bool on){ if (on) neverCheck->setChecked(false); });
+
+            QWidget *checkboxContainer = new QWidget(&dlg);
+            QVBoxLayout *vbox = new QVBoxLayout(checkboxContainer);
+            vbox->setContentsMargins(12, 8, 12, 4);
+            vbox->setSpacing(6);
+            vbox->addWidget(remindCheck);
+            vbox->addWidget(neverCheck);
+            checkboxContainer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+            dlgLayout->addWidget(checkboxContainer, 0, Qt::AlignHCenter);
+
+            // buttons
+            QDialogButtonBox *buttonBox = new QDialogButtonBox(&dlg);
+            QPushButton *updateBtn = new QPushButton(tr("Update"), buttonBox);
+            buttonBox->addButton(updateBtn, QDialogButtonBox::AcceptRole);
+            buttonBox->addButton(QDialogButtonBox::Cancel);
+
+            bool updateRequested = false;
+            connect(updateBtn, &QPushButton::clicked, &dlg, [&updateRequested, &dlg](){ updateRequested = true; dlg.accept(); });
+            connect(buttonBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+            connect(buttonBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+
+            dlgLayout->addWidget(buttonBox);
+
+            // exec and persist choices only when user confirms
+            if (dlg.exec() == QDialog::Accepted) {
+                if (neverCheck->isChecked()) {
+                    gs.setUpdateNeverRemind(true);
+                } else {
+                    gs.setUpdateNeverRemind(false);
+                    if (remindCheck->isChecked()) {
+                        gs.setUpdateLastChecked(now); // remind in 30 days
+                    } else {
+                        gs.setUpdateLastChecked(now); // record check time
+                    }
+                }
+
+                if (updateRequested) {
+                    openGitHubReleasePage(htmlUrl);
+                }
+            } else {
+                // user canceled: record check time to avoid immediate re-prompt
+                gs.setUpdateLastChecked(now);
             }
         } else {
-            msgBox.setText(tr("You are using the latest version"));
-            msgBox.addButton(QMessageBox::Ok);
-            msgBox.exec();
+            // up-to-date flow: message -> checkboxes -> OK
+            QString upToDateText = tr("You are using the latest version — Current version: %1").arg(currentVersion);
+            QLabel *label = new QLabel(upToDateText, &dlg);
+            label->setWordWrap(true);
+            label->setTextFormat(Qt::PlainText);
+            dlgLayout->addWidget(label, 0, Qt::AlignTop);
+
+            QCheckBox *remindCheck = new QCheckBox(tr("Remind me in 1 month"), &dlg);
+            QCheckBox *neverCheck = new QCheckBox(tr("Never remind me"), &dlg);
+            connect(neverCheck, &QCheckBox::toggled, remindCheck, [remindCheck](bool on){ remindCheck->setChecked(false); remindCheck->setEnabled(!on); });
+            connect(remindCheck, &QCheckBox::toggled, neverCheck, [neverCheck](bool on){ if (on) neverCheck->setChecked(false); });
+
+            QWidget *checkboxContainer = new QWidget(&dlg);
+            QVBoxLayout *vbox = new QVBoxLayout(checkboxContainer);
+            vbox->setContentsMargins(12, 8, 12, 4);
+            vbox->setSpacing(6);
+            vbox->addWidget(remindCheck);
+            vbox->addWidget(neverCheck);
+            checkboxContainer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+            dlgLayout->addWidget(checkboxContainer, 0, Qt::AlignHCenter);
+
+            QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok, &dlg);
+            connect(buttonBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+            dlgLayout->addWidget(buttonBox);
+
+            // record check time now (throttle) and apply preference only if user confirms
+            gs.setUpdateLastChecked(now);
+            if (dlg.exec() == QDialog::Accepted) {
+                if (neverCheck->isChecked()) {
+                    gs.setUpdateNeverRemind(true);
+                } else {
+                    gs.setUpdateNeverRemind(false);
+                    if (remindCheck->isChecked()) {
+                        gs.setUpdateLastChecked(now); // remind in 30 days
+                    }
+                }
+            }
         }
     } else {
-        QMessageBox::warning(nullptr, 
-                           tr("Update Check Failed\n"),
-                           tr("Failed to check for updates.\nError: %1\nPlease check your internet connection.\n")
-                           .arg(reply->errorString()));
+        qDebug() << "Update check failed:" << reply->errorString();
+        // record the failed check to avoid tight retry loops
+        gs.setUpdateLastChecked(QDateTime::currentSecsSinceEpoch());
     }
 }
 

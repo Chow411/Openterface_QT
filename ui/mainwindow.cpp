@@ -154,6 +154,9 @@ MainWindow::MainWindow(LanguageManager *languageManager, QWidget *parent)
     VideoHid::getInstance().start();
     
     qCDebug(log_ui_mainwindow) << "MainWindow initialization complete, window ID:" << this->winId();
+
+    // Perform a non-forced update check on startup (honors user settings and 30-day throttle)
+    m_versionInfoManager->checkForUpdates(false);
 }
 
 void MainWindow::startServer(){
@@ -779,7 +782,8 @@ void MainWindow::officialLink(){
 
 void MainWindow::updateLink()
 {
-    m_versionInfoManager->checkForUpdates();
+    // Manual request should bypass throttle and 'never remind' setting
+    m_versionInfoManager->checkForUpdates(true);
 }
 
 void MainWindow::aboutLink(){

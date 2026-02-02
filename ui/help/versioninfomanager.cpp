@@ -222,6 +222,8 @@ void VersionInfoManager::handleUpdateCheckResponse(QNetworkReply *reply)
         QString latestVersion = releaseInfo["tag_name"].toString();
         QString currentVersion = QApplication::applicationVersion();
         QString htmlUrl = releaseInfo["html_url"].toString();
+        QString releaseBody = releaseInfo["body"].toString();
+        QString releaseName = releaseInfo["name"].toString();
 
         latestVersion.remove(QRegularExpression("^v"));
         currentVersion.remove(QRegularExpression("^v"));
@@ -239,12 +241,35 @@ void VersionInfoManager::handleUpdateCheckResponse(QNetworkReply *reply)
         QDialog dlg;
         dlg.setWindowTitle(tr("Openterface Mini KVM"));
         QVBoxLayout *dlgLayout = new QVBoxLayout(&dlg);
+        
+        // Get system colors for consistent theming
+        QColor base = dlg.palette().color(QPalette::Window);
+        QColor textColor(255 - base.red(), 255 - base.green(), 255 - base.blue());
 
         if (latest != current) {
             // message label
-            QLabel *label = new QLabel(tr("A new version is available!\nCurrent version: %1\nLatest version: %2\n").arg(currentVersion).arg(latestVersion), &dlg);
+            QString messageText = tr("A new version is available!\nCurrent version: %1\nLatest version: %2\n").arg(currentVersion).arg(latestVersion);
+            
+            // Add release title if available
+            if (!releaseName.isEmpty()) {
+                messageText += "\n" + tr("Release: %1").arg(releaseName) + "\n";
+            }
+            
+            // Add first part of release notes (first 200 characters)
+            if (!releaseBody.isEmpty()) {
+                QString releasePreview = releaseBody.left(200);
+                if (releaseBody.length() > 200) {
+                    releasePreview += "...";
+                }
+                // Remove markdown formatting for plain text display
+                releasePreview = releasePreview.remove(QRegularExpression("[#*`_\\[\\]()]"));
+                messageText += "\n" + tr("What's new:") + "\n" + releasePreview;
+            }
+            
+            QLabel *label = new QLabel(messageText, &dlg);
             label->setTextFormat(Qt::PlainText);
             label->setWordWrap(true);
+            label->setStyleSheet(QString("color: %1;").arg(textColor.name()));
             dlgLayout->addWidget(label, 0, Qt::AlignTop);
 
             // show release page URL (clickable) + copy button so user can jump/download
@@ -256,21 +281,21 @@ void VersionInfoManager::handleUpdateCheckResponse(QNetworkReply *reply)
 
             // concise, user-friendly link text
             QLabel *linkLabel = new QLabel(&dlg);
-            QColor base = linkLabel->palette().color(QPalette::Window);
-            QColor inv(255 - base.red(), 255 - base.green(), 255 - base.blue());
             QString linkHtml = QString("<a href=\"%1\" style=\"color:%2; text-decoration: underline;\">%3</a>")
-                                   .arg(releaseUrl).arg(inv.name()).arg(tr("Go to download new version"));
+                                   .arg(releaseUrl).arg(textColor.name()).arg(tr("Go to download new version"));
             linkLabel->setText(linkHtml);
             linkLabel->setTextFormat(Qt::RichText);
             linkLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
             linkLabel->setOpenExternalLinks(true);
             linkLabel->setToolTip(releaseUrl);
             linkLabel->setAlignment(Qt::AlignHCenter);
+            linkLabel->setStyleSheet(QString("color: %1;").arg(textColor.name()));
             // inline CSS on the anchor ensures the link text color is respected regardless of style/theme
 
             // copy button placed on the next line (centered) for cleaner layout
             QPushButton *copyUrlBtn = new QPushButton(tr("Copy URL"), &dlg);
             copyUrlBtn->setToolTip(tr("Copy release page URL to clipboard"));
+            copyUrlBtn->setStyleSheet(QString("color: %1;").arg(textColor.name()));
             connect(copyUrlBtn, &QPushButton::clicked, &dlg, [releaseUrl, copyUrlBtn]() {
                 QClipboard *cb = QApplication::clipboard();
                 cb->setText(releaseUrl, QClipboard::Clipboard);
@@ -293,6 +318,8 @@ void VersionInfoManager::handleUpdateCheckResponse(QNetworkReply *reply)
             // reminder controls
             QCheckBox *remindCheck = new QCheckBox(tr("Remind me in 1 month"), &dlg);
             QCheckBox *neverCheck = new QCheckBox(tr("Never remind me"), &dlg);
+            remindCheck->setStyleSheet(QString("color: %1;").arg(textColor.name()));
+            neverCheck->setStyleSheet(QString("color: %1;").arg(textColor.name()));
             connect(neverCheck, &QCheckBox::toggled, remindCheck, [remindCheck](bool on){ remindCheck->setChecked(false); remindCheck->setEnabled(!on); });
             connect(remindCheck, &QCheckBox::toggled, neverCheck, [neverCheck](bool on){ if (on) neverCheck->setChecked(false); });
 
@@ -344,10 +371,13 @@ void VersionInfoManager::handleUpdateCheckResponse(QNetworkReply *reply)
             QLabel *label = new QLabel(upToDateText, &dlg);
             label->setWordWrap(true);
             label->setTextFormat(Qt::PlainText);
+            label->setStyleSheet(QString("color: %1;").arg(textColor.name()));
             dlgLayout->addWidget(label, 0, Qt::AlignTop);
 
             QCheckBox *remindCheck = new QCheckBox(tr("Remind me in 1 month"), &dlg);
             QCheckBox *neverCheck = new QCheckBox(tr("Never remind me"), &dlg);
+            remindCheck->setStyleSheet(QString("color: %1;").arg(textColor.name()));
+            neverCheck->setStyleSheet(QString("color: %1;").arg(textColor.name()));
             connect(neverCheck, &QCheckBox::toggled, remindCheck, [remindCheck](bool on){ remindCheck->setChecked(false); remindCheck->setEnabled(!on); });
             connect(remindCheck, &QCheckBox::toggled, neverCheck, [neverCheck](bool on){ if (on) neverCheck->setChecked(false); });
 

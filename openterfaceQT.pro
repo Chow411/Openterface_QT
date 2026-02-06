@@ -337,6 +337,22 @@ unix {
         CONFIG += link_pkgconfig
         PKGCONFIG += libudev gstreamer-1.0 gstreamer-video-1.0 libavformat libavcodec libavutil libswscale libavdevice libjpeg libusb-1.0
         DEFINES += HAVE_LIBUDEV HAVE_GSTREAMER HAVE_FFMPEG HAVE_LIBJPEG_TURBO HAVE_LIBUSB
+        
+        # Check if VA-API libraries are available and add them if needed
+        # These may be required when FFmpeg is built with VA-API support
+        VA_AVAILABLE = $$system(pkg-config --exists libva && echo yes || echo no)
+        equals(VA_AVAILABLE, yes) {
+            PKGCONFIG += libva libva-drm libva-x11
+            message("VA-API libraries found and will be linked")
+        } else {
+            # Try direct library check as fallback
+            system(test -f /usr/lib64/libva.so || test -f /usr/lib/x86_64-linux-gnu/libva.so || test -f /usr/lib/libva.so) {
+                LIBS += -lva -lva-drm -lva-x11
+                message("VA-API libraries found via direct check and will be linked")
+            } else {
+                message("VA-API libraries not found - build may fail if FFmpeg requires them")
+            }
+        }
     }
 
     RESOURCES += driver/linux/drivers.qrc

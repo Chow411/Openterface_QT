@@ -340,12 +340,11 @@ unix {
         
         # Check if VA-API libraries are available and add them if needed
         # These may be required when FFmpeg is built with VA-API support
-        VA_AVAILABLE = $$system(pkg-config --exists libva && echo yes || echo no)
-        equals(VA_AVAILABLE, yes) {
+        packagesExist(libva) {
             PKGCONFIG += libva libva-drm libva-x11
-            message("VA-API libraries found and will be linked")
+            message("VA-API libraries found via pkg-config and will be linked")
         } else {
-            # Try direct library check as fallback
+            # Try direct library check as fallback (Linux-specific paths)
             system(test -f /usr/lib64/libva.so || test -f /usr/lib/x86_64-linux-gnu/libva.so || test -f /usr/lib/libva.so) {
                 LIBS += -lva -lva-drm -lva-x11
                 message("VA-API libraries found via direct check and will be linked")

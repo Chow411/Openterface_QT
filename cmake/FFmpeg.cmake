@@ -713,9 +713,37 @@ function(link_ffmpeg_libraries)
                     ${TURBOJPEG_LINK}
                     # Core system libs
                     -lpthread -lm -ldl -lz -llzma -lbz2
-                    # DRM/VA/VDPAU/X11 stack (vdpa_device_create_x11 lives in libvdpau and needs X11)
-                    -ldrm -lva -lva-drm -lva-x11 -lvdpau -lX11 -lXext
-                    # XCB is required by avdevice xcbgrab; ensure core xcb gets linked
+                )
+                
+                # Add DRM/VA/VDPAU/X11 stack if available (hardware acceleration support)
+                # These are optional - FFmpeg will work without them but hardware acceleration may be limited
+                find_library(DRM_LIB drm)
+                find_library(VA_STATIC_LIB va)
+                find_library(VADRM_STATIC_LIB va-drm)
+                find_library(VAX11_STATIC_LIB va-x11)
+                find_library(VDPAU_STATIC_LIB vdpau)
+                
+                if(DRM_LIB)
+                    list(APPEND _FFMPEG_STATIC_DEPS ${DRM_LIB})
+                endif()
+                if(VA_STATIC_LIB)
+                    list(APPEND _FFMPEG_STATIC_DEPS ${VA_STATIC_LIB})
+                endif()
+                if(VADRM_STATIC_LIB)
+                    list(APPEND _FFMPEG_STATIC_DEPS ${VADRM_STATIC_LIB})
+                endif()
+                if(VAX11_STATIC_LIB)
+                    list(APPEND _FFMPEG_STATIC_DEPS ${VAX11_STATIC_LIB})
+                endif()
+                if(VDPAU_STATIC_LIB)
+                    list(APPEND _FFMPEG_STATIC_DEPS ${VDPAU_STATIC_LIB})
+                endif()
+                
+                # X11 libraries
+                list(APPEND _FFMPEG_STATIC_DEPS -lX11 -lXext)
+                
+                # XCB is required by avdevice xcbgrab; ensure core xcb gets linked
+                list(APPEND _FFMPEG_STATIC_DEPS
                     -lxcb
                     # XCB extensions used by xcbgrab (shared memory, xfixes for cursor, shape for OSD)
                     -lxcb-shm -lxcb-xfixes -lxcb-shape -lxcb-image

@@ -330,7 +330,7 @@ unix {
     HEADERS += device/platform/LinuxDeviceManager.h
 
     INCLUDEPATH += /usr/include
-    LIBS += -lusb-1.0 -lX11 -lgstapp-1.0 -lva -lturbojpeg
+    LIBS += -lusb-1.0 -lX11 -lgstapp-1.0 -lturbojpeg
 
     # On non-mac Unix systems enable pkg-config based dependencies
     unix:!macx {

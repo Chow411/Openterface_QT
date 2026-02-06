@@ -717,14 +717,14 @@ function(link_ffmpeg_libraries)
                 
                 # Add DRM/VA/VDPAU/X11 stack if available (hardware acceleration support)
                 # These are optional - FFmpeg will work without them but hardware acceleration may be limited
-                find_library(DRM_LIB drm)
-                find_library(VA_STATIC_LIB va)
-                find_library(VADRM_STATIC_LIB va-drm)
-                find_library(VAX11_STATIC_LIB va-x11)
-                find_library(VDPAU_STATIC_LIB vdpau)
+                find_library(DRM_STATIC_LIB drm QUIET)
+                find_library(VA_STATIC_LIB va QUIET)
+                find_library(VADRM_STATIC_LIB va-drm QUIET)
+                find_library(VAX11_STATIC_LIB va-x11 QUIET)
+                find_library(VDPAU_STATIC_LIB vdpau QUIET)
                 
-                if(DRM_LIB)
-                    list(APPEND _FFMPEG_STATIC_DEPS ${DRM_LIB})
+                if(DRM_STATIC_LIB)
+                    list(APPEND _FFMPEG_STATIC_DEPS ${DRM_STATIC_LIB})
                 endif()
                 if(VA_STATIC_LIB)
                     list(APPEND _FFMPEG_STATIC_DEPS ${VA_STATIC_LIB})
@@ -739,8 +739,15 @@ function(link_ffmpeg_libraries)
                     list(APPEND _FFMPEG_STATIC_DEPS ${VDPAU_STATIC_LIB})
                 endif()
                 
-                # X11 libraries
-                list(APPEND _FFMPEG_STATIC_DEPS -lX11 -lXext)
+                # X11 libraries - check availability before adding
+                find_library(X11_STATIC_LIB X11 QUIET)
+                find_library(XEXT_STATIC_LIB Xext QUIET)
+                if(X11_STATIC_LIB)
+                    list(APPEND _FFMPEG_STATIC_DEPS ${X11_STATIC_LIB})
+                endif()
+                if(XEXT_STATIC_LIB)
+                    list(APPEND _FFMPEG_STATIC_DEPS ${XEXT_STATIC_LIB})
+                endif()
                 
                 # XCB is required by avdevice xcbgrab; ensure core xcb gets linked
                 list(APPEND _FFMPEG_STATIC_DEPS

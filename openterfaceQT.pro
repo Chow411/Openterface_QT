@@ -345,11 +345,19 @@ unix {
             message("VA-API libraries found via pkg-config and will be linked")
         } else {
             # Try direct library check as fallback (Linux-specific paths)
-            system(test -f /usr/lib64/libva.so || test -f /usr/lib/x86_64-linux-gnu/libva.so || test -f /usr/lib/libva.so) {
+            # Check for all three required libraries before adding
+            exists(/usr/lib64/libva.so*):exists(/usr/lib64/libva-drm.so*):exists(/usr/lib64/libva-x11.so*) {
                 LIBS += -lva -lva-drm -lva-x11
-                message("VA-API libraries found via direct check and will be linked")
+                message("VA-API libraries found in /usr/lib64 and will be linked")
+            } else:exists(/usr/lib/x86_64-linux-gnu/libva.so*):exists(/usr/lib/x86_64-linux-gnu/libva-drm.so*):exists(/usr/lib/x86_64-linux-gnu/libva-x11.so*) {
+                LIBS += -lva -lva-drm -lva-x11
+                message("VA-API libraries found in /usr/lib/x86_64-linux-gnu and will be linked")
+            } else:exists(/usr/lib/libva.so*):exists(/usr/lib/libva-drm.so*):exists(/usr/lib/libva-x11.so*) {
+                LIBS += -lva -lva-drm -lva-x11
+                message("VA-API libraries found in /usr/lib and will be linked")
             } else {
                 message("VA-API libraries not found - build may fail if FFmpeg requires them")
+                message("If build fails with VA-API errors, install libva-dev or libva-devel package")
             }
         }
     }

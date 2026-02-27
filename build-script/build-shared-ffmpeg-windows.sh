@@ -173,17 +173,31 @@ ENABLE_LIBMFX=""
 EXTRA_CFLAGS="-I${FFMPEG_INSTALL_PREFIX}/include"
 EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lwinpthread"
 
-# libmfx (QSV): Only enable if user explicitly requests it via ENABLE_LIBMFX=1 and pkg-config can find it.
+# libmfx (QSV): build-time support is enabled whenever ENABLE_LIBMFX=1.
+# pkg-config is optional; if it is missing we still pass --enable-libmfx and let
+# the ffmpeg code dynamically load mfx.dll from the driver at runtime.  The
+# earlier behaviour of disabling libmfx when pkg-config could not find the
+# library meant that *no QSV code was built at all*, which is why Intel
+# hardware decoding never worked unless a matching pkg-config package was
+# installed on the build machine.
 if [ "${ENABLE_LIBMFX:-0}" = "1" ]; then
+    # Always enable the library and the common decoders we care about.
+    ENABLE_LIBMFX="--enable-libmfx \
+        --enable-decoder=mjpeg_qsv \
+        --enable-decoder=h264_qsv \
+        --enable-decoder=hevc_qsv \
+        --enable-decoder=vp9_qsv \
+        --enable-decoder=vc1_qsv \
+        --enable-decoder=mpeg2_qsv \
+        --enable-decoder=vp8_qsv"
     if pkg-config --exists libmfx; then
-        ENABLE_LIBMFX="--enable-libmfx --enable-decoder=mjpeg_qsv"
-        echo "✓ libmfx detected; enabling QSV support"
+        echo "✓ libmfx pkg-config found; compiling with full QSV support"
     else
-        echo "⚠ libmfx not found via pkg-config; QSV will attempt runtime detection (no build-time enable)"
-        ENABLE_LIBMFX=""  # Don't fail; let FFmpeg load at runtime
+        echo "⚠ libmfx pkg-config not found; building with dynamic load."
+        echo "   Ensure that the Intel Media SDK/driver is present on the target machine."
     fi
 else
-    echo "libmfx not enabled; QSV support will be attempted at runtime if available via drivers/SDK (dynamic loading by FFmpeg)."
+    echo "libmfx not enabled; QSV support will be attempted at runtime if available via drivers/SDK (dynamic loading by ffmpeg)."
 fi
 
 # CUDA/NVENC: Auto-detect and enable when possible

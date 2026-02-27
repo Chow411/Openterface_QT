@@ -125,6 +125,22 @@ bool FFmpegCaptureManager::StartCapture(const QString& devicePath, const QSize& 
                                 << "resolution=" << actualResolution
                                 << "framerate=" << actualFramerate;
     
+    // CRITICAL: Initialize hardware acceleration BEFORE opening device
+    // This ensures hardware decoders are available when setting up the device
+    if (hardware_accelerator_ && !hardware_accelerator_->IsHardwareAccelEnabled()) {
+        QString preferredHwAccel = GlobalSetting::instance().getHardwareAcceleration();
+        qCInfo(log_ffmpeg_backend) << "Initializing hardware acceleration with preferred:" << preferredHwAccel;
+        if (hardware_accelerator_->Initialize(preferredHwAccel)) {
+            qCInfo(log_ffmpeg_backend) << "✓ Hardware acceleration initialized successfully";
+        } else {
+            qCInfo(log_ffmpeg_backend) << "Hardware acceleration initialization returned false (may use software decoding)";
+        }
+    } else if (hardware_accelerator_ && hardware_accelerator_->IsHardwareAccelEnabled()) {
+        qCDebug(log_ffmpeg_backend) << "Hardware acceleration already enabled";
+    } else {
+        qCDebug(log_ffmpeg_backend) << "No hardware accelerator available";
+    }
+    
     // Open input device
     if (!OpenInputDevice(devicePath, actualResolution, actualFramerate)) {
         qCWarning(log_ffmpeg_backend) << "Failed to open input device";
@@ -139,6 +155,8 @@ bool FFmpegCaptureManager::StartCapture(const QString& devicePath, const QSize& 
     }
     
     capture_running_ = true;
+    
+    qCInfo(log_ffmpeg_backend) << "✓✓✓ ZERO LATENCY MODE ACTIVE - capture thread will discard stale frames ✓✓✓";
     
     // Start performance monitoring if available
     if (performance_timer_) {

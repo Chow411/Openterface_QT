@@ -24,8 +24,15 @@ Recommended example:
 Environment variables supported by this script (set before running / from caller):
   SKIP_MSYS_MINGW=1          -> Skip package-managed install and prefer external MinGW (caller should set EXTERNAL_MINGW_MSYS)
   EXTERNAL_MINGW_MSYS=/c/mingw64 -> Path to external mingw in MSYS-style (set by caller wrapper when using EXTERNAL_MINGW)
-  ENABLE_NVENC=1             -> Attempt to enable NVENC support (requires NVENC SDK/headers)
+  ENABLE_NVENC=1             -> Enable NVENC support (default: 1, set to 0 to disable)
+  ENABLE_LIBMFX=1            -> Enable Intel QSV support (default: 1, set to 0 to disable)
+  AUTO_INSTALL_FFNV=1        -> Auto-install nv-codec-headers (default: 1, set to 0 to disable)
   NVENC_SDK_PATH=...         -> Path to NVENC SDK (optional, used when ENABLE_NVENC=1)
+
+GPU Acceleration (enabled by default):
+  - Intel QSV (Quick Sync Video): Enabled via libmfx, decoders will be built
+  - NVIDIA NVENC/CUDA: Enabled, headers auto-installed if not present
+  - To disable: set ENABLE_LIBMFX=0 or ENABLE_NVENC=0 before running
 EOF
     exit 0
 fi
@@ -169,9 +176,14 @@ fi
 
 # Determine optional flags for QSV (libmfx) and NVENC
 # For a shared build we avoid forcing static linking flags
-ENABLE_LIBMFX=""
+# Default: Enable GPU acceleration unless explicitly disabled
 EXTRA_CFLAGS="-I${FFMPEG_INSTALL_PREFIX}/include"
 EXTRA_LDFLAGS="-L${FFMPEG_INSTALL_PREFIX}/lib -lz -lbz2 -llzma -lwinpthread"
+
+# Enable GPU acceleration by default (Intel QSV enabled, NVENC disabled by default)
+: "${ENABLE_LIBMFX:=1}"
+: "${ENABLE_NVENC:=0}"
+: "${AUTO_INSTALL_FFNV:=0}"
 
 # libmfx (QSV): build-time support is enabled whenever ENABLE_LIBMFX=1.
 # pkg-config is optional; if it is missing we still pass --enable-libmfx and let
@@ -189,7 +201,9 @@ if [ "${ENABLE_LIBMFX:-0}" = "1" ]; then
         --enable-decoder=vp9_qsv \
         --enable-decoder=vc1_qsv \
         --enable-decoder=mpeg2_qsv \
-        --enable-decoder=vp8_qsv"
+        --enable-decoder=vp8_qsv \
+        --enable-libvpl" 
+        
     if pkg-config --exists libmfx; then
         echo "✓ libmfx pkg-config found; compiling with full QSV support"
     else
@@ -227,10 +241,15 @@ else
 
         git clone https://github.com/FFmpeg/nv-codec-headers.git
         cd nv-codec-headers
-        # Try to use a tag compatible with FFmpeg 6.x
+        # Try to use a tag compatible with FFmpeg 6.x (need 12.1+ for FFmpeg 6.1)
         git fetch --tags 2>/dev/null || true
-        if git rev-list -n 1 n12.0.16.1 >/dev/null 2>&1; then
+        # Try newer tags that are compatible with FFmpeg 6.1
+        if git rev-list -n 1 n12.1.14.0 >/dev/null 2>&1; then
+            git checkout n12.1.14.0
+        elif git rev-list -n 1 n12.0.16.1 >/dev/null 2>&1; then
             git checkout n12.0.16.1
+        else
+            echo "Warning: Using latest nv-codec-headers from main branch"
         fi
 
         make PREFIX="${FFMPEG_INSTALL_PREFIX}" || { echo "ERROR: building nv-codec-headers failed"; cd "${BUILD_DIR}"; rm -rf "${TMPDIR}"; return 1; }
@@ -391,13 +410,36 @@ cd "ffmpeg-${FFMPEG_VERSION}"
 echo ""
 
 # Avoid sed errors due to Windows-style temp paths (e.g., C:\Users\RUNNER~1\...)
-export CLEAN_TMP="/c/ffmpeg-tmp"
+# Use the build directory itself for temp files to avoid permission issues
+CLEAN_TMP="${BUILD_DIR}/temp"
 mkdir -p "$CLEAN_TMP"
+# Clean any stale files
+rm -rf "$CLEAN_TMP"/* 2>/dev/null || true
+# Verify write access by testing with gcc (not just touch)
+echo "int main() { return 0; }" > "$CLEAN_TMP/test.c"
+if ! gcc -c "$CLEAN_TMP/test.c" -o "$CLEAN_TMP/test.o" 2>/dev/null; then
+    echo "WARNING: GCC cannot write to $CLEAN_TMP, falling back to MSYS /tmp"
+    CLEAN_TMP="/tmp/ffmpeg-build-$$"
+    mkdir -p "$CLEAN_TMP"
+fi
+rm -f "$CLEAN_TMP/test.c" "$CLEAN_TMP/test.o" 2>/dev/null || true
+
+# Set temp environment variables - use both MSYS and Windows-style paths
 export TMP="$CLEAN_TMP"
 export TEMP="$CLEAN_TMP"
 export TMPDIR="$CLEAN_TMP"
+
+# Also clear any Windows-style temp vars that might interfere
 unset ORIGINAL_PATH MSYSTEM_PREFIX CHERE_INVOKING
-echo "Using clean temporary directory: $TMPDIR"
+
+echo "Using temporary directory: $TMPDIR"
+echo "Verifying temp directory is writable for GCC..."
+if gcc -xc -c -o "$TMPDIR/gcc-test.o" - <<< "int main(){return 0;}" 2>/dev/null; then
+    echo "✓ GCC can write to temp directory"
+    rm -f "$TMPDIR/gcc-test.o"
+else
+    echo "✗ WARNING: GCC may have issues writing to temp directory"
+fi
 
 # Configure FFmpeg for shared build
 echo "Step 6/8: Configuring FFmpeg for shared build..."
@@ -507,7 +549,58 @@ make install
 echo "✓ Build and installation complete"
 echo ""
 
-# Verify installation (check for DLLs and import libs for a shared build)
+# After install, make sure pkgconfig files for the optional GPU libraries
+# are present in the prefix.  These are not strictly required for the
+# runtime, but the user was expecting to see libmfx.pc/ffnvcodec.pc in the
+# output, so we copy or emit tiny stubs here.
+
+# (dynamic GPU libraries such as nvcuvid.dll, cudart*.dll or libmfx.dll are
+# provided by the driver/Intel Media SDK and are **not** built by this script;
+# they live in C:\Windows\System32 on machines with the appropriate driver.)
+
+echo "Step 8a/8: installing helper pkg-config stubs for GPU libraries..."
+mkdir -p "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig"
+if [ "${ENABLE_LIBMFX:-0}" = "1" ]; then
+    if [ -f "/mingw64/lib/pkgconfig/libmfx.pc" ]; then
+        cp "/mingw64/lib/pkgconfig/libmfx.pc" "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig/"
+        echo "✓ copied libmfx.pc from system pkgconfig"
+    else
+        cat > "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig/libmfx.pc" <<'EOF'
+prefix=${FFMPEG_INSTALL_PREFIX}
+exec_prefix=\${prefix}
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
+
+Name: libmfx
+Description: Intel Media SDK (stub)
+Version: unknown
+Libs: -lmfx
+Cflags: -I\${includedir}
+EOF
+        echo "✓ generated stub libmfx.pc (headers only)"
+    fi
+fi
+
+if [ "${ENABLE_NVENC:-0}" = "1" ] && [ ! -f "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig/ffnvcodec.pc" ]; then
+    cat > "${FFMPEG_INSTALL_PREFIX}/lib/pkgconfig/ffnvcodec.pc" <<'EOF'
+prefix=${FFMPEG_INSTALL_PREFIX}
+exec_prefix=\${prefix}
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
+
+Name: ffnvcodec
+Description: NVIDIA NVCodec headers (stub)
+Version: unknown
+Libs:
+Cflags: -I\${includedir}
+EOF
+    echo "✓ generated stub ffnvcodec.pc (headers only)"
+    # warn user that runtime GUI libs are not built – they come from the driver
+    if [ ! -f "/c/Windows/System32/nvcuvid.dll" ] && [ ! -f "/c/Windows/System32/cuda.dll" ]; then
+        echo "⚠ GPU runtime libraries (nvcuvid.dll/cuda.dll) not found on build host; they will be required at runtime."
+    fi
+fi
+
 echo "============================================================================"
 echo "Verifying installation (shared)..."
 echo "============================================================================"

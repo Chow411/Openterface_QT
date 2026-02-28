@@ -282,7 +282,7 @@ QImage FFmpegFrameProcessor::ProcessPacketToImage(AVPacket* packet, AVCodecConte
                     latest_original_frame_ = originalResult.copy();
                 }
                 
-                return result.copy();
+                return result;
             }
         }
         qCDebug(log_ffmpeg_backend) << "TurboJPEG failed, falling back to CPU decode";

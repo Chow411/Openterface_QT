@@ -129,9 +129,28 @@ bool WindowsHIDTransport::openLocked()
 
     if (m_handle == INVALID_HANDLE_VALUE) {
         DWORD error = GetLastError();
-        qCWarning(log_win_transport) << "Failed to open device handle, error:" << error;
+        // Always-visible (qWarning) – the category opf.host.win_transport is
+        // disabled by the default log filter (opf.host.*=false), so qCWarning
+        // would silently swallow this critical diagnostic.
+        qWarning("[openLocked] CreateFileW FAILED – Win32 error %lu  path: %s",
+                 error, qUtf8Printable(qDevicePath));
         return false;
     }
+
+    // Log HID caps so we can confirm the correct interface is open.
+    {
+        PHIDP_PREPARSED_DATA preparsed = nullptr;
+        if (HidD_GetPreparsedData(m_handle, &preparsed) && preparsed) {
+            HIDP_CAPS caps = {};
+            if (HidP_GetCaps(preparsed, &caps) == HIDP_STATUS_SUCCESS) {
+                qCDebug(log_win_transport, "[openLocked] HID caps: InputReport=%u  OutputReport=%u  FeatureReport=%u",
+                         caps.InputReportByteLength, caps.OutputReportByteLength,
+                         caps.FeatureReportByteLength);
+            }
+            HidD_FreePreparsedData(preparsed);
+        }
+    }
+
     return true;
 }
 
@@ -225,7 +244,10 @@ bool WindowsHIDTransport::sendDirect(uint8_t* buf, size_t len)
     }
     BOOL ok = HidD_SetFeature(m_handle, buf, static_cast<ULONG>(len));
     if (!ok) {
-        qCDebug(log_win_transport) << "sendDirect HidD_SetFeature failed, error" << GetLastError();
+        DWORD err = GetLastError();
+        qWarning("[sendDirect] HidD_SetFeature failed: len=%zu  Windows error=%lu  buf[0]=0x%02X",
+                 len, static_cast<unsigned long>(err), static_cast<unsigned>(buf[0]));
+        qCDebug(log_win_transport) << "sendDirect HidD_SetFeature failed, error" << err;
     }
     return ok != FALSE;
 }
@@ -239,7 +261,13 @@ bool WindowsHIDTransport::getDirect(uint8_t* buf, size_t len)
     }
     BOOL ok = HidD_GetFeature(m_handle, buf, static_cast<ULONG>(len));
     if (!ok) {
-        qCDebug(log_win_transport) << "getDirect HidD_GetFeature failed, error" << GetLastError();
+        DWORD err = GetLastError();
+        // Use qWarning (uncategorized, always visible) so this appears regardless
+        // of the opf.host.*=false log filter.  Critical for diagnosing burst-read failures.
+        qWarning("[getDirect] HidD_GetFeature failed: len=%zu  Windows error=%lu  buf[0]=0x%02X",
+                 len, static_cast<unsigned long>(err), static_cast<unsigned>(buf[0]));
+        qCWarning(log_win_transport) << "getDirect HidD_GetFeature failed, len=" << len
+                                     << "error=" << err;
     }
     return ok != FALSE;
 }
@@ -279,6 +307,31 @@ bool WindowsHIDTransport::reopenSync()
         qCDebug(log_win_transport) << "reopenSync: opened with GENERIC_READ only (fallback)";
     } else {
         qCDebug(log_win_transport) << "reopenSync: opened with GENERIC_READ|GENERIC_WRITE";
+    }
+
+    // Log HID capability sizes so we can confirm the correct interface is open
+    // and determine whether 4096-byte GetFeature (burst read) is supported.
+    {
+        PHIDP_PREPARSED_DATA preparsed = nullptr;
+        if (HidD_GetPreparsedData(m_handle, &preparsed) && preparsed) {
+            HIDP_CAPS caps = {};
+            if (HidP_GetCaps(preparsed, &caps) == HIDP_STATUS_SUCCESS) {
+                // Always-visible (qWarning) so it shows despite opf.host.*=false filter
+                qWarning("[reopenSync] HID caps: InputReport=%u  OutputReport=%u  FeatureReport=%u",
+                         caps.InputReportByteLength, caps.OutputReportByteLength,
+                         caps.FeatureReportByteLength);
+                qCWarning(log_win_transport)
+                    << "reopenSync HID caps:"
+                    << " InputReportByteLength="  << caps.InputReportByteLength
+                    << " OutputReportByteLength=" << caps.OutputReportByteLength
+                    << " FeatureReportByteLength=" << caps.FeatureReportByteLength;
+            } else {
+                qCWarning(log_win_transport) << "reopenSync: HidP_GetCaps failed";
+            }
+            HidD_FreePreparsedData(preparsed);
+        } else {
+            qCWarning(log_win_transport) << "reopenSync: HidD_GetPreparsedData failed, error=" << GetLastError();
+        }
     }
     return true;
 }

@@ -18,6 +18,10 @@ const QString AbstractPlatformDeviceManager::SERIAL_PID_V3 = "FE0C";
 const QString AbstractPlatformDeviceManager::OPENTERFACE_VID_V3 = "345F";
 const QString AbstractPlatformDeviceManager::OPENTERFACE_PID_V3 = "2109";
 
+// Bootloader / recovery mode ("U3 Upgrade")
+const QString AbstractPlatformDeviceManager::OPENTERFACE_VID_BOOT = "345F";
+const QString AbstractPlatformDeviceManager::OPENTERFACE_PID_BOOT = "0001";
+
 AbstractPlatformDeviceManager::AbstractPlatformDeviceManager(QObject *parent)
     : QObject(parent)
 {

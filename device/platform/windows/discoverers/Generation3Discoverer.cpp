@@ -212,6 +212,55 @@ QVector<DeviceInfo> Generation3Discoverer::discoverDevices()
         deviceMap[deviceInfo.portChain] = deviceInfo;
         qCDebug(log_device_discoverer) << "V3 integrated device added with port chain:" << deviceInfo.portChain;
     }
+
+    // Phase 3: Search for bootloader/recovery mode devices (VID_345F&PID_0001 "U3 Upgrade")
+    qCDebug(log_device_discoverer) << "Phase 3: Searching for bootloader devices (345F:0001)";
+    QVector<USBDeviceData> bootDevices = findUSBDevicesWithVidPid(
+        OPENTERFACE_VID_BOOT,
+        OPENTERFACE_PID_BOOT
+    );
+    qCDebug(log_device_discoverer) << "Found" << bootDevices.size() << "bootloader devices (345F:0001)";
+
+    for (int i = 0; i < bootDevices.size(); ++i) {
+        const USBDeviceData& bootDevice = bootDevices[i];
+
+        qCDebug(log_device_discoverer) << "Processing Bootloader Device" << (i + 1) << "at port chain:" << bootDevice.portChain;
+
+        QString associatedPortChain = bootDevice.portChain;
+
+        if (deviceMap.contains(associatedPortChain)) {
+            qCDebug(log_device_discoverer) << "Port chain already in device map, skipping bootloader device";
+            continue;
+        }
+
+        DeviceInfo deviceInfo;
+        deviceInfo.portChain = associatedPortChain;
+        deviceInfo.deviceInstanceId = bootDevice.deviceInstanceId;
+        deviceInfo.vid = OPENTERFACE_VID_BOOT;
+        deviceInfo.pid = OPENTERFACE_PID_BOOT;
+        deviceInfo.lastSeen = QDateTime::currentDateTime();
+        deviceInfo.platformSpecific = bootDevice.deviceInfo;
+
+        // Bootloader device is a single HID device (not composite), so
+        // the USB device itself IS the HID device.  Look for the HID child
+        // that the enumerator found, or fall back to the device itself.
+        for (const QVariantMap& child : bootDevice.children) {
+            QString childHardwareId = child["hardwareId"].toString().toUpper();
+            QString childDeviceId = child["deviceId"].toString();
+            if (childHardwareId.contains("HID") || childHardwareId.contains("345F")) {
+                deviceInfo.hidDeviceId = childDeviceId;
+                deviceInfo.hidVid = OPENTERFACE_VID_BOOT;
+                deviceInfo.hidPid = OPENTERFACE_PID_BOOT;
+                qCDebug(log_device_discoverer) << "      Found bootloader HID device ID:" << childDeviceId;
+                break;
+            }
+        }
+
+        matchDevicePathsToRealPaths(deviceInfo);
+
+        deviceMap[deviceInfo.portChain] = deviceInfo;
+        qCDebug(log_device_discoverer) << "Bootloader device added with port chain:" << deviceInfo.portChain;
+    }
     
     // Convert map to vector
     for (auto it = deviceMap.begin(); it != deviceMap.end(); ++it) {
@@ -225,8 +274,9 @@ QVector<DeviceInfo> Generation3Discoverer::discoverDevices()
 QVector<QPair<QString, QString>> Generation3Discoverer::getSupportedVidPidPairs() const
 {
     return {
-        {OPENTERFACE_VID_V2, OPENTERFACE_PID_V2},  // 345F:2132
-        {OPENTERFACE_VID_V3, OPENTERFACE_PID_V3}   // 345F:2109
+        {OPENTERFACE_VID_V2, OPENTERFACE_PID_V2},    // 345F:2132
+        {OPENTERFACE_VID_V3, OPENTERFACE_PID_V3},    // 345F:2109
+        {OPENTERFACE_VID_BOOT, OPENTERFACE_PID_BOOT}  // 345F:0001 (bootloader)
     };
 }
 

@@ -66,13 +66,15 @@ SOURCES += main.cpp \
     target/MouseManager.cpp \
     target/mouseeventdto.cpp \
     video/videohid.cpp \
-    video/videohid_register.cpp \
     video/videohid_eeprom.cpp \
+    video/videohid_register.cpp \
     video/videohidchip.cpp \
     video/platformhidadapter.cpp \
     video/firmwarewriter.cpp \
     video/firmwarereader.cpp \
     video/firmwareoperationmanager.cpp \
+    video/detection/ChipDetector.cpp \
+    video/firmware/FirmwareNetworkClient.cpp \
     ui/TaskManager.cpp \
     ui/globalsetting.cpp \
     ui/inputhandler.cpp \
@@ -135,6 +137,7 @@ SOURCES += main.cpp \
                host/backend/gstreamer/externalgstrunner.cpp \
                host/backend/gstreamer/recordingmanager.cpp
     HEADERS += host/backend/gstreamerbackendhandler.h \
+               host/backend/gstreamer/logging.h \
                host/backend/gstreamer/sinkselector.h \
                host/backend/gstreamer/queueconfigurator.h \
                host/backend/gstreamer/videooverlaymanager.h \
@@ -154,6 +157,7 @@ HEADERS  += \
     device/HotplugMonitor.h \
     device/platform/AbstractPlatformDeviceManager.h \
     device/platform/DeviceFactory.h \
+    device/platform/DeviceConstants.h \
     device/platform/windows/WinDeviceEnumerator.h \
     device/platform/windows/IDeviceEnumerator.h \
     host/HostManager.h \
@@ -179,6 +183,8 @@ HEADERS  += \
     regex/RegularExpression.h \
     scripts/KeyboardMouse.h \
     scripts/SendKeyMaps.h \
+    scripts/AST.h \
+    scripts/Token.h \
     scripts/Lexer.h \
     scripts/Parser.h \
     scripts/semanticAnalyzer.h \
@@ -207,6 +213,7 @@ HEADERS  += \
     target/mouseeventdto.h \
     resources/version.h \
     video/videohid.h \
+    video/videohidchip.h \
     video/firmwarewriter.h \
     video/firmwarereader.h \
     video/firmwareoperationmanager.h \
@@ -214,6 +221,9 @@ HEADERS  += \
     video/ms2109s.h \
     video/ms2130s.h \
     video/platformhidadapter.h \
+    video/detection/ChipDetector.h \
+    video/firmware/FirmwareNetworkClient.h \
+    video/transport/IHIDTransport.h \
     ui/TaskManager.h \
     ui/globalsetting.h \
     ui/inputhandler.h \
@@ -236,6 +246,7 @@ HEADERS  += \
     ui/advance/devicediagnosticsdialog.h \
     ui/advance/diagnostics/diagnosticsmanager.h \
     ui/advance/diagnostics/diagnostics_constants.h \
+    ui/advance/diagnostics/diagnosticstypes.h \
     ui/advance/diagnostics/LogWriter.h \
     ui/advance/envdialog.h \
     ui/advance/firmwareupdatedialog.h \
@@ -250,6 +261,7 @@ HEADERS  += \
     ui/advance/recordingsettingsdialog.h \
     ui/advance/diagnostics/SupportEmailDialog.h \
     ui/initializer/mainwindowinitializer.h \
+    ui/initializer/mainwindow_ui_access.h \
     ui/statusbar/statusbarmanager.h \
     ui/statusbar/statuswidget.h \
     ui/cornerwidget/cornerwidgetmanager.h \
@@ -258,6 +270,7 @@ HEADERS  += \
     ui/toolbar/toolbarmanager.h \
     ui/recording/recordingcontroller.h \
     ui/preferences/cameraadjust.h \
+    ui/preferences/fontstyle.h \
     ui/preferences/fpsspinbox.h \
     ui/preferences/settingdialog.h \
     ui/preferences/logpage.h \
@@ -286,11 +299,13 @@ win32 {
     # Add Windows-specific device manager
     SOURCES += device/platform/WindowsDeviceManager.cpp \
         device/platform/windows/WinDeviceEnumerator.cpp \
+        video/transport/WindowsHIDTransport.cpp \
         device/platform/windows/discoverers/BaseDeviceDiscoverer.cpp \
         device/platform/windows/discoverers/BotherDeviceDiscoverer.cpp \
         device/platform/windows/discoverers/Generation3Discoverer.cpp \
         device/platform/windows/discoverers/DeviceDiscoveryManager.cpp
     HEADERS += device/platform/WindowsDeviceManager.h \
+        video/transport/WindowsHIDTransport.h \
         device/platform/windows/discoverers/IDeviceDiscoverer.h \
         device/platform/windows/discoverers/BaseDeviceDiscoverer.h \
         device/platform/windows/discoverers/BotherDeviceDiscoverer.h \
@@ -341,8 +356,10 @@ win32 {
 
 unix {
     # Add Linux-specific sources if any
-    SOURCES += device/platform/LinuxDeviceManager.cpp
-    HEADERS += device/platform/LinuxDeviceManager.h
+    SOURCES += device/platform/LinuxDeviceManager.cpp \
+        video/transport/LinuxHIDTransport.cpp
+    HEADERS += device/platform/LinuxDeviceManager.h \
+        video/transport/LinuxHIDTransport.h
 
     INCLUDEPATH += /usr/include
     LIBS += -lusb-1.0 -lX11 -lgstapp-1.0 -lturbojpeg

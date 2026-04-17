@@ -53,11 +53,42 @@ FirmwareManagerDialog::~FirmwareManagerDialog() {
 
 QByteArray FirmwareManagerDialog::readBinFileToByteArray(const QString &filePath){
     QFile file(filePath);
+    qWarning() << "[FirmwareRead] Opening firmware file:" << filePath;
     if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "Can't open bin file:" << filePath;
+        qWarning() << "[FirmwareRead] ERROR: Can't open bin file:" << filePath;
         return QByteArray();
     }
     QByteArray byteArray = file.readAll();
+    file.close();
+
+    qWarning() << "[FirmwareRead] File size:" << byteArray.size() << "bytes";
+
+    // Print first 32 bytes
+    if (!byteArray.isEmpty()) {
+        QString hexHead;
+        for (int i = 0; i < qMin(32, byteArray.size()); ++i)
+            hexHead += QString("%1 ").arg(static_cast<quint8>(byteArray[i]), 2, 16, QChar('0'));
+        qWarning() << "[FirmwareRead] First 32 bytes:" << hexHead.trimmed();
+    }
+
+    // Print last 32 bytes
+    if (byteArray.size() > 32) {
+        QString hexTail;
+        int tailStart = byteArray.size() - 32;
+        for (int i = tailStart; i < byteArray.size(); ++i)
+            hexTail += QString("%1 ").arg(static_cast<quint8>(byteArray[i]), 2, 16, QChar('0'));
+        qWarning() << "[FirmwareRead] Last  32 bytes:" << hexTail.trimmed();
+    }
+
+    // Count how many trailing 0xFF bytes
+    int trailingFF = 0;
+    for (int i = byteArray.size() - 1; i >= 0; --i) {
+        if (static_cast<quint8>(byteArray[i]) == 0xFF) ++trailingFF;
+        else break;
+    }
+    qWarning() << "[FirmwareRead] Trailing 0xFF padding bytes:" << trailingFF
+               << "(real data bytes:" << (byteArray.size() - trailingFF) << ")";
+
     return byteArray;
 }
 

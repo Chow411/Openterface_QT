@@ -27,4 +27,8 @@ static const QString OPENTERFACE_PID_V2 = "2132";
 static const QString OPENTERFACE_VID_V3 = "345F";     // V3 USB 3.0 integrated
 static const QString OPENTERFACE_PID_V3 = "2109";
 
+// Bootloader / recovery mode ("U3 Upgrade")
+static const QString OPENTERFACE_VID_BOOT = "345F";
+static const QString OPENTERFACE_PID_BOOT = "0001";
+
 #endif // DEVICECONSTANTS_H

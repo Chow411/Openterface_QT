@@ -49,6 +49,10 @@ protected:
     static const QString SERIAL_PID_V3;
     static const QString OPENTERFACE_VID_V3;
     static const QString OPENTERFACE_PID_V3;
+
+    // Bootloader / recovery mode ("U3 Upgrade")
+    static const QString OPENTERFACE_VID_BOOT;
+    static const QString OPENTERFACE_PID_BOOT;
     
     // Helper method for filtering devices
     QList<DeviceInfo> filterDevicesByPortChain(const QList<DeviceInfo>& devices, 

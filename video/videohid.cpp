@@ -465,7 +465,6 @@ bool VideoHid::beginTransaction() {
             }
         }
         
-        qCDebug(log_host_hid)  << "HID transaction started";
         return true;
     } else {
         qCWarning(log_host_hid)  << "Failed to start HID transaction after" << MAX_RETRIES << "attempts";
@@ -475,16 +474,8 @@ bool VideoHid::beginTransaction() {
 
 void VideoHid::endTransaction() {
     if (m_inTransaction) {
-        // For MS2130S, perform any cleanup or specific finalization
-        if (m_chipImpl && m_chipImpl->type() == VideoChipType::MS2130S) {
-            qCDebug(log_host_hid) << "Performing MS2130S-specific cleanup before closing transaction";
-            // Add a short delay to ensure any pending operations complete
-            QThread::msleep(10);
-        }
-        
         if (m_deviceTransport) m_deviceTransport->close();
         m_inTransaction = false;
-        qCDebug(log_host_hid) << "HID transaction ended";
     }
 }
 
@@ -592,7 +583,7 @@ QString VideoHid::findMatchingHIDDevice(const QString& portChain) const
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_lastPathQuery).count();
     
     if (!m_cachedDevicePath.isEmpty() && elapsed < 10) {
-        qCDebug(log_host_hid) << "Using cached HID device path:" << m_cachedDevicePath;
+        // qCDebug(log_host_hid) << "Using cached HID device path:" << m_cachedDevicePath;
         return m_cachedDevicePath;
     }
 

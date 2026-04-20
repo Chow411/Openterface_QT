@@ -58,8 +58,20 @@ void WCHUSBTransport::loadDll()
     LOAD_REQUIRED(m_fnRead,    "CH375ReadData")
 #undef LOAD_REQUIRED
 
-    // Optional -- older DLL versions may not export this
-    m_fnName = reinterpret_cast<FnCH375GetName>(
+    // Optional functions -- preferred when available
+    // CH375WriteEndP / CH375ReadEndP target a specific endpoint number,
+    // which avoids relying on the driver's default endpoint configuration.
+    m_fnWriteEP = reinterpret_cast<FnCH375WriteEndP>(
+        GetProcAddress(m_dllModule, "CH375WriteEndP"));
+    m_fnReadEP  = reinterpret_cast<FnCH375ReadEndP>(
+        GetProcAddress(m_dllModule, "CH375ReadEndP"));
+    // CH375SetEndpointTx / Rx configure which endpoint WriteData/ReadData use
+    m_fnSetTx   = reinterpret_cast<FnCH375SetEndpointTx>(
+        GetProcAddress(m_dllModule, "CH375SetEndpointTx"));
+    m_fnSetRx   = reinterpret_cast<FnCH375SetEndpointRx>(
+        GetProcAddress(m_dllModule, "CH375SetEndpointRx"));
+    // Device-name query
+    m_fnName    = reinterpret_cast<FnCH375GetName>(
         GetProcAddress(m_dllModule, "CH375GetDeviceName"));
 }
 
@@ -154,6 +166,13 @@ void WCHUSBTransport::open(int deviceIndex)
                 static_cast<ULONG>(k_timeout),
                 static_cast<ULONG>(k_timeout));
 
+    // Explicitly configure which endpoints WriteData/ReadData use.
+    // WCH ISP bootloader: bulk OUT = 0x02, bulk IN = 0x82.
+    // If the DLL supports SetEndpointTx/Rx, call them; otherwise the EndP
+    // variant of write/read is used in transfer() for explicit targeting.
+    if (m_fnSetTx) m_fnSetTx(ch375Idx, static_cast<UCHAR>(k_epOut));
+    if (m_fnSetRx) m_fnSetRx(ch375Idx, static_cast<UCHAR>(k_epIn));
+
     m_openIndex = static_cast<int>(ch375Idx);
 }
 
@@ -170,6 +189,9 @@ void WCHUSBTransport::close()
 
 // ---------------------------------------------------------------------------
 // transfer -- bulk write then bulk read via CH375DLL
+// Use CH375WriteData / CH375ReadData (most compatible).
+// Endpoint selection is pre-configured in open() via CH375SetEndpointTx/Rx
+// when those exports are available.
 // ---------------------------------------------------------------------------
 std::vector<uint8_t> WCHUSBTransport::transfer(const std::vector<uint8_t>& command)
 {
@@ -178,7 +200,7 @@ std::vector<uint8_t> WCHUSBTransport::transfer(const std::vector<uint8_t>& comma
 
     ULONG idx = static_cast<ULONG>(m_openIndex);
 
-    // Write
+    // ---- Write ----
     std::vector<uint8_t> wbuf(command);
     ULONG wlen = static_cast<ULONG>(wbuf.size());
     if (!m_fnWrite(idx, wbuf.data(), &wlen))
@@ -186,7 +208,7 @@ std::vector<uint8_t> WCHUSBTransport::transfer(const std::vector<uint8_t>& comma
     if (wlen != static_cast<ULONG>(command.size()))
         throw WCHTransportError("CH375WriteData: incomplete transfer");
 
-    // Read
+    // ---- Read ----
     std::vector<uint8_t> rbuf(static_cast<size_t>(k_maxPkt), 0);
     ULONG rlen = static_cast<ULONG>(k_maxPkt);
     if (!m_fnRead(idx, rbuf.data(), &rlen))

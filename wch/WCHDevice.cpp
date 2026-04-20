@@ -1,6 +1,9 @@
 #include "WCHDevice.h"
 
-// ---------------------------------------------------------------------------
+#include <sstream>
+#include <iomanip>
+
+
 // Hardcoded chip database ported from wchisp-mac Device.swift
 // Each entry: { name, chipID, deviceType, flashSize(bytes),
 //               eepromSize(bytes), uidSize, supportsCodeFlashProtect, altChipID }
@@ -77,7 +80,17 @@ WCHChip WCHChipDB::findChip(uint8_t chipID, uint8_t deviceType)
             chip.deviceType == deviceType)
             return chip;
     }
-    // Fallback: match on deviceType alone, use first entry; populate generic name
+    // Third pass: chipID match regardless of deviceType
+    // (handles ROM revisions or undocumented deviceType variants)
+    for (const auto& chip : s_chips) {
+        if (chip.chipID == chipID) {
+            WCHChip generic = chip;
+            generic.chipID     = chipID;
+            generic.deviceType = deviceType;
+            return generic;
+        }
+    }
+    // Fourth pass: deviceType family match
     for (const auto& chip : s_chips) {
         if (chip.deviceType == deviceType) {
             WCHChip generic = chip;
@@ -87,8 +100,12 @@ WCHChip WCHChipDB::findChip(uint8_t chipID, uint8_t deviceType)
             return generic;
         }
     }
-    throw WCHDeviceError("Unknown chip: chipID=0x" +
-                          std::to_string(chipID) +
-                          " deviceType=0x" +
-                          std::to_string(deviceType));
+    // Format error message with proper hex representation
+    std::ostringstream oss;
+    oss << "Unknown chip: chipID=0x"
+        << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+        << static_cast<unsigned>(chipID)
+        << " deviceType=0x"
+        << std::setw(2) << static_cast<unsigned>(deviceType);
+    throw WCHDeviceError(oss.str());
 }

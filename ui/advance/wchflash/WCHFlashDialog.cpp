@@ -311,11 +311,9 @@ void WCHFlashDialog::onDeviceDisconnected()
     appendLog(tr("Disconnected."));
 }
 
-void WCHFlashDialog::onProgress(int percent, const QString& message)
+void WCHFlashDialog::onProgress(int percent, const QString& /*message*/)
 {
     m_progressBar->setValue(percent);
-    if (!message.isEmpty())
-        appendLog(message);
 }
 
 void WCHFlashDialog::onFinished(bool success, const QString& message)

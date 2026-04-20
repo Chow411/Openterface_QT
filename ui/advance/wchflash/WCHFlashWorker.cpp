@@ -4,6 +4,7 @@
 #include "wch/WCHFlasher.h"
 #include "wch/WCHHexParser.h"
 
+#include <QFile>
 #include <memory>
 
 // ---------------------------------------------------------------------------
@@ -123,15 +124,32 @@ void WCHFlashWorker::flashFirmware(const QString& filePath)
         emit logMessage(QString("Parsing firmware: %1").arg(filePath));
         emit progress(0, "Parsing firmware file...");
 
-        auto firmware = WCHHexParser::parseFile(filePath.toStdString());
+        // Use QFile to open the path so that Unicode / non-ASCII paths work
+        // correctly on all platforms (std::ifstream may fail on Windows with
+        // Chinese or other non-Latin directory names).
+        QFile qfile(filePath);
+        if (!qfile.open(QIODevice::ReadOnly))
+            throw WCHHexParseError(
+                "Cannot open file: " + filePath.toStdString());
+        QByteArray qbytes = qfile.readAll();
+        qfile.close();
+        std::vector<uint8_t> rawBytes(
+            reinterpret_cast<const uint8_t*>(qbytes.constData()),
+            reinterpret_cast<const uint8_t*>(qbytes.constData()) + qbytes.size());
+
+        auto firmware = WCHHexParser::parseData(rawBytes);
 
         emit logMessage(QString("Firmware size: %1 bytes").arg(firmware.size()));
         emit progress(2, QString("Firmware loaded: %1 bytes").arg(firmware.size()));
 
-        // Flash with progress relay
+        // Flash with progress relay.
+        // emit logMessage only for milestone messages, not every per-chunk
+        // byte-count update (which would flood the log with thousands of lines).
         m_impl->flasher->flash(firmware, [this](int pct, const std::string& msg) {
-            emit progress(pct, QString::fromStdString(msg));
-            emit logMessage(QString::fromStdString(msg));
+            const QString qmsg = QString::fromStdString(msg);
+            emit progress(pct, qmsg);
+            if (!qmsg.startsWith("Programming:") && !qmsg.startsWith("Verifying:"))
+                emit logMessage(qmsg);
         });
 
         // Device has reset — close the handle

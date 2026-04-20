@@ -380,10 +380,13 @@ void WCHFlasher::protect()
 void WCHFlasher::reset()
 {
     auto packet = WCHPacketBuilder::ispEnd(1);
-    auto raw = doTransfer(packet, "ispEnd");
-    WCHResponse resp;
-    if (!WCHResponse::parse(raw, resp) || !resp.ok)
-        throw WCHFlashError("Reset (ispEnd) failed");
+    try {
+        m_transport->transfer(packet);
+    } catch (const WCHTransportError&) {
+        // After ispEnd the device reboots immediately and drops the USB
+        // connection.  The read side of the transfer will therefore fail —
+        // this is expected and not an error.
+    }
 
     std::this_thread::sleep_for(std::chrono::seconds(3));
 }

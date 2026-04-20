@@ -67,23 +67,36 @@ private:
     int     m_openIndex = -1;       // CH375 device index currently open (-1 = none)
 
     // CH375DLL function pointer types (WINAPI = __stdcall / default on x64)
-    using FnCH375OpenDevice  = HANDLE (WINAPI*)(ULONG iIndex);
-    using FnCH375CloseDevice = VOID   (WINAPI*)(ULONG iIndex);
-    using FnCH375SetTimeout  = BOOL   (WINAPI*)(ULONG iIndex,
-                                                ULONG iWriteTimeoutMS,
-                                                ULONG iReadTimeoutMS);
-    using FnCH375WriteData   = BOOL   (WINAPI*)(ULONG iIndex,
-                                                PVOID iBuffer, PULONG ioLength);
-    using FnCH375ReadData    = BOOL   (WINAPI*)(ULONG iIndex,
-                                                PVOID oBuffer, PULONG ioLength);
-    using FnCH375GetName     = BOOL   (WINAPI*)(ULONG iIndex, PCHAR oDevName);
+    using FnCH375OpenDevice      = HANDLE (WINAPI*)(ULONG iIndex);
+    using FnCH375CloseDevice     = VOID   (WINAPI*)(ULONG iIndex);
+    using FnCH375SetTimeout      = VOID   (WINAPI*)(ULONG iIndex,
+                                                    ULONG iWriteTimeoutMS,
+                                                    ULONG iReadTimeoutMS);
+    // Generic data transfer (uses pre-configured default endpoints)
+    using FnCH375WriteData       = BOOL   (WINAPI*)(ULONG iIndex,
+                                                    PVOID iBuffer, PULONG ioLength);
+    using FnCH375ReadData        = BOOL   (WINAPI*)(ULONG iIndex,
+                                                    PVOID oBuffer, PULONG ioLength);
+    // Endpoint-specific transfer (preferred — explicitly targets EP 0x02 / 0x82)
+    using FnCH375WriteEndP       = BOOL   (WINAPI*)(ULONG iIndex, UCHAR iEndPoint,
+                                                    PVOID iBuffer, PULONG ioLength);
+    using FnCH375ReadEndP        = BOOL   (WINAPI*)(ULONG iIndex, UCHAR iEndPoint,
+                                                    PVOID oBuffer, PULONG ioLength);
+    // Endpoint configuration for WriteData/ReadData (optional)
+    using FnCH375SetEndpointTx   = BOOL   (WINAPI*)(ULONG iIndex, UCHAR iEndPoint);
+    using FnCH375SetEndpointRx   = BOOL   (WINAPI*)(ULONG iIndex, UCHAR iEndPoint);
+    using FnCH375GetName         = BOOL   (WINAPI*)(ULONG iIndex, PCHAR oDevName);
 
-    FnCH375OpenDevice  m_fnOpen    = nullptr;
-    FnCH375CloseDevice m_fnClose   = nullptr;
-    FnCH375SetTimeout  m_fnTimeout = nullptr;
-    FnCH375WriteData   m_fnWrite   = nullptr;
-    FnCH375ReadData    m_fnRead    = nullptr;
-    FnCH375GetName     m_fnName    = nullptr;  // optional, may be null
+    FnCH375OpenDevice    m_fnOpen      = nullptr;
+    FnCH375CloseDevice   m_fnClose     = nullptr;
+    FnCH375SetTimeout    m_fnTimeout   = nullptr;
+    FnCH375WriteData     m_fnWrite     = nullptr;
+    FnCH375ReadData      m_fnRead      = nullptr;
+    FnCH375WriteEndP     m_fnWriteEP   = nullptr;  // optional, preferred
+    FnCH375ReadEndP      m_fnReadEP    = nullptr;  // optional, preferred
+    FnCH375SetEndpointTx m_fnSetTx     = nullptr;  // optional
+    FnCH375SetEndpointRx m_fnSetRx     = nullptr;  // optional
+    FnCH375GetName       m_fnName      = nullptr;  // optional
 
     void loadDll();   // called from constructor; throws WCHTransportError on failure
 

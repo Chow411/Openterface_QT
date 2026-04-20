@@ -4,6 +4,10 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFontDatabase>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QComboBox>
 #include <QLabel>
@@ -12,6 +16,8 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QApplication>
+#include <QClipboard>
 #include <QThread>
 #include <QDateTime>
 #include <QScrollBar>
@@ -316,6 +322,22 @@ void WCHFlashDialog::onProgress(int percent, const QString& /*message*/)
     m_progressBar->setValue(percent);
 }
 
+static bool isUsbPermissionError(const QString& message)
+{
+    return message.contains(QLatin1String("LIBUSB_ERROR_ACCESS"), Qt::CaseInsensitive);
+}
+
+static QString permissionFixCommands()
+{
+    return QStringLiteral(
+        "sudo tee /etc/udev/rules.d/51-opf-wchflash.rules <<'EOF'\n"
+        "SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"1a86\", ATTRS{idProduct}==\"55e0\", TAG+=\"uaccess\", MODE=\"0666\"\n"
+        "SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"4348\", ATTRS{idProduct}==\"55e0\", TAG+=\"uaccess\", MODE=\"0666\"\n"
+        "EOF\n\n"
+        "sudo udevadm control --reload-rules\n"
+        "sudo udevadm trigger\n");
+}
+
 void WCHFlashDialog::onFinished(bool success, const QString& message)
 {
     m_busy = false;
@@ -329,7 +351,49 @@ void WCHFlashDialog::onFinished(bool success, const QString& message)
     if (success) {
         QMessageBox::information(this, tr("Flash Complete"), message);
     } else {
-        QMessageBox::critical(this, tr("Flash Failed"), message);
+        QString title = tr("Error");
+        if (message.startsWith(QLatin1String("Connect failed:"), Qt::CaseInsensitive))
+            title = tr("Connection Failed");
+        else if (message.startsWith(QLatin1String("Flash error:"), Qt::CaseInsensitive))
+            title = tr("Flash Failed");
+
+        if (isUsbPermissionError(message)) {
+            QString details = permissionFixCommands();
+            QString userMessage = message + "\n\n" +
+                tr("Permission denied while opening the USB device. This is usually a Linux udev permission issue.") +
+                "\n\n" + tr("Run these commands in a terminal to add the rule and reload udev:") +
+                "\n\n";
+
+            QDialog dialog(this);
+            dialog.setWindowTitle(title);
+            auto* layout = new QVBoxLayout(&dialog);
+
+            auto* label = new QLabel(userMessage, &dialog);
+            label->setWordWrap(true);
+            layout->addWidget(label);
+
+            auto* commandView = new QPlainTextEdit(details, &dialog);
+            commandView->setReadOnly(true);
+            commandView->setLineWrapMode(QPlainTextEdit::NoWrap);
+            commandView->setMinimumHeight(180);
+            commandView->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+            layout->addWidget(commandView);
+
+            auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok, &dialog);
+            QPushButton* copyButton = buttons->addButton(tr("Copy commands"), QDialogButtonBox::ActionRole);
+            layout->addWidget(buttons);
+
+            connect(copyButton, &QPushButton::clicked, this, [details, this]() {
+                QApplication::clipboard()->setText(details);
+                appendLog(tr("Permission commands copied to clipboard."));
+            });
+            connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+
+            dialog.exec();
+            return;
+        }
+
+        QMessageBox::critical(this, title, message);
     }
 }
 

@@ -779,22 +779,36 @@ bool Ms2130sChip::writeFirmware(quint16 address, const QByteArray &data)
 {
     if (!m_transport) return false;
 
-    if (!m_transport->open()) {
-        qCWarning(log_chip) << "MS2130S could not begin transaction for firmware write";
+    // Use synchronous handle (GENERIC_READ|WRITE, no FILE_FLAG_OVERLAPPED) for flash
+    // operations. The normal overlapped GENERIC_READ handle can fail silently with
+    // large 4096-byte feature reports used in burst write/read.
+    // reopenSync() is already implemented in WindowsHIDTransport but was never called.
+    if (!m_transport->reopenSync()) {
+        qCWarning(log_chip) << "MS2130S could not open synchronous handle for firmware write";
         return false;
     }
 
     // Re-detect connect mode at start of every flash session.
     connectMode = 0;
 
-    // Use the existing overlapped handle (GENERIC_READ + FILE_FLAG_OVERLAPPED).
-    // The reference MsHidLink.cpp opens ONE handle with GENERIC_READ + FILE_FLAG_OVERLAPPED
-    // and uses it for ALL operations (GPIO init, erase, burst write, burst read).
-    // Previously we called reopenSync() which opened GENERIC_READ|WRITE with no
-    // FILE_FLAG_OVERLAPPED; this caused HidD_GetFeature to fail for 4096-byte burst
-    // read packets (asymmetric validation: SetFeature passes through unknown report IDs,
-    // GetFeature validates them against the HID descriptor).
-    qCInfo(log_chip) << "MS2130S flash flow: overlapped handle (matches reference MsHidLink), GPIO restore disabled, soft-reset if verify passes";
+    qCInfo(log_chip) << "MS2130S flash flow: firmware size=" << data.size() << "bytes";
+    // Log firmware header bytes for diagnostics
+    if (data.size() >= 16) {
+        QString hdrHex;
+        for (int i = 0; i < 16; ++i) hdrHex += QString("%1 ").arg(static_cast<uint8_t>(data[i]), 2, 16, QChar('0'));
+        qCInfo(log_chip) << "MS2130S flash flow: firmware first 16 bytes:" << hdrHex.trimmed();
+    }
+    // Check for 0x3C 0xC3 magic bytes
+    if (data.size() >= 2) {
+        quint8 b0 = static_cast<uint8_t>(data[0]);
+        quint8 b1 = static_cast<uint8_t>(data[1]);
+        if (b0 == 0x3C && b1 == 0xC3) {
+            qCInfo(log_chip) << "MS2130S flash flow: firmware header magic OK (0x3C 0xC3)";
+        } else {
+            qCWarning(log_chip) << "MS2130S flash flow: firmware header magic WRONG (expected 0x3C 0xC3, got 0x"
+                << QString::number(b0, 16) << "0x" << QString::number(b1, 16) << ")";
+        }
+    }
 
     bool ok = true;
     bool gpioInitialized = false;
@@ -810,6 +824,44 @@ bool Ms2130sChip::writeFirmware(quint16 address, const QByteArray &data)
     if (ok && connectMode == 1) {
         qCWarning(log_chip) << "MS2130S V1 mode is not supported by current updater flow. Aborting.";
         ok = false;
+    }
+
+    // ── Device ID validation (matches official MsHidLink device enumeration) ──
+    // Read device ID registers 0xFF00, 0xFF01, 0xFF02 and validate the chip
+    // is responding correctly before committing to a flash operation.
+    if (ok) {
+        const quint8 reportId = (connectMode == 1) ? 0x00 : 0x01;
+        const int readOffset = (connectMode == 2) ? 3 : 4;  // V2: byte[3], V3: byte[4]
+        quint8 deviceId[3] = {0};
+        bool idOk = true;
+
+        for (int i = 0; i < 3; ++i) {
+            quint16 addr = static_cast<quint16>(0xFF00 + i);
+            uint8_t s[9] = {reportId, 0xB5, static_cast<uint8_t>((addr >> 8) & 0xFF),
+                            static_cast<uint8_t>(addr & 0xFF), 0, 0, 0, 0, 0};
+            if (!m_transport->sendDirect(s, 9)) { idOk = false; break; }
+            uint8_t g[9] = {}; g[0] = reportId;
+            if (!m_transport->getDirect(g, 9)) { idOk = false; break; }
+            deviceId[i] = g[readOffset];
+        }
+
+        if (idOk) {
+            qCInfo(log_chip) << "MS2130S device ID: 0x"
+                << QString::number(deviceId[0], 16).rightJustified(2, '0').toUpper()
+                << "0x" << QString::number(deviceId[1], 16).rightJustified(2, '0').toUpper()
+                << "0x" << QString::number(deviceId[2], 16).rightJustified(2, '0').toUpper();
+            bool validId = (deviceId[0] == 0xA7 || deviceId[0] == 0xB7 || deviceId[0] == 0xC7)
+                        && deviceId[1] == 0x13 && deviceId[2] == 0x0A;
+            if (!validId) {
+                qCWarning(log_chip) << "MS2130S device ID validation FAILED – expected 0xA7/0xB7/0xC7 0x13 0x0A";
+                ok = false;
+            } else {
+                qCInfo(log_chip) << "MS2130S device ID validation PASSED";
+            }
+        } else {
+            qCWarning(log_chip) << "MS2130S failed to read device ID registers";
+            ok = false;
+        }
     }
 
     // ── Hidden handshake (equivalent to mshidlink_flash_get_size) ──────────
@@ -871,43 +923,76 @@ bool Ms2130sChip::writeFirmware(quint16 address, const QByteArray &data)
         qCWarning(log_chip) << "MS2130S firmware write FAILED after" << written << "/" << totalSize << "bytes";
     }
 
-    // ── Flash readback verification ────────────────────────────────────────────
-    // Read back the first 4095 bytes to confirm the data landed in SPI flash.
-    // IMPORTANT: must use a multiple of 4095 (one full HID packet worth) so the
-    // 0xE7 init length matches what the device will actually DMA into the packet.
-    // Using a small value like 64 causes the device to return garbage because
-    // the GetFeature call requests 4096 bytes but the device was only told to
-    // prepare 64; the extra bytes come from whatever is in the device's buffer.
+    // ── Full flash readback verification ─────────────────────────────────────────
+    // Read back the entire firmware in 60KB chunks and compare byte-by-byte,
+    // matching the official MSFlashUpgradeTool verification flow.
     bool verifyPassed = false;
     if (ok) {
         // Wait for SPI flash to commit the last burst write before reading back.
-        // The chip DMA's the USB buffer to SPI flash asynchronously; calling 0xE7 read
-        // init immediately returns stale buffer data. 100 ms is enough for the last sector.
         QThread::msleep(100);
-        QByteArray readback;
-        constexpr quint32 kVerifyLen = 4095;  // one full HID packet (matches reference 0x1000 chunk read)
-        bool rbOk = flashBurstRead(static_cast<quint32>(address), kVerifyLen, readback);
+
         auto toHex = [](const QByteArray &b, int n) -> QString {
             QString s;
             for (int i = 0; i < qMin(n, (int)b.size()); ++i)
                 s += QString("%1 ").arg(static_cast<quint8>(b[i]), 2, 16, QChar('0'));
             return s.trimmed();
         };
-        if (rbOk && readback.size() >= 16) {
-            QByteArray expected = data.left(static_cast<int>(readback.size()));
-            bool match = (readback == expected.left(readback.size()));
-            qCInfo(log_chip)  << "MS2130S flash readback  (first 16 B):" << toHex(readback,  16);
-            qCInfo(log_chip)  << "MS2130S firmware expected (first 16 B):" << toHex(expected, 16);
-            if (match) {
-                qCInfo(log_chip) << "MS2130S flash verify PASS – write data confirmed in SPI flash";
-                verifyPassed = true;
-            } else {
-                qCWarning(log_chip) << "MS2130S flash verify FAIL – readback DOES NOT MATCH firmware!"
-                                       " Possible causes: firmware file wrong format, write protocol bug.";
+
+        const quint32 kChunkSize = 60u * 1024u;  // matches max burst write size
+        const quint32 numFullChunks = totalSize / kChunkSize;
+        const quint32 remainder = totalSize % kChunkSize;
+
+        qCInfo(log_chip) << "MS2130S verifying" << totalSize << "bytes (" << numFullChunks
+            << "x 60KB + " << remainder << " bytes)";
+
+        bool allMatch = true;
+        quint32 verifyAddr = static_cast<quint32>(address);
+
+        // Verify full 60KB chunks
+        for (quint32 i = 0; i < numFullChunks && allMatch; ++i) {
+            QByteArray readback;
+            if (!flashBurstRead(verifyAddr, kChunkSize, readback)) {
+                qCWarning(log_chip) << "MS2130S flash verify: burst read failed at chunk" << i;
+                allMatch = false;
+                break;
             }
+            const int chunkOffset = static_cast<int>(i * kChunkSize);
+            QByteArray expected = data.mid(chunkOffset, static_cast<int>(kChunkSize));
+            if (readback != expected) {
+                qCWarning(log_chip) << "MS2130S flash verify FAIL at chunk" << i
+                    << "offset" << QString("0x%1").arg(verifyAddr, 6, 16, QChar('0'));
+                qCInfo(log_chip)  << "MS2130S flash readback  (first 16 B):" << toHex(readback, 16);
+                qCInfo(log_chip)  << "MS2130S firmware expected (first 16 B):" << toHex(expected, 16);
+                allMatch = false;
+            }
+            verifyAddr += kChunkSize;
+        }
+
+        // Verify remaining bytes
+        if (allMatch && remainder > 0) {
+            QByteArray readback;
+            // Read a full packet for the last chunk (device returns 4095 bytes minimum)
+            if (!flashBurstRead(verifyAddr, kChunkSize, readback)) {
+                qCWarning(log_chip) << "MS2130S flash verify: burst read failed for remainder";
+                allMatch = false;
+            } else {
+                QByteArray trimmed = readback.left(static_cast<int>(remainder));
+                QByteArray expected = data.right(static_cast<int>(remainder));
+                if (trimmed != expected) {
+                    qCWarning(log_chip) << "MS2130S flash verify FAIL in remainder" << remainder << "bytes";
+                    qCInfo(log_chip)  << "MS2130S flash readback  (first 16 B):" << toHex(trimmed, 16);
+                    qCInfo(log_chip)  << "MS2130S firmware expected (first 16 B):" << toHex(expected, 16);
+                    allMatch = false;
+                }
+            }
+        }
+
+        if (allMatch) {
+            qCInfo(log_chip) << "MS2130S flash verify PASS – all" << totalSize << "bytes confirmed in SPI flash";
+            verifyPassed = true;
         } else {
-            qCWarning(log_chip) << "MS2130S flash readback: 0xE7 read returned no data"
-                                   " (getDirect failed – see transport error log for Windows error code)";
+            qCWarning(log_chip) << "MS2130S flash verify FAIL – readback does not match firmware";
+            ok = false;
         }
     }
 
@@ -916,83 +1001,19 @@ bool Ms2130sChip::writeFirmware(quint16 address, const QByteArray &data)
 
     // ── Post-flash reset ──────────────────────────────────────────────────────
     //
-    // Reference (MSFlashUpgradeToolDlg.cpp): two-stage soft reset for ALL modes
-    // when verify succeeds:
-    //   Stage 1: write FF11=0x00 (Run from ROM) + FFFF=0x01 (soft reset) → wait reconnect
-    //   Stage 2: write FF11=0x01 (Run from RAM) + FFFF=0x01 (soft reset) → wait reconnect
+    // Reference (MSFlashUpgradeToolDlg.cpp) for V2/V3 mode:
+    //   NO soft reset is issued after flashing application firmware.
+    //   The tool simply closes the device and tells the user to power cycle.
+    //   Power cycling forces the MCU to cold-boot from flash, loading the
+    //   application firmware. A soft reset (FF11=0x01 → reset) would instead
+    //   run the bootloader, leaving the device in upgrade mode ("Upgrade V3 HID").
     //
-    // If verify failed, the reference shows an error and does NOT reset.
-    // We mirror that: reset only when verifyPassed, otherwise tell user to power cycle.
-    if (ok && verifyPassed) {
-        // Determine report ID and read16 response offset for this connect mode.
-        const quint8 reportId      = (connectMode == 1) ? 0x00 : 0x01;
-        const int    flagReadOffset = (connectMode == 1) ? 3    : 4;   // V1=recvBuf[3], V3=recvBuf[4]
-
-        auto write16reg = [&](quint16 addr, quint8 val) -> bool {
-            uint8_t buf[9] = {reportId, 0xB6,
-                              static_cast<uint8_t>((addr >> 8) & 0xFF),
-                              static_cast<uint8_t>(addr & 0xFF),
-                              val, 0, 0, 0, 0};
-            bool r = m_transport->sendDirect(buf, 9);
-            if (!r) qCWarning(log_chip) << "MS2130S write16reg FAILED addr="
-                << QString("0x%1").arg(addr, 4, 16, QChar('0')) << "val=" << val;
-            return r;
-        };
-
-        auto clearResetFlag = [&]() {
-            uint8_t sendBuf[9] = {reportId, 0xB5, 0xFF, 0xFE, 0, 0, 0, 0, 0};
-            uint8_t recvBuf[9] = {reportId, 0, 0, 0, 0, 0, 0, 0, 0};
-            bool s = m_transport->sendDirect(sendBuf, 9);
-            bool g = m_transport->getDirect(recvBuf, 9);
-            if (!s || !g)
-                qCWarning(log_chip) << "MS2130S clearResetFlag FAILED send=" << s << "get=" << g;
-            else
-                qCInfo(log_chip) << "MS2130S clearResetFlag OK  0xFFFE="
-                    << QString("0x%1").arg(recvBuf[flagReadOffset], 2, 16, QChar('0'));
-        };
-
-        // Stage 1: Run from ROM (enter bootloader ROM)
-        qCInfo(log_chip) << "MS2130S stage-1 soft reset (Run from ROM, mode=" << connectMode << ")...";
-        clearResetFlag();
-        write16reg(0xFF12, 0x00);  // Disable MCU write PRAM from ROM
-        write16reg(0xFF11, 0x00);  // MCU run from ROM
-        write16reg(0xFF13, 0x00);  // ys clk source select: 0=osc
-        write16reg(0xFFFF, 0x01);  // soft reset
-        qCInfo(log_chip) << "MS2130S stage-1 reset sent; waiting for reconnect...";
-        m_transport->close();
-
-        bool reconnected = false;
-        for (int attempt = 0; attempt < 100; ++attempt) {
-            QThread::msleep(100);
-            if (m_transport->open()) { reconnected = true; break; }
-        }
-        if (reconnected) {
-            // Stage 2: Run from RAM (bootloader copies app firmware from flash to RAM)
-            qCInfo(log_chip) << "MS2130S stage-2 soft reset (Run from RAM)...";
-            clearResetFlag();
-            write16reg(0xFF12, 0x00);  // Disable MCU write PRAM from ROM
-            write16reg(0xFF11, 0x01);  // MCU run from RAM
-            write16reg(0xFF13, 0x00);  // ys clk source select: 0=osc
-            write16reg(0xFFFF, 0x01);  // soft reset
-            qCInfo(log_chip) << "MS2130S stage-2 reset sent. New firmware should now be active.";
-        } else {
-            qCWarning(log_chip) << "MS2130S stage-1 reconnect timed out. Power cycle the device.";
-        }
-    } else if (ok) {
-        // Write succeeded but verify failed – we can't confirm the flash contents.
-        // Tell user to power cycle; the chip's ROM bootloader will attempt to boot
-        // from whatever is in flash.
-        qCInfo(log_chip)
-            << "MS2130S firmware write complete (verify skipped or failed)."
-            << " *** Unplug and re-plug the USB cable to load the new firmware. ***";
-    }
-
-    // Close the transport so Windows HID driver does not error when the device
-    // disappears off the USB bus after stage-2 reset.
-    m_transport->close();
-
+    // The two-stage soft reset is ONLY used in V1 mode (lines 939-955 of the
+    // reference) to transition from app mode into the UPG bootloader mode.
     if (ok) {
-        qCInfo(log_chip) << "MS2130S firmware update complete – device is re-enumerating";
+        qCInfo(log_chip)
+            << "MS2130S firmware update complete (write succeeded)."
+            << " *** Unplug and re-plug the USB cable to load the new firmware. ***";
     }
     return ok;
 }

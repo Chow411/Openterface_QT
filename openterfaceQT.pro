@@ -128,7 +128,8 @@ SOURCES += main.cpp \
     ui/preferences/logpage.cpp \
     ui/preferences/videopage.cpp \
     ui/preferences/audiopage.cpp \
-    ui/preferences/targetcontrolpage.cpp
+    ui/preferences/targetcontrolpage.cpp \
+    ui/floatingwindow/floatingwindow.cpp
 
 # Platform-specific backend handlers (exclude on Windows)
 !win32 {
@@ -276,7 +277,8 @@ HEADERS  += \
     ui/preferences/logpage.h \
     ui/preferences/targetcontrolpage.h \
     ui/preferences/videopage.h \
-    ui/preferences/audiopage.h
+    ui/preferences/audiopage.h \
+    ui/floatingwindow/floatingwindow.h
 
 FORMS    += \
     ui/mainwindow.ui \

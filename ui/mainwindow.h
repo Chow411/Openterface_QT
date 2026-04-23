@@ -106,6 +106,7 @@ class QActionGroup;
 QT_END_NAMESPACE
 
 class MetaDataDialog;
+class FloatingWindow;
 
 #ifdef Q_OS_WIN
 class QtBackendHandler;
@@ -359,6 +360,11 @@ private:
     ScreenScale *m_screenScaleDialog = nullptr;
     CornerWidgetManager *m_cornerWidgetManager = nullptr;
     WindowControlManager *m_windowControlManager = nullptr;
+    FloatingWindow *m_floatingWindow = nullptr;
+
+    void showFloatingWindow();
+    void hideFloatingWindow();
+    void ensureFloatingWindowCreated();
     
     ratioType currentRatioType = ratioType::EQUAL;
     void stopServer();

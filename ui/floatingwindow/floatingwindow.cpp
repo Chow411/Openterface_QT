@@ -30,7 +30,8 @@
 #include <QPropertyAnimation>
 #include <QEasingCurve>
 #include <QScreen>
-#include <QApplication>
+#include <QShowEvent>
+#include <QFocusEvent>
 
 static constexpr int kButtonSize = 48;
 static constexpr int kIconSize = 24;
@@ -44,7 +45,7 @@ FloatingWindow::FloatingWindow(QWidget *parent)
     , m_expanded(false)
     , m_moveDelay(kMoveStepSmall)
 {
-    setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+    setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::BypassWindowManagerHint);
     setAttribute(Qt::WA_DeleteOnClose, false);
 
     m_moveTimer = new QTimer(this);
@@ -405,4 +406,16 @@ void FloatingWindow::positionAtVideoPaneTopRight(QWidget *videoPane)
     int x = videoPaneGlobal.x() + videoPane->width() - width() - 10;
     int y = videoPaneGlobal.y() + 10;
     move(x, y);
+}
+
+void FloatingWindow::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    raise();
+}
+
+void FloatingWindow::focusOutEvent(QFocusEvent *event)
+{
+    QWidget::focusOutEvent(event);
+    raise();
 }

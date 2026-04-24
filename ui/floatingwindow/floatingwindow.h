@@ -26,6 +26,8 @@
 #include <QPushButton>
 #include <QGridLayout>
 #include <QMouseEvent>
+#include <QFocusEvent>
+#include <QShowEvent>
 #include <QSvgRenderer>
 #include <QPainter>
 #include <QPixmap>
@@ -61,6 +63,8 @@ public:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+    void focusOutEvent(QFocusEvent *event) override;
 
 private:
     void setupUI();

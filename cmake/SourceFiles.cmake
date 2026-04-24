@@ -252,6 +252,11 @@ set(UI_RECORDING_SOURCES
     ui/recording/recordingcontroller.cpp ui/recording/recordingcontroller.h
 )
 
+# UI floating window sources
+set(UI_FLOATING_WINDOW_SOURCES
+    ui/floatingwindow/floatingwindow.cpp ui/floatingwindow/floatingwindow.h
+)
+
 # UI preferences sources
 set(UI_PREFERENCES_SOURCES
     ui/preferences/cameraadjust.cpp ui/preferences/cameraadjust.h
@@ -286,6 +291,7 @@ set(SOURCE_FILES
     ${UI_TOOLBAR_SOURCES}
     ${UI_RECORDING_SOURCES}
     ${UI_PREFERENCES_SOURCES}
+    ${UI_FLOATING_WINDOW_SOURCES}
     ${WCH_SOURCES}
 )
 

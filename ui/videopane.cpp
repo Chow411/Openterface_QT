@@ -35,6 +35,10 @@
 #include <chrono>
 #include <cmath>
 
+#ifdef Q_OS_LINUX
+#include <X11/Xlib.h>
+#endif
+
 Q_LOGGING_CATEGORY(log_ui_video, "opf.ui.video")
 
 VideoPane::VideoPane(QWidget *parent) : QGraphicsView(parent), 
@@ -504,13 +508,17 @@ void VideoPane::resizeEvent(QResizeEvent *event)
     
     updateVideoItemTransform();
     
-    // Update overlay widget size for direct GStreamer mode
+    // Update overlay widget geometry for direct GStreamer mode
     if (m_directGStreamerMode && m_overlayWidget) {
-        m_overlayWidget->resize(size());
-        qDebug() << "VideoPane: Resized GStreamer overlay widget to:" << size();
+        if (viewport()) {
+            m_overlayWidget->setGeometry(viewport()->rect());
+        } else {
+            m_overlayWidget->resize(size());
+            qCDebug(log_ui_video) << "VideoPane: Resized GStreamer overlay widget to:" << size();
+        }
         
-        // Emit signal for GStreamer backend to update render rectangle
-        emit videoPaneResized(size());
+        // The overlay is a child of the viewport, so it does not need top-level raising.
+        emit videoPaneResized(m_overlayWidget->size());
     }
 }
 
@@ -521,14 +529,16 @@ void VideoPane::updateOverlayWidgetGeometry()
         return;
     }
 
-    QRectF viewRect = viewport()->rect();
-    if (viewRect.width() > 0 && viewRect.height() > 0) {
-        m_overlayWidget->setGeometry(viewRect.toRect());
+    if (viewport()) {
+        m_overlayWidget->setGeometry(viewport()->rect());
     }
 
     std::thread([this]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        QMetaObject::invokeMethod(this, [this]() { m_overlayWidget->setGeometry(viewport()->rect());}, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, [this]() {
+            if (!m_overlayWidget || !viewport()) return;
+            m_overlayWidget->setGeometry(viewport()->rect());
+        }, Qt::QueuedConnection);
     }).detach();
     qCDebug(log_ui_video) << "VideoPane: Updated GStreamer overlay widget geometry to:" << m_overlayWidget->geometry();
 
@@ -1118,47 +1128,53 @@ WId VideoPane::getVideoOverlayWindowId() const
 void VideoPane::setupForGStreamerOverlay()
 {
     qCDebug(log_ui_video) << "VideoPane: Setting up for GStreamer video overlay";
-    
+
     // Create overlay widget if it doesn't exist
     if (!m_overlayWidget) {
-        m_overlayWidget = new QWidget(this);
+        QWidget* parentWidget = viewport() ? viewport() : this;
+        m_overlayWidget = new QWidget(parentWidget);
         m_overlayWidget->setObjectName("gstreamerOverlayWidget");
-        
+
         // CRITICAL: Black background for GStreamer overlay to work properly (from working v0.4.0)
-        m_overlayWidget->setStyleSheet("background-color: black; border: 2px solid white;");
-        m_overlayWidget->setMinimumSize(640, 480);
-        
-        // Enable native window for video overlay (from widgets_main.cpp approach)
+        m_overlayWidget->setStyleSheet("background-color: black; border: none;");
+        m_overlayWidget->setMinimumSize(1, 1);
+
+        // Keep the overlay as a native child window of the viewport to avoid
+        // top-level window stacking issues and menu/dialog interference.
         m_overlayWidget->setAttribute(Qt::WA_NativeWindow, true);
         m_overlayWidget->setAttribute(Qt::WA_PaintOnScreen, true);
-        
+        m_overlayWidget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+
         // IMPORTANT: Make sure the widget can receive video overlay (from working v0.4.0)
         // Removing transparent mouse events to ensure proper overlay functionality
         // m_overlayWidget->setAttribute(Qt::WA_TransparentForMouseEvents, false); // Enable for GStreamer input
-        
+
         // Enable mouse tracking and focus for event handling
         m_overlayWidget->setMouseTracking(true);
         m_overlayWidget->setFocusPolicy(Qt::StrongFocus);
-        
-        // Position the overlay widget to fill the viewport
+
+// Position the overlay widget to the portion of the viewport that is actually on-screen.
+    if (viewport()) {
+        m_overlayWidget->setGeometry(viewport()->rect());
+    } else {
         m_overlayWidget->resize(size());
-        m_overlayWidget->show();
-        
-        qCDebug(log_ui_video) << "VideoPane: Created GStreamer overlay widget with window ID:" << m_overlayWidget->winId();
-        qCDebug(log_ui_video) << "Overlay widget size:" << m_overlayWidget->size() << "position:" << m_overlayWidget->pos();
-        
+    }
+    m_overlayWidget->show();
+    m_overlayWidget->raise();
+
+        qCDebug(log_ui_video) << "[OVERLAY] Created GStreamer overlay widget winId:" << m_overlayWidget->winId()
+                              << "size:" << m_overlayWidget->size() << "pos:" << m_overlayWidget->pos();
+
         // Update the InputHandler to use the overlay widget for events
         if (m_inputHandler) {
             m_inputHandler->updateEventFilterTarget();
         }
 
-        // Use a separate detached thread to wait 0.5s then request fitToWindow()
-        // The actual call is queued to the GUI thread using QMetaObject::invokeMethod
-        // to ensure all GUI operations run on the main thread.
-        // std::thread([this]() {
-        //     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        //     QMetaObject::invokeMethod(this, [this]() { this->fitToWindow(); }, Qt::QueuedConnection);
-        // }).detach();
+        // Note: The initial render rectangle will be set when the overlay widget's
+        // Show event triggers setupVideoOverlayForCurrentPipeline() in the backend,
+        // which calls setupVideoOverlay() that sets the render rectangle.
+        // The pipeline already handles scaling + centering (videoscale add-borders=true),
+        // so the render rectangle fills the entire overlay widget.
     } else {
         qCDebug(log_ui_video) << "VideoPane: GStreamer overlay widget already exists, ensuring visibility";
         m_overlayWidget->show();

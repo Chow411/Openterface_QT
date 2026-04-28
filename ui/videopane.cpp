@@ -525,23 +525,28 @@ void VideoPane::resizeEvent(QResizeEvent *event)
 // Helper methods
 void VideoPane::updateOverlayWidgetGeometry()
 {
-    if (!m_overlayWidget) {
+    if (!m_overlayWidget || !viewport()) {
         return;
     }
 
-    if (viewport()) {
-        m_overlayWidget->setGeometry(viewport()->rect());
+    QRect viewportRect = viewport()->rect();
+    QRect newGeometry;
+    if (m_scaleFactor > 1.0) {
+        QSize scaledSize(qRound(viewportRect.width() * m_scaleFactor), qRound(viewportRect.height() * m_scaleFactor));
+        QPointF sceneTopLeft = mapToScene(viewportRect.topLeft());
+        int x = qRound(-sceneTopLeft.x() * m_scaleFactor);
+        int y = qRound(-sceneTopLeft.y() * m_scaleFactor);
+        newGeometry = QRect(x, y, scaledSize.width(), scaledSize.height());
+    } else {
+        newGeometry = viewportRect;
     }
 
-    std::thread([this]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        QMetaObject::invokeMethod(this, [this]() {
-            if (!m_overlayWidget || !viewport()) return;
-            m_overlayWidget->setGeometry(viewport()->rect());
-        }, Qt::QueuedConnection);
-    }).detach();
-    qCDebug(log_ui_video) << "VideoPane: Updated GStreamer overlay widget geometry to:" << m_overlayWidget->geometry();
+    if (m_overlayWidget->geometry() != newGeometry) {
+        m_overlayWidget->setGeometry(newGeometry);
+    }
+    m_overlayWidget->update();
 
+    qCDebug(log_ui_video) << "VideoPane: Updated GStreamer overlay widget geometry to:" << m_overlayWidget->geometry();
 }
 
 void VideoPane::updateVideoItemTransform()
@@ -738,6 +743,47 @@ void VideoPane::updateScrollBarsAndSceneRect()
     }
 }
 
+QRectF VideoPane::getGStreamerVideoContentRect() const
+{
+    if (m_directGStreamerMode && m_overlayWidget && viewport()) {
+        // In direct GStreamer mode, mouse coordinates should map to the active
+        // visible overlay region, not the full widget geometry if part of the
+        // overlay is clipped by the screen or the parent window.
+        QRect overlayGeometry = m_overlayWidget->geometry();
+        QRect visibleLocal = m_overlayWidget->visibleRegion().boundingRect();
+
+        if (visibleLocal.isValid() && visibleLocal.size() != m_overlayWidget->size()) {
+            QPoint viewportTopLeft = m_overlayWidget->mapTo(viewport(), visibleLocal.topLeft());
+            return QRectF(viewportTopLeft, visibleLocal.size());
+        }
+
+        QRect globalOverlayRect(m_overlayWidget->mapToGlobal(QPoint(0, 0)), m_overlayWidget->size());
+        QScreen *screen = nullptr;
+        if (QWindow *topWindow = window() ? window()->windowHandle() : nullptr) {
+            screen = topWindow->screen();
+        }
+        if (!screen) {
+            screen = QGuiApplication::primaryScreen();
+        }
+
+        if (screen) {
+            QRect visibleGlobal = globalOverlayRect.intersected(screen->availableGeometry());
+            if (visibleGlobal.isValid() && visibleGlobal.size() != globalOverlayRect.size()) {
+                QPoint viewportTopLeft = viewport()->mapFromGlobal(visibleGlobal.topLeft());
+                return QRectF(viewportTopLeft, visibleGlobal.size());
+            }
+        }
+
+        return QRectF(overlayGeometry);
+    }
+
+    if (viewport()) {
+        return QRectF(viewport()->rect());
+    }
+
+    return QRectF();
+}
+
 QPointF VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
 {
     // qCDebug(log_ui_video) << "      [getTransformed] Input viewportPos:" << viewportPos;
@@ -755,66 +801,24 @@ QPointF VideoPane::getTransformedMousePosition(const QPoint& viewportPos)
         itemRect = m_videoItem->boundingRect();
         // qCDebug(log_ui_video) << "      [getTransformed] Using video item";
     } else if (m_directGStreamerMode) {
-        // Special handling for GStreamer mode
-        QRectF viewRect = viewport()->rect();
-        qDebug() << "      [getTransformed] viewRect:" << viewRect;
+        QRectF videoRect = getGStreamerVideoContentRect();
+        qDebug() << "      [getTransformed] GStreamer video rect:" << videoRect;
 
-        // Guard against invalid view or original video size
-        if (viewRect.width() <= 0 || viewRect.height() <= 0) {
-            qCWarning(log_ui_video) << "Invalid viewport size for GStreamer mapping:" << viewRect.size();
+        if (!videoRect.isValid() || videoRect.isEmpty()) {
+            qCWarning(log_ui_video) << "Invalid video content rect for GStreamer mapping:" << videoRect;
             return QPointF(viewportPos);
         }
 
-        int vwInt = m_originalVideoSize.width();
-        int vhInt = m_originalVideoSize.height();
-        if (vwInt <= 0 || vhInt <= 0) {
-            qCWarning(log_ui_video) << "Invalid original video size for GStreamer mapping:" << m_originalVideoSize;
-            // fallback to viewport coordinates
-            return QPointF(viewportPos);
-        }
-
-        double vw = static_cast<double>(vwInt);
-        double vh = static_cast<double>(vhInt);
-        double viewW = viewRect.width();
-        double viewH = viewRect.height();
-        double videoAspect = vw / vh;
-        double viewAspect = viewW / viewH;
-        double scale;
-        if (videoAspect > viewAspect) {
-            scale = viewW / vw;
-        } else {
-            scale = viewH / vh;
-        }
-        double scaledWidth = vw * scale;
-        double scaledHeight = vh * scale;
-        double x = (viewW - scaledWidth) / 2;
-        double y = (viewH - scaledHeight) / 2;
-        QRectF videoRect(x, y, scaledWidth, scaledHeight);
-        qDebug() << "      [videoRect] " << x << y << scaledWidth << scaledHeight;
-        // Calculate itemPos manually
         QPointF itemPos = viewportPos - videoRect.topLeft();
         double itemWidth = videoRect.width();
         double itemHeight = videoRect.height();
-        qDebug() << "      [getTransformed] itemPos, itemWidth, itemHeight:" << itemPos << itemWidth << itemHeight;
-        if (itemWidth <= 0 || itemHeight <= 0) {
-            return viewportPos;
-        }
-        qDebug() << "      [getTransformed] itemWidth/itemHeight:" << itemWidth << itemHeight;
         double relativeX = itemPos.x() / itemWidth;
         double relativeY = itemPos.y() / itemHeight;
         double normalizedX = qBound(0.0, relativeX, 1.0);
         double normalizedY = qBound(0.0, relativeY, 1.0);
-        double transformedXDouble = normalizedX * viewRect.width();
-        double transformedYDouble = normalizedY * viewRect.height();
-        int transformedX = qRound(transformedXDouble);
-        int transformedY = qRound(transformedYDouble);
-        QPointF finalResult(transformedXDouble, transformedYDouble);
-        qDebug() << "      [getTransformed] Before zoom correction:" << finalResult;
-        if (m_scaleFactor > 1.0) {
-            transformedX += m_zoomOffsetCorrectionX;
-            transformedY += m_zoomOffsetCorrectionY;
-            finalResult = QPointF(transformedX, transformedY);
-        }
+
+        QPointF finalResult(normalizedX * itemWidth, normalizedY * itemHeight);
+        qDebug() << "      [getTransformed] GStreamer normalized pos:" << finalResult;
         return finalResult;
     }
     
@@ -1143,6 +1147,8 @@ void VideoPane::setupForGStreamerOverlay()
         // top-level window stacking issues and menu/dialog interference.
         m_overlayWidget->setAttribute(Qt::WA_NativeWindow, true);
         m_overlayWidget->setAttribute(Qt::WA_PaintOnScreen, true);
+        m_overlayWidget->setAttribute(Qt::WA_NoSystemBackground, true);
+        m_overlayWidget->setAttribute(Qt::WA_OpaquePaintEvent, true);
         m_overlayWidget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
 
         // IMPORTANT: Make sure the widget can receive video overlay (from working v0.4.0)

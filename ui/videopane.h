@@ -84,6 +84,8 @@ public:
 
     // Mouse position transformation for InputHandler
     QPointF getTransformedMousePosition(const QPoint& viewportPos);
+    void setOriginalVideoSize(const QSize& size) { m_originalVideoSize = size; }
+    QRectF getGStreamerVideoContentRect() const;
     
     // Debug helper to validate coordinate transformation consistency
     void validateMouseCoordinates(const QPoint& original, const QString& eventType);

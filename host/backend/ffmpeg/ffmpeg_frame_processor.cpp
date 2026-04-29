@@ -188,6 +188,12 @@ QImage FFmpegFrameProcessor::GetLatestOriginalFrame() const
     return latest_original_frame_.copy();
 }
 
+QSize FFmpegFrameProcessor::GetNativeJpegSize() const
+{
+    QMutexLocker locker(&mutex_);
+    return native_jpeg_size_;
+}
+
 bool FFmpegFrameProcessor::ShouldDropFrame(bool is_recording)
 {
     // Use high-resolution elapsed time (microsecond precision) to avoid millisecond rounding errors.
@@ -545,6 +551,12 @@ QImage FFmpegFrameProcessor::DecodeMJPEGWithTurboJPEG(AVPacket* packet, const QS
                            &width, &height, &subsamp, &colorspace) < 0) {
         qCWarning(log_ffmpeg_backend) << "TurboJPEG header decode failed:" << tjGetErrorStr();
         return QImage();
+    }
+    
+    // Store native dimensions before any DCT scaling is applied
+    {
+        QMutexLocker locker(&mutex_);
+        native_jpeg_size_ = QSize(width, height);
     }
     
     // Determine target size for scaling

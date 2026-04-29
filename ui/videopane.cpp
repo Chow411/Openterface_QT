@@ -709,27 +709,18 @@ void VideoPane::updateScrollBarsAndSceneRect()
         setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         
-        // When zoomed in, we need a scene rect that accounts for the zoom level
-        // to ensure proper scrolling boundaries
         if (m_scene) {
-            QRectF viewportRect = viewport()->rect();
-            
-            // Calculate the effective scene size based on the zoom factor
-            // This ensures scroll bars have the correct range
-            QRectF zoomedSceneRect = QRectF(
-                viewportRect.x(),
-                viewportRect.y(),
-                viewportRect.width(), 
-                viewportRect.height()
-            );
-            
-            // Set the scene rect to match the viewport
+            QRectF zoomedSceneRect = contentRect;
+            if (zoomedSceneRect.isEmpty()) {
+                zoomedSceneRect = viewport()->rect();
+            }
+            // Use the item content bounds rather than the viewport rect so scrollbars
+            // reflect the actual zoomed video content.
             m_scene->setSceneRect(zoomedSceneRect);
             
-            // Log the scene rect update
             qCDebug(log_ui_video) << "Updated scene rect for zoom:" << zoomedSceneRect
                                  << "zoom factor:" << m_scaleFactor
-                                 << "viewport:" << viewportRect;
+                                 << "viewport:" << viewport()->rect();
         }
     } else {
         // Disable scroll bars when at normal zoom or below

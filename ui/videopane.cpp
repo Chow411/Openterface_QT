@@ -943,6 +943,75 @@ void VideoPane::wheelEvent(QWheelEvent *event)
     event->accept();
 }
 
+void VideoPane::keyPressEvent(QKeyEvent *event)
+{
+    // Handle Shift + Arrow keys for panning in zoomed mode
+    if (m_scaleFactor > 1.0 && event->modifiers() == Qt::ShiftModifier) {
+        // Define scroll step size (in pixels)
+        const int scrollStep = 50;
+        bool handled = false;
+        
+        switch (event->key()) {
+            case Qt::Key_Up:
+                // Scroll up (decrease vertical scroll bar value)
+                if (verticalScrollBar()) {
+                    int currentValue = verticalScrollBar()->value();
+                    verticalScrollBar()->setValue(currentValue - scrollStep);
+                    // Only log on first press, not on auto-repeat
+                    if (!event->isAutoRepeat()) {
+                        qCDebug(log_ui_video) << "Shift+Up: scrolled up, new value:" << verticalScrollBar()->value();
+                    }
+                    handled = true;
+                }
+                break;
+                
+            case Qt::Key_Down:
+                // Scroll down (increase vertical scroll bar value)
+                if (verticalScrollBar()) {
+                    int currentValue = verticalScrollBar()->value();
+                    verticalScrollBar()->setValue(currentValue + scrollStep);
+                    if (!event->isAutoRepeat()) {
+                        qCDebug(log_ui_video) << "Shift+Down: scrolled down, new value:" << verticalScrollBar()->value();
+                    }
+                    handled = true;
+                }
+                break;
+                
+            case Qt::Key_Left:
+                // Scroll left (decrease horizontal scroll bar value)
+                if (horizontalScrollBar()) {
+                    int currentValue = horizontalScrollBar()->value();
+                    horizontalScrollBar()->setValue(currentValue - scrollStep);
+                    if (!event->isAutoRepeat()) {
+                        qCDebug(log_ui_video) << "Shift+Left: scrolled left, new value:" << horizontalScrollBar()->value();
+                    }
+                    handled = true;
+                }
+                break;
+                
+            case Qt::Key_Right:
+                // Scroll right (increase horizontal scroll bar value)
+                if (horizontalScrollBar()) {
+                    int currentValue = horizontalScrollBar()->value();
+                    horizontalScrollBar()->setValue(currentValue + scrollStep);
+                    if (!event->isAutoRepeat()) {
+                        qCDebug(log_ui_video) << "Shift+Right: scrolled right, new value:" << horizontalScrollBar()->value();
+                    }
+                    handled = true;
+                }
+                break;
+        }
+        
+        if (handled) {
+            event->accept();
+            return;
+        }
+    }
+    
+    // Pass unhandled events to base class
+    QGraphicsView::keyPressEvent(event);
+}
+
 void VideoPane::mousePressEvent(QMouseEvent *event)
 {
     // Validate coordinate transformation consistency (debug helper)

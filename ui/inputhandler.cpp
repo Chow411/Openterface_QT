@@ -343,6 +343,14 @@ bool InputHandler::eventFilter(QObject *watched, QEvent *event)
     if ((watched == m_videoPane || watched == m_currentEventTarget) && event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
         if (!keyEvent->isAutoRepeat()){
+            // SPECIAL CASE: Let Shift + Arrow keys pass through to VideoPane for panning in zoom mode
+            // These keys are used for navigating the zoomed video view, not for target device input
+            if (keyEvent->modifiers() == Qt::ShiftModifier && 
+                (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down ||
+                 keyEvent->key() == Qt::Key_Left || keyEvent->key() == Qt::Key_Right)) {
+                return false;  // Let VideoPane handle it
+            }
+            
             handleKeyPressEvent(keyEvent);
             return true;
         }
@@ -350,6 +358,14 @@ bool InputHandler::eventFilter(QObject *watched, QEvent *event)
     if ((watched == m_videoPane || watched == m_currentEventTarget) && event->type() == QEvent::KeyRelease) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
         if (!keyEvent->isAutoRepeat()){
+            // SPECIAL CASE: Let Shift + Arrow keys pass through to VideoPane for panning in zoom mode
+            // Match the same logic as KeyPress for consistency
+            if (keyEvent->modifiers() == Qt::ShiftModifier && 
+                (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down ||
+                 keyEvent->key() == Qt::Key_Left || keyEvent->key() == Qt::Key_Right)) {
+                return false;  // Let VideoPane handle it
+            }
+            
             handleKeyReleaseEvent(keyEvent);
             return true;
         }

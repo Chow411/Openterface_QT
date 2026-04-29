@@ -110,6 +110,12 @@ VideoPane::VideoPane(QWidget *parent) : QGraphicsView(parent),
     // CacheBackground can hold old frames and prevent updates
     setCacheMode(QGraphicsView::CacheNone);
 
+    // Use top-left alignment so the scene origin always maps to viewport (0,0).
+    // Item centering is handled explicitly via setPos() in updateVideoItemTransform(),
+    // so relying on AlignCenter (the Qt default) would double-center the content and
+    // cause display shifts whenever the scene rect doesn't exactly match the viewport.
+    setAlignment(Qt::AlignLeft | Qt::AlignTop);
+
     this->setMouseTracking(true);
     this->installEventFilter(m_inputHandler);
     this->setFocusPolicy(Qt::StrongFocus);
@@ -691,12 +697,16 @@ void VideoPane::setupScene()
 
 void VideoPane::updateScrollBarsAndSceneRect()
 {
-    // Get the actual video content size
+    // Get the actual video content size in SCENE coordinates (accounts for item
+    // transform and device pixel ratio).  Using the item's LOCAL boundingRect()
+    // here would be wrong on HiDPI displays (DPR > 1): the pixmap logical size is
+    // physical_size / DPR, which is smaller than the viewport, causing AlignCenter
+    // to push the content to the right side with a large black area on the left.
     QRectF contentRect;
     if (m_directFFmpegMode && m_pixmapItem) {
-        contentRect = m_pixmapItem->boundingRect();
+        contentRect = m_pixmapItem->mapToScene(m_pixmapItem->boundingRect()).boundingRect();
     } else if (m_videoItem) {
-        contentRect = m_videoItem->boundingRect();
+        contentRect = m_videoItem->mapToScene(m_videoItem->boundingRect()).boundingRect();
     }
     
     if (contentRect.isEmpty()) {
@@ -714,8 +724,8 @@ void VideoPane::updateScrollBarsAndSceneRect()
             if (zoomedSceneRect.isEmpty()) {
                 zoomedSceneRect = viewport()->rect();
             }
-            // Use the item content bounds rather than the viewport rect so scrollbars
-            // reflect the actual zoomed video content.
+            // Use the item's scene-space bounds so scrollbars reflect the actual
+            // zoomed video content correctly regardless of DPR.
             m_scene->setSceneRect(zoomedSceneRect);
             
             qCDebug(log_ui_video) << "Updated scene rect for zoom:" << zoomedSceneRect

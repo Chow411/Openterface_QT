@@ -161,6 +161,11 @@ private:
     // rendering quality hint flag (true=antialiasing enabled)
     bool m_highQualityRendering;
     
+    // Zoom hint label and control
+    QLabel* m_zoomHintLabel;
+    bool m_zoomHintShown;
+    QTimer* m_zoomHintTimer;
+    
     MouseEventDTO* calculateRelativePosition(QMouseEvent *event);
     MouseEventDTO* calculateAbsolutePosition(QMouseEvent *event);
     MouseEventDTO* calculateMouseEventDto(QMouseEvent *event);
@@ -171,6 +176,8 @@ private:
     void centerVideoItem();
     void setupScene();
     void updateScrollBarsAndSceneRect();
+    void showZoomHint();
+    void startZoomHintFadeOut();
 };
 
 #endif

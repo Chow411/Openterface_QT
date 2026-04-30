@@ -31,6 +31,8 @@
 #include <QtMultimediaWidgets>
 #include <QDebug>
 #include <QTimer>
+#include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
 #include <thread>
 #include <chrono>
 #include <cmath>
@@ -57,7 +59,10 @@ VideoPane::VideoPane(QWidget *parent) : QGraphicsView(parent),
     m_lastGStreamerUpdateTime(0),
     m_directFFmpegMode(false),
     m_lastViewportSize(QSize()),
-    m_frameIsViewportSized(false)
+    m_frameIsViewportSized(false),
+    m_zoomHintLabel(nullptr),
+    m_zoomHintShown(false),
+    m_zoomHintTimer(nullptr)
 {
     qDebug(log_ui_video) << "VideoPane init...";
     
@@ -122,6 +127,30 @@ VideoPane::VideoPane(QWidget *parent) : QGraphicsView(parent),
     relativeModeEnable = false;
     // Set up the timer
     connect(escTimer, &QTimer::timeout, this, &VideoPane::showHostMouse);
+    
+    // Initialize zoom hint label
+    m_zoomHintLabel = new QLabel(this);
+    m_zoomHintLabel->setText(tr("Shift + Arrow Keys to move viewport"));
+    m_zoomHintLabel->setStyleSheet(
+        "QLabel { "
+        "background-color: rgba(0, 0, 0, 180); "
+        "color: white; "
+        "padding: 10px 15px; "
+        "border-radius: 5px; "
+        "font-size: 14px; "
+        "font-weight: bold; "
+        "}"
+    );
+    m_zoomHintLabel->setAlignment(Qt::AlignCenter);
+    m_zoomHintLabel->adjustSize();
+    m_zoomHintLabel->move(10, 10); // Position at top-left corner
+    m_zoomHintLabel->hide(); // Hidden by default
+    m_zoomHintLabel->raise(); // Ensure it's on top
+    
+    // Initialize timer for fade out
+    m_zoomHintTimer = new QTimer(this);
+    m_zoomHintTimer->setSingleShot(true);
+    connect(m_zoomHintTimer, &QTimer::timeout, this, &VideoPane::startZoomHintFadeOut);
 }
 
 VideoPane::~VideoPane()
@@ -149,6 +178,17 @@ VideoPane::~VideoPane()
         escTimer->stop();
         escTimer->deleteLater();
         escTimer = nullptr;
+    }
+    
+    if (m_zoomHintTimer) {
+        m_zoomHintTimer->stop();
+        m_zoomHintTimer->deleteLater();
+        m_zoomHintTimer = nullptr;
+    }
+    
+    if (m_zoomHintLabel) {
+        m_zoomHintLabel->deleteLater();
+        m_zoomHintLabel = nullptr;
     }
     
     // 4. Specific signal disconnection to prevent callbacks during destruction
@@ -430,6 +470,9 @@ void VideoPane::centerOn(const QPointF &pos)
 
 void VideoPane::zoomIn(double factor)
 {
+    // Check if this is the first zoom in (transitioning from 1.0 to > 1.0)
+    bool wasNotZoomed = (m_scaleFactor <= 1.0);
+    
     // Store the center point of the viewport before zooming
     QPointF centerPoint = mapToScene(viewport()->rect().center());
     
@@ -441,6 +484,11 @@ void VideoPane::zoomIn(double factor)
     
     // Center back on the same scene point to maintain focus during zoom
     centerOn(centerPoint);
+    
+    // Show hint if this is the first zoom in and hint hasn't been shown yet
+    if (wasNotZoomed && m_scaleFactor > 1.0 && !m_zoomHintShown) {
+        showZoomHint();
+    }
     
     // Log zoom information
     qCDebug(log_ui_video) << "Zoom in: factor=" << factor << "current zoom=" << m_scaleFactor
@@ -1540,5 +1588,60 @@ void VideoPane::onCameraActiveChanged(bool active)
             }, Qt::QueuedConnection);
         }).detach();
     }
+}
+
+void VideoPane::showZoomHint()
+{
+    if (!m_zoomHintLabel || m_zoomHintShown) {
+        return;
+    }
+    
+    qCDebug(log_ui_video) << "Showing zoom hint for the first time";
+    
+    // Mark as shown so it won't appear again in this session
+    m_zoomHintShown = true;
+    
+    // Remove any existing opacity effect
+    if (m_zoomHintLabel->graphicsEffect()) {
+        delete m_zoomHintLabel->graphicsEffect();
+    }
+    
+    // Show the label
+    m_zoomHintLabel->show();
+    m_zoomHintLabel->raise(); // Bring to front
+    
+    // Start timer to trigger fade out after 3 seconds
+    m_zoomHintTimer->start(3000);
+}
+
+void VideoPane::startZoomHintFadeOut()
+{
+    if (!m_zoomHintLabel || !m_zoomHintLabel->isVisible()) {
+        return;
+    }
+    
+    qCDebug(log_ui_video) << "Starting zoom hint fade out animation";
+    
+    // Create opacity effect
+    QGraphicsOpacityEffect *opacityEffect = new QGraphicsOpacityEffect(m_zoomHintLabel);
+    m_zoomHintLabel->setGraphicsEffect(opacityEffect);
+    
+    // Create fade out animation
+    QPropertyAnimation *fadeAnimation = new QPropertyAnimation(opacityEffect, "opacity");
+    fadeAnimation->setDuration(1000); // 1 second fade duration
+    fadeAnimation->setStartValue(1.0);
+    fadeAnimation->setEndValue(0.0);
+    fadeAnimation->setEasingCurve(QEasingCurve::OutQuad);
+    
+    // Hide the label when animation finishes
+    connect(fadeAnimation, &QPropertyAnimation::finished, this, [this, fadeAnimation]() {
+        if (m_zoomHintLabel) {
+            m_zoomHintLabel->hide();
+        }
+        fadeAnimation->deleteLater();
+        qCDebug(log_ui_video) << "Zoom hint fade out completed";
+    });
+    
+    fadeAnimation->start(QAbstractAnimation::DeleteWhenStopped);
 }
 

@@ -38,6 +38,24 @@ Q_LOGGING_CATEGORY(log_syskey_win, "opf.systemkey.win")
 SystemKeyBlocker *SystemKeyBlocker::s_self = nullptr;
 
 /* ============================================================================
+ *  Modifier key state tracking
+ *
+ *  Since we swallow key events, GetAsyncKeyState won't work correctly for
+ *  modifier keys that we've intercepted. We maintain our own state.
+ * ============================================================================ */
+struct ModifierKeyState {
+    bool lShift = false;
+    bool rShift = false;
+    bool lCtrl = false;
+    bool rCtrl = false;
+    bool lAlt = false;
+    bool rAlt = false;
+    bool lWin = false;
+    bool rWin = false;
+};
+static ModifierKeyState g_modifierState;
+
+/* ============================================================================
  *  startImpl / stopImpl
  * ============================================================================ */
 
@@ -97,6 +115,33 @@ LRESULT CALLBACK SystemKeyBlocker::lowLevelKeyboardProc(
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
 
+    // Check if openterfaceQT window (or any of its child windows) is in foreground
+    // Only intercept keyboard events when our window is active
+    HWND foregroundWnd = GetForegroundWindow();
+    HWND hookedWnd = (HWND)s_self->m_hookedHwnd;
+
+    // Only block if our window or a child of our window is in foreground
+    // Check both directions: foreground is hookedWnd, or foreground is a child of hookedWnd
+    // (VideoPane is a child of MainWindow, so when MainWindow is foreground, we need
+    // to check if the foreground has VideoPane as a descendant)
+    bool isOurWindowFocused = false;
+    if (foregroundWnd != nullptr && hookedWnd != nullptr) {
+        if (foregroundWnd == hookedWnd) {
+            isOurWindowFocused = true;
+        } else if (IsChild(hookedWnd, foregroundWnd)) {
+            // foregroundWnd is a child of hookedWnd (e.g. VideoPane has a child widget focused)
+            isOurWindowFocused = true;
+        } else if (IsChild(foregroundWnd, hookedWnd)) {
+            // hookedWnd (VideoPane) is a child of foregroundWnd (MainWindow)
+            isOurWindowFocused = true;
+        }
+    }
+
+    if (!isOurWindowFocused) {
+        // Our window is not in foreground, let the event pass through
+        return CallNextHookEx(nullptr, nCode, wParam, lParam);
+    }
+
     const auto *kb = reinterpret_cast<KBDLLHOOKSTRUCT *>(lParam);
     const bool isKeyDown   = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
     const bool isExtended  = (kb->flags & LLKHF_EXTENDED) != 0;
@@ -110,13 +155,24 @@ LRESULT CALLBACK SystemKeyBlocker::lowLevelKeyboardProc(
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
 
-    // ---- Build modifier mask (GetAsyncKeyState for current physical state) ----
+    // ---- Update modifier state tracking ----
+    switch (vk) {
+        case VK_LSHIFT:    g_modifierState.lShift = isKeyDown; break;
+        case VK_RSHIFT:    g_modifierState.rShift = isKeyDown; break;
+        case VK_LCONTROL:  g_modifierState.lCtrl = isKeyDown;  break;
+        case VK_RCONTROL:  g_modifierState.rCtrl = isKeyDown;  break;
+        case VK_LMENU:     g_modifierState.lAlt = isKeyDown;   break;
+        case VK_RMENU:     g_modifierState.rAlt = isKeyDown;   break;
+        case VK_LWIN:      g_modifierState.lWin = isKeyDown;   break;
+        case VK_RWIN:      g_modifierState.rWin = isKeyDown;   break;
+    }
+
+    // ---- Build modifier mask from our tracked state ----
     int modifiers = 0;
-    if (GetAsyncKeyState(VK_SHIFT)    & 0x8000) modifiers |= Qt::ShiftModifier;
-    if (GetAsyncKeyState(VK_CONTROL)  & 0x8000) modifiers |= Qt::ControlModifier;
-    if (GetAsyncKeyState(VK_MENU)     & 0x8000) modifiers |= Qt::AltModifier;
-    if ((GetAsyncKeyState(VK_LWIN)    & 0x8000) ||
-        (GetAsyncKeyState(VK_RWIN)    & 0x8000)) modifiers |= Qt::MetaModifier;
+    if (g_modifierState.lShift || g_modifierState.rShift) modifiers |= Qt::ShiftModifier;
+    if (g_modifierState.lCtrl || g_modifierState.rCtrl)   modifiers |= Qt::ControlModifier;
+    if (g_modifierState.lAlt || g_modifierState.rAlt)     modifiers |= Qt::AltModifier;
+    if (g_modifierState.lWin || g_modifierState.rWin)     modifiers |= Qt::MetaModifier;
 
     // ---- Translate to Qt key code ----
     const int qtKey = s_self->nativeToQtKey(vk, isExtended);
@@ -124,13 +180,10 @@ LRESULT CALLBACK SystemKeyBlocker::lowLevelKeyboardProc(
     // ---- Emit signal (cross-thread dispatch by Qt) ----
     emit s_self->keyCaptured(qtKey, modifiers, isKeyDown, vk);
 
-    // ---- Swallow key-down, pass key-up through ----
-    // Letting the OS see releases prevents the OS from believing a key
-    // is stuck.  VirtualBox uses the same approach.
-    if (isKeyDown) {
-        return 1;   // swallowed — OS does not process this key press
-    }
-
-    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+    // ---- Swallow ALL key events (both down and up) ----
+    // When openterfaceQT has focus, ALL keystrokes go to the target machine.
+    // We MUST swallow key-up too, otherwise the OS sees orphaned key-up events
+    // (e.g. Win releases triggering the Start Menu, Alt+Tab switching windows).
+    return 1;
 }
 

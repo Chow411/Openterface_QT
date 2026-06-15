@@ -46,7 +46,7 @@
  *
  * Platform backends:
  *   - Windows   : SetWindowsHookEx(WH_KEYBOARD_LL)
- *   - Linux X11 : QAbstractNativeEventFilter + XCB key interception
+ *   - Linux X11 : XGrabKey on top-level window + QAbstractNativeEventFilter
  *   - Wayland   : not yet supported (hard compositor restrictions)
  *
  * @code
@@ -140,7 +140,9 @@ private:
     /* ---- Linux X11 ---- */
 #ifdef Q_OS_LINUX
     class X11KeyCaptureFilter;
-    X11KeyCaptureFilter *m_x11Filter = nullptr;
+    class X11KeyGrabber;
+    X11KeyCaptureFilter *m_x11Filter  = nullptr;
+    X11KeyGrabber       *m_x11Grabber = nullptr;
 #endif // Q_OS_LINUX
 };
 

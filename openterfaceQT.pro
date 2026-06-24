@@ -62,6 +62,9 @@ SOURCES += main.cpp \
     serial/serial_hotplug_handler.cpp \
     server/tcpServer.cpp \
     server/tcpResponse.cpp \
+    server/mcp/mcpServer.cpp \
+    server/mcp/mcpProtocol.cpp \
+    server/mcp/mcpToolHandler.cpp \
     target/KeyboardLayouts.cpp \
     target/KeyboardManager.cpp \
     target/MouseManager.cpp \
@@ -215,6 +218,10 @@ HEADERS  += \
     serial/serial_hotplug_handler.h \
     server/tcpServer.h \
     server/tcpResponse.h \
+    server/mcp/mcpServer.h \
+    server/mcp/mcpProtocol.h \
+    server/mcp/mcpToolHandler.h \
+    server/mcp/mcpConstants.h \
     target/KeyboardLayouts.h \
     target/KeyboardManager.h \
     target/MouseManager.h \

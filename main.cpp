@@ -252,10 +252,14 @@ int main(int argc, char *argv[])
     
     // Parse command-line arguments early to check for --skip-env-check
     bool skipEnvironmentCheck = false;
+    bool autoStartMcp = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--skip-env-check") == 0) {
             skipEnvironmentCheck = true;
             qWarning() << "Skip environment check flag detected";
+        } else if (strcmp(argv[i], "--mcp-start") == 0) {
+            autoStartMcp = true;
+            qWarning() << "Auto-start MCP Server flag detected";
         }
     }
     
@@ -355,6 +359,15 @@ int main(int argc, char *argv[])
         window->deferredInitializeCamera();
         qInfo() << "Camera and audio initialization started";
     });
+
+    // Auto-start MCP Server if --mcp-start flag is present
+    if (autoStartMcp) {
+        QTimer::singleShot(300, window, [window]() {
+            qInfo() << "Auto-starting MCP Server (--mcp-start)...";
+            window->initMcpServer();
+            window->toggleMcpServer(true);
+        });
+    }
     
     // Initialize GStreamer before Qt application
     #ifdef HAVE_GSTREAMER

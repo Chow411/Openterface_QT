@@ -149,6 +149,10 @@ set(SERIAL_SOURCES
 set(SERVER_SOURCES
     server/tcpServer.cpp server/tcpServer.h
     server/tcpResponse.cpp server/tcpResponse.h
+    server/mcp/mcpServer.cpp server/mcp/mcpServer.h
+    server/mcp/mcpProtocol.cpp server/mcp/mcpProtocol.h
+    server/mcp/mcpToolHandler.cpp server/mcp/mcpToolHandler.h
+    server/mcp/mcpConstants.h
 )
 
 # Target sources

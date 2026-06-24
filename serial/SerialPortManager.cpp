@@ -387,8 +387,8 @@ void SerialPortManager::observeSerialPortNotification(){
 
     connect(m_serialWorkerThread, &QThread::finished, serialTimer, &QObject::deleteLater);
     connect(m_serialWorkerThread, &QThread::finished, m_serialWorkerThread, &QObject::deleteLater);
-    connect(this, &SerialPortManager::sendCommandAsync, this, &SerialPortManager::sendCommand);
-    
+    connect(this, &SerialPortManager::sendCommandAsync, this, &SerialPortManager::sendCommand, Qt::QueuedConnection);
+
     m_serialWorkerThread->start();
 }
 

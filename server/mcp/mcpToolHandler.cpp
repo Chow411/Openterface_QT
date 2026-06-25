@@ -45,6 +45,7 @@
 #include <QEventLoop>
 #include <QTimer>
 #include <QThread>
+#include <QCoreApplication>
 
 Q_LOGGING_CATEGORY(log_server_mcp_tool, "opf.server.mcp.tool")
 
@@ -314,6 +315,9 @@ QJsonObject McpToolHandler::toolMouseMoveAbsolute(const QJsonObject& args)
     MouseManager& mm = HostManager::getInstance().getMouseManager();
     mm.handleAbsoluteMouseAction(x, y, 0, 0);
 
+    // Add delay to allow CH32V208 to process the command
+    QThread::msleep(30);
+
     return textResult(QString("Mouse moved to absolute position (%1, %2)").arg(x).arg(y));
 }
 
@@ -348,6 +352,9 @@ QJsonObject McpToolHandler::toolMouseMoveRelative(const QJsonObject& args)
 
     MouseManager& mm = HostManager::getInstance().getMouseManager();
     mm.handleRelativeMouseAction(dx, dy, 0, 0);
+
+    // Add delay to allow CH32V208 to process the command
+    QThread::msleep(30);
 
     return textResult(QString("Mouse moved relative by (%1, %2)").arg(dx).arg(dy));
 }
@@ -403,7 +410,19 @@ QJsonObject McpToolHandler::toolKeyboardPressKey(const QJsonObject& args)
         }
     }
 
+    // DIAGNOSTIC: Check serial port state
+    SerialPortManager& spm = SerialPortManager::getInstance();
+    fprintf(stderr, "[MCP-DIAG] toolKeyboardPressKey: keyCode=%d (0x%x) side='%s' nativeVirtualKey=0x%x\n",
+            keyCode, keyCode, side.toUtf8().constData(), nativeVirtualKey);
+    fflush(stderr);
+    qWarning() << "[MCP] SerialPortManager ready:" << spm.isPortReady()
+               << "isOpen:" << spm.isPortOpen()
+               << "portPath:" << spm.getCurrentSerialPortPath();
+
     HostManager::getInstance().handleKeyboardAction(keyCode, modifiers, isKeyDown, nativeVirtualKey);
+
+    // Add delay to allow CH32V208 to process the command
+    QThread::msleep(30);
 
     QString sideStr = !side.isEmpty() ? QString(", side=%1").arg(side) : "";
     return textResult(QString("Key %1 (code=%2, mods=%3%4)")
@@ -434,6 +453,12 @@ QJsonObject McpToolHandler::toolKeyboardTypeText(const QJsonObject& args)
         out << "=== toolKeyboardTypeText called ===\n";
         out << "Text: " << text << "\n";
         out << "Thread ID: " << QThread::currentThreadId() << "\n";
+
+        // Check serial port ready state
+        SerialPortManager& spm = SerialPortManager::getInstance();
+        out << "SerialPortManager::ready: " << spm.isPortReady() << "\n";
+        out << "SerialPortManager::isPortOpen: " << spm.isPortOpen() << "\n";
+        out << "SerialPortManager::portPath: " << spm.getCurrentSerialPortPath() << "\n";
         debugLog.close();
     }
 
@@ -467,11 +492,17 @@ QJsonObject McpToolHandler::toolKeyboardTypeText(const QJsonObject& args)
 
         // Press key
         hm.handleKeyboardAction(keyCode, modifiers, true);
-        QThread::msleep(10);
+        QCoreApplication::processEvents();
+        QThread::msleep(50);
+
         // Release key
         hm.handleKeyboardAction(keyCode, modifiers, false);
-        QThread::msleep(10);
+        QCoreApplication::processEvents();
+        QThread::msleep(50);
     }
+
+    // Final delay after typing complete to ensure last character is processed
+    QThread::msleep(100);
 
     return textResult(QString("Typed text (%1 chars): %2").arg(text.length()).arg(text));
 }

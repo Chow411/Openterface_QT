@@ -513,9 +513,21 @@ void KeyboardManager::handleKeyboardAction(int keyCode, int modifiers, bool isKe
             mappedKeyCode = 0x56;
         } else if(keyCode == Qt::Key_Plus){
             mappedKeyCode = 0x57;
-        } else if(keyCode == Qt::Key_Enter){
+        } else if(keyCode == Qt::Key_Enter || keyCode == Qt::Key_Return){
             mappedKeyCode = 0x58;
         }
+    }else if(keyCode == Qt::Key_NumLock){
+        // NumLock without KeypadModifier
+        mappedKeyCode = 0x53;
+    }else if(keyCode == Qt::Key_ScrollLock){
+        // ScrollLock without KeypadModifier
+        mappedKeyCode = 0x47;
+    }else if(keyCode == Qt::Key_Print){
+        // PrintScreen
+        mappedKeyCode = 0x46;
+    }else if(keyCode == Qt::Key_Pause){
+        // Pause/Break
+        mappedKeyCode = 0x48;
     }else {
         // Don't send a release command for unmapped keys - just skip them
         // This prevents clearing the state of other pressed keys
@@ -579,8 +591,10 @@ void KeyboardManager::handleKeyboardAction(int keyCode, int modifiers, bool isKe
         DEBUG_LOG(QString("currentModifiers=0x%1 currentMappedKeyCodes=%2")
                   .arg(currentModifiers, 0, 16)
                   .arg(currentMappedKeyCodes.size()));
+
+        // Send the keyboard command using sendCommandAsync to ensure checksum is added
         emit SerialPortManager::getInstance().sendCommandAsync(keyData, false);
-        DEBUG_LOG("emit sendCommandAsync done");
+        DEBUG_LOG("sendCommandAsync done");
 
         // If this is a lock key (NumLock, CapsLock, or ScrollLock), request key state update
         if (isLockKey(keyCode)) {

@@ -26,6 +26,10 @@
 #include <QObject>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QSocketNotifier>
+#include <QTimer>
+#include <QTextStream>
+#include <QFile>
 #include <QString>
 #include <memory>
 
@@ -77,6 +81,12 @@ public:
     /** Provide access to the internal tool handler for additional configuration. */
     McpToolHandler* toolHandler() const;
 
+    /**
+     * Start listening on stdin/stdout.
+     * @return true if started successfully, false on failure.
+     */
+    bool startStdio();
+
 signals:
     /** Emitted when the server starts listening successfully. */
     void started();
@@ -87,14 +97,28 @@ signals:
     /** Emitted for informational/log messages. */
     void logMessage(const QString& message);
 
+    /** Emitted when stdio mode is ready to accept requests. */
+    void stdioReady();
+
 private slots:
     void onNewConnection();
     void onReadyRead();
     void onClientDisconnected();
+    void onStdinReadyRead();
 
 private:
+    // --- Named Pipe transport ---
     QLocalServer* m_server = nullptr;
     QLocalSocket* m_client = nullptr;   // MCP supports a single client
+
+    // --- Stdio transport ---
+    bool m_stdioMode = false;
+    QTimer* m_stdinPollTimer = nullptr;
+    QByteArray m_stdinBuffer;
+    QFile* m_stdinFile = nullptr;    // stdin wrapped as QFile
+    QFile* m_stdoutFile = nullptr;   // stdout wrapped as QFile
+
+    // --- Shared ---
     McpToolHandler* m_toolHandler = nullptr;
     bool m_ownsToolHandler = false;     // True if we created m_toolHandler ourselves
 
@@ -106,13 +130,13 @@ private:
     void applyPendingDependencies();
 
     /**
-     * Handle a single JSON-RPC request and send the response to the client.
+     * Handle a single JSON-RPC request and send the response to the given device.
      * Dispatches: initialize, notifications/initialized, tools/list, tools/call, ping
      */
-    void handleMessage(const QString& jsonLine, QLocalSocket* client);
+    void handleMessage(const QString& jsonLine, QIODevice* device);
 
     /** Serialize and send a JSON response, appending a newline. */
-    void sendResponse(const QJsonObject& response, QLocalSocket* client);
+    void sendResponse(const QJsonObject& response, QIODevice* device);
 };
 
 #endif // MCP_SERVER_H

@@ -31,6 +31,9 @@
 #include <QLoggingCategory>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QFile>
+#include <QSocketNotifier>
+#include <unistd.h>
 
 Q_LOGGING_CATEGORY(log_server_mcp, "opf.server.mcp")
 
@@ -92,6 +95,31 @@ bool McpServer::start(const QString &pipeName)
 
 void McpServer::stop()
 {
+    // Stop stdio mode if active
+    if (m_stdioMode) {
+        if (m_stdinPollTimer) {
+            m_stdinPollTimer->stop();
+            delete m_stdinPollTimer;
+            m_stdinPollTimer = nullptr;
+        }
+        if (m_stdinFile) {
+            m_stdinFile->close();
+            delete m_stdinFile;
+            m_stdinFile = nullptr;
+        }
+        if (m_stdoutFile) {
+            m_stdoutFile->flush();
+            m_stdoutFile->close();
+            delete m_stdoutFile;
+            m_stdoutFile = nullptr;
+        }
+        m_stdioMode = false;
+        qCInfo(log_server_mcp) << "MCP stdio transport stopped";
+        emit stopped();
+        emit logMessage("MCP stdio transport stopped");
+        return;
+    }
+
     if (!m_server) return;
 
     // Disconnect client if connected
@@ -112,6 +140,7 @@ void McpServer::stop()
 
 bool McpServer::isRunning() const
 {
+    if (m_stdioMode) return m_stdinPollTimer && m_stdinPollTimer->isActive();
     return m_server && m_server->isListening();
 }
 
@@ -201,7 +230,6 @@ void McpServer::onReadyRead()
         handleMessage(line, m_client);
     }
 }
-
 void McpServer::onClientDisconnected()
 {
     qCInfo(log_server_mcp) << "MCP client disconnected";
@@ -217,7 +245,7 @@ void McpServer::onClientDisconnected()
 // Message dispatching
 // ---------------------------------------------------------------------------
 
-void McpServer::handleMessage(const QString& jsonLine, QLocalSocket* client)
+void McpServer::handleMessage(const QString& jsonLine, QIODevice* device)
 {
     McpProtocol::Request req;
     if (!McpProtocol::parseRequest(jsonLine.toUtf8(), req)) {
@@ -225,7 +253,7 @@ void McpServer::handleMessage(const QString& jsonLine, QLocalSocket* client)
         QJsonObject errResp = McpProtocol::buildError(
             QVariant(), JSONRPC_ERROR_PARSE_ERROR,
             "Parse error: invalid JSON");
-        sendResponse(errResp, client);
+        sendResponse(errResp, device);
         return;
     }
 
@@ -290,19 +318,124 @@ void McpServer::handleMessage(const QString& jsonLine, QLocalSocket* client)
             "Method not found: " + req.method);
     }
 
-    sendResponse(response, client);
+    sendResponse(response, device);
 }
 
-void McpServer::sendResponse(const QJsonObject& response, QLocalSocket* client)
+void McpServer::sendResponse(const QJsonObject& response, QIODevice* device)
 {
-    if (!client || client->state() != QLocalSocket::ConnectedState) {
-        qCWarning(log_server_mcp) << "Cannot send response — client not connected";
+    QByteArray data = McpProtocol::serialize(response);
+
+    if (device == m_stdoutFile) {
+        // For stdio mode, use POSIX write() to stdout to avoid QFile pipe issues
+        ssize_t written = ::write(STDOUT_FILENO, data.constData(), data.size());
+        if (written == -1) {
+            qCWarning(log_server_mcp) << "Failed to write to stdout";
+        }
+        // Also write to QFile for consistency (sockets use QFile path)
         return;
     }
 
-    QByteArray data = McpProtocol::serialize(response);
-    client->write(data);
-    client->flush();
+    if (!device || !device->isOpen()) {
+        qCWarning(log_server_mcp) << "Cannot send response — device not open";
+        return;
+    }
+
+    device->write(data);
+    if (QLocalSocket* s = qobject_cast<QLocalSocket*>(device)) {
+        s->flush();
+    }
 
     qCDebug(log_server_mcp) << "Sent response:" << data.left(200);
 }
+
+// ---------------------------------------------------------------------------
+// Stdio transport
+// ---------------------------------------------------------------------------
+
+bool McpServer::startStdio()
+{
+    if (m_stdioMode) {
+        qCWarning(log_server_mcp) << "MCP stdio mode already active";
+        return true;
+    }
+
+    // Create tool handler if not injected
+    if (!m_toolHandler) {
+        m_toolHandler = new McpToolHandler(this);
+        m_ownsToolHandler = true;
+        applyPendingDependencies();
+    }
+
+    // Wrap stdin/stdout as QFile objects
+    m_stdinFile  = new QFile(this);
+    if (!m_stdinFile->open(stdin, QIODevice::ReadOnly | QIODevice::Unbuffered)) {
+        qCCritical(log_server_mcp) << "Failed to open stdin for MCP stdio transport";
+        delete m_stdinFile;
+        m_stdinFile = nullptr;
+        return false;
+    }
+
+    m_stdoutFile = new QFile(this);
+    if (!m_stdoutFile->open(stdout, QIODevice::WriteOnly | QIODevice::Unbuffered)) {
+        qCCritical(log_server_mcp) << "Failed to open stdout for MCP stdio transport";
+        m_stdinFile->close();
+        delete m_stdinFile;
+        m_stdinFile = nullptr;
+        delete m_stdoutFile;
+        m_stdoutFile = nullptr;
+        return false;
+    }
+
+    // Watch stdin using a polling timer (more reliable than QSocketNotifier for stdin)
+    m_stdinPollTimer = new QTimer(this);
+    connect(m_stdinPollTimer, &QTimer::timeout,
+            this, &McpServer::onStdinReadyRead);
+    m_stdinPollTimer->start(10);  // Poll every 10ms
+
+    m_stdioMode = true;
+    qCInfo(log_server_mcp) << "MCP stdio transport started";
+    emit started();
+    emit stdioReady();
+    emit logMessage("MCP stdio transport started");
+    return true;
+}
+
+void McpServer::onStdinReadyRead()
+{
+    if (!m_stdinFile || !m_stdoutFile) {
+        return;
+    }
+
+    // Use POSIX read() directly — QFile::canReadLine() doesn't work on pipes
+    // with Unbuffered mode (it checks an internal buffer that's always empty).
+    char buffer[4096];
+    ssize_t bytesRead = ::read(STDIN_FILENO, buffer, sizeof(buffer));
+
+    if (bytesRead > 0) {
+        m_stdinBuffer.append(buffer, bytesRead);
+    } else if (bytesRead == 0) {
+        // EOF — stdin closed
+        qCInfo(log_server_mcp) << "stdio EOF received, stopping";
+        m_stdinPollTimer->stop();
+        return;
+    } else {
+        return;  // EAGAIN or error, try again on next timer tick
+    }
+
+    // Process complete lines from the buffer
+    while (true) {
+        int newlinePos = m_stdinBuffer.indexOf('\n');
+        if (newlinePos == -1) {
+            break;  // No complete line yet
+        }
+
+        QByteArray line = m_stdinBuffer.left(newlinePos).trimmed();
+        m_stdinBuffer.remove(0, newlinePos + 1);
+
+        if (!line.isEmpty()) {
+            qCInfo(log_server_mcp) << "stdio received:" << line.left(200);
+            handleMessage(QString::fromUtf8(line), m_stdoutFile);
+        }
+    }
+}
+

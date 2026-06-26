@@ -381,6 +381,7 @@ QJsonObject McpToolHandler::toolKeyboardPressKey(const QJsonObject& args)
     int keyCode = args.value("key").toInt();
     int modifiers = args.value("modifiers").toInt(0);
     bool isKeyDown = args.value("isKeyDown").toBool(true);
+    bool autoRelease = args.value("autoRelease").toBool(true);
 
     // Extract the "side" parameter if present
     QString side = args.value("side").toString(""); // empty string by default
@@ -412,8 +413,8 @@ QJsonObject McpToolHandler::toolKeyboardPressKey(const QJsonObject& args)
 
     // DIAGNOSTIC: Check serial port state
     SerialPortManager& spm = SerialPortManager::getInstance();
-    fprintf(stderr, "[MCP-DIAG] toolKeyboardPressKey: keyCode=%d (0x%x) side='%s' nativeVirtualKey=0x%x\n",
-            keyCode, keyCode, side.toUtf8().constData(), nativeVirtualKey);
+    fprintf(stderr, "[MCP-DIAG] toolKeyboardPressKey: keyCode=%d (0x%x) modifiers=%d (0x%x) side='%s' nativeVirtualKey=0x%x\n",
+            keyCode, keyCode, modifiers, modifiers, side.toUtf8().constData(), nativeVirtualKey);
     fflush(stderr);
     qWarning() << "[MCP] SerialPortManager ready:" << spm.isPortReady()
                << "isOpen:" << spm.isPortOpen()
@@ -424,9 +425,17 @@ QJsonObject McpToolHandler::toolKeyboardPressKey(const QJsonObject& args)
     // Add delay to allow CH32V208 to process the command
     QThread::msleep(30);
 
+    // Auto-release: if key was pressed and autoRelease is true, send release after short delay
+    if (isKeyDown && autoRelease) {
+        QThread::msleep(50); // 50ms hold time for target to register
+        HostManager::getInstance().handleKeyboardAction(keyCode, modifiers, false, nativeVirtualKey);
+        QThread::msleep(30);
+    }
+
     QString sideStr = !side.isEmpty() ? QString(", side=%1").arg(side) : "";
+    QString actionStr = isKeyDown ? (autoRelease ? "pressed+released" : "pressed") : "released";
     return textResult(QString("Key %1 (code=%2, mods=%3%4)")
-                     .arg(isKeyDown ? "pressed" : "released")
+                     .arg(actionStr)
                      .arg(keyCode).arg(modifiers).arg(sideStr));
 }
 

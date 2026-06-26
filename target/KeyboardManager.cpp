@@ -538,12 +538,13 @@ void KeyboardManager::handleKeyboardAction(int keyCode, int modifiers, bool isKe
             return;
         }
 
-        // For non-modifier keys, use currentModifiers directly without modification.
-        // We don't call handleKeyModifiers because the modifiers parameter from X11
-        // interceptor may be incorrect (e.g., reporting MetaModifier instead of AltModifier).
-        // The modifier state should only be updated when actual modifier keys are pressed/released.
-        combinedModifiers = currentModifiers;
-        qCDebug(log_keyboard) << "Non-modifier key, using currentModifiers:" << Qt::hex << currentModifiers;
+        // For non-modifier keys, merge passed modifiers with currentModifiers.
+        // When called from MCP/API with modifiers parameter, those modifiers must be
+        // included in the HID report even though they're not in currentModifiers state.
+        combinedModifiers = currentModifiers | modifiers;
+        qCDebug(log_keyboard) << "Non-modifier key, combinedModifiers:" << Qt::hex << combinedModifiers
+                              << "(currentModifiers:" << Qt::hex << currentModifiers
+                              << "passed modifiers:" << Qt::hex << modifiers << ")";
     }
 
 
@@ -567,11 +568,16 @@ void KeyboardManager::handleKeyboardAction(int keyCode, int modifiers, bool isKe
                 }
             } else {
                 currentMappedKeyCodes.remove(mappedKeyCode);
+                // On release, clear any passed modifiers that aren't part of the persistent state
+                // This handles the MCP/API case where modifiers were temporarily merged
+                if (modifiers != 0) {
+                    currentModifiers &= ~modifiers;
+                }
             }
         }
 
-        // Always use currentModifiers for the modifier byte
-        keyData[5] = currentModifiers;
+        // Use combinedModifiers for the modifier byte (includes passed modifiers from API)
+        keyData[5] = combinedModifiers;
 
         // Set the key array from currentMappedKeyCodes
         int i = 0;
@@ -593,6 +599,9 @@ void KeyboardManager::handleKeyboardAction(int keyCode, int modifiers, bool isKe
                   .arg(currentMappedKeyCodes.size()));
 
         // Send the keyboard command using sendCommandAsync to ensure checksum is added
+        fprintf(stderr, "[KB-DIAG] Sending HID report: [%s] combinedModifiers=0x%x mappedKeyCode=0x%x isKeyDown=%d\n",
+                keyData.toHex(' ').constData(), combinedModifiers, mappedKeyCode, isKeyDown);
+        fflush(stderr);
         emit SerialPortManager::getInstance().sendCommandAsync(keyData, false);
         DEBUG_LOG("sendCommandAsync done");
 

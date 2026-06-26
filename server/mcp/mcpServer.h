@@ -24,17 +24,14 @@
 #define MCP_SERVER_H
 
 #include <QObject>
-#include <QLocalServer>
-#include <QLocalSocket>
-#include <QSocketNotifier>
 #include <QTimer>
-#include <QTextStream>
 #include <QFile>
 #include <QString>
-#include <memory>
+#include <QHostAddress>
 
 class McpProtocol;
 class McpToolHandler;
+class McpSseTransport;
 class CameraManager;
 class ScriptRunner;
 class ScriptExecutor;
@@ -48,15 +45,6 @@ public:
     ~McpServer() override;
 
     // --- Lifecycle ---
-
-    /**
-     * Start listening on the named pipe.
-     * @param pipeName  Pipe name (e.g. "openterface-mcp").
-     *                  Linux:  /tmp/openterface-mcp (Unix domain socket)
-     *                  Windows: \\.\pipe\openterface-mcp
-     * @return true if started successfully, false on failure.
-     */
-    bool start(const QString &pipeName = "openterface-mcp");
 
     /** Stop listening and disconnect any client. */
     void stop();
@@ -87,6 +75,26 @@ public:
      */
     bool startStdio();
 
+    // --- SSE Remote Transport ---
+
+    /**
+     * Start the SSE HTTP transport on the given port.
+     * @param port TCP port to listen on (default 8080).
+     * @param bindAddress Network interface to bind to (default: any).
+     * @return true if started successfully, false on failure.
+     */
+    bool startSse(quint16 port = 8080,
+                  const QHostAddress& bindAddress = QHostAddress::Any);
+
+    /** Stop the SSE transport and close all sessions. */
+    void stopSse();
+
+    /** Whether the SSE transport is currently running. */
+    bool isSseRunning() const;
+
+    /** Number of active SSE sessions. */
+    int sseSessionCount() const;
+
 signals:
     /** Emitted when the server starts listening successfully. */
     void started();
@@ -100,23 +108,25 @@ signals:
     /** Emitted when stdio mode is ready to accept requests. */
     void stdioReady();
 
+    /** Emitted when SSE transport starts. */
+    void sseStarted(quint16 port);
+
+    /** Emitted when SSE transport stops. */
+    void sseStopped();
+
 private slots:
-    void onNewConnection();
-    void onReadyRead();
-    void onClientDisconnected();
     void onStdinReadyRead();
 
 private:
-    // --- Named Pipe transport ---
-    QLocalServer* m_server = nullptr;
-    QLocalSocket* m_client = nullptr;   // MCP supports a single client
-
     // --- Stdio transport ---
     bool m_stdioMode = false;
     QTimer* m_stdinPollTimer = nullptr;
     QByteArray m_stdinBuffer;
     QFile* m_stdinFile = nullptr;    // stdin wrapped as QFile
     QFile* m_stdoutFile = nullptr;   // stdout wrapped as QFile
+
+    // --- SSE transport ---
+    McpSseTransport* m_sseTransport = nullptr;
 
     // --- Shared ---
     McpToolHandler* m_toolHandler = nullptr;

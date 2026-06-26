@@ -67,4 +67,14 @@
 // Default Named Pipe Name
 #define MCP_DEFAULT_PIPE_NAME "openterface-mcp"
 
+// SSE Transport
+#define MCP_SSE_DEFAULT_PORT        8080
+#define MCP_SSE_PATH_SSE            "/sse"
+#define MCP_SSE_PATH_MESSAGES       "/messages"
+#define MCP_SSE_CONTENT_TYPE        "text/event-stream"
+#define MCP_SSE_KEEPALIVE_INTERVAL  15000       // 15 seconds
+#define MCP_SSE_SESSION_TIMEOUT_MS  1800000     // 30 minutes
+#define MCP_SSE_CLEANUP_INTERVAL    60000       // 60 seconds
+#define MCP_SSE_MAX_SESSIONS        16
+
 #endif // MCP_CONSTANTS_H

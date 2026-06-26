@@ -382,6 +382,7 @@ public:
     void initMcpServer();
 public slots:
     void toggleMcpServer(bool enabled);
+    void onMcpSettingsApplied();
 
 };
 #endif // MAINWINDOW_H

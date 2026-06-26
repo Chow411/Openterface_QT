@@ -23,6 +23,7 @@
 #include "mcpServer.h"
 #include "mcpProtocol.h"
 #include "mcpToolHandler.h"
+#include "mcpSseTransport.h"
 #include "host/cameramanager.h"
 #include "scripts/scriptRunner.h"
 #include "scripts/scriptExecutor.h"
@@ -32,15 +33,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFile>
-#include <QSocketNotifier>
 #include <unistd.h>
 
 Q_LOGGING_CATEGORY(log_server_mcp, "opf.server.mcp")
 
 McpServer::McpServer(QObject *parent)
     : QObject(parent)
-    , m_server(nullptr)
-    , m_client(nullptr)
     , m_toolHandler(nullptr)
     , m_ownsToolHandler(false)
 {
@@ -49,48 +47,7 @@ McpServer::McpServer(QObject *parent)
 McpServer::~McpServer()
 {
     stop();
-}
-
-bool McpServer::start(const QString &pipeName)
-{
-    if (m_server && m_server->isListening()) {
-        qCWarning(log_server_mcp) << "MCP Server is already running";
-        return true;
-    }
-
-    // Clean up any previous server
-    if (m_server) {
-        m_server->close();
-        m_server->deleteLater();
-        m_server = nullptr;
-    }
-
-    // Create tool handler if not injected
-    if (!m_toolHandler) {
-        m_toolHandler = new McpToolHandler(this);
-        m_ownsToolHandler = true;
-        applyPendingDependencies();
-    }
-
-    // Remove any stale socket file (Linux)
-    QLocalServer::removeServer(pipeName);
-
-    m_server = new QLocalServer(this);
-    if (!m_server->listen(pipeName)) {
-        qCCritical(log_server_mcp) << "Failed to start MCP Server on pipe:" << pipeName
-                                    << "Error:" << m_server->errorString();
-        m_server->deleteLater();
-        m_server = nullptr;
-        return false;
-    }
-
-    connect(m_server, &QLocalServer::newConnection,
-            this, &McpServer::onNewConnection);
-
-    qCInfo(log_server_mcp) << "MCP Server started on pipe:" << pipeName;
-    emit started();
-    emit logMessage("MCP Server started on: " + pipeName);
-    return true;
+    stopSse();
 }
 
 void McpServer::stop()
@@ -117,31 +74,12 @@ void McpServer::stop()
         qCInfo(log_server_mcp) << "MCP stdio transport stopped";
         emit stopped();
         emit logMessage("MCP stdio transport stopped");
-        return;
     }
-
-    if (!m_server) return;
-
-    // Disconnect client if connected
-    if (m_client) {
-        m_client->disconnectFromServer();
-        m_client->deleteLater();
-        m_client = nullptr;
-    }
-
-    m_server->close();
-    m_server->deleteLater();
-    m_server = nullptr;
-
-    qCInfo(log_server_mcp) << "MCP Server stopped";
-    emit stopped();
-    emit logMessage("MCP Server stopped");
 }
 
 bool McpServer::isRunning() const
 {
-    if (m_stdioMode) return m_stdinPollTimer && m_stdinPollTimer->isActive();
-    return m_server && m_server->isListening();
+    return m_stdioMode && m_stdinPollTimer && m_stdinPollTimer->isActive();
 }
 
 void McpServer::setCameraManager(CameraManager* cameraManager)
@@ -189,56 +127,6 @@ void McpServer::applyPendingDependencies()
 McpToolHandler* McpServer::toolHandler() const
 {
     return m_toolHandler;
-}
-
-// ---------------------------------------------------------------------------
-// Connection handling
-// ---------------------------------------------------------------------------
-
-void McpServer::onNewConnection()
-{
-    // MCP supports only one client at a time
-    if (m_client) {
-        QLocalSocket* extra = m_server->nextPendingConnection();
-        if (extra) {
-            qCWarning(log_server_mcp) << "Rejecting additional client — MCP only supports one connection";
-            extra->disconnectFromServer();
-            extra->deleteLater();
-        }
-        return;
-    }
-
-    m_client = m_server->nextPendingConnection();
-    connect(m_client, &QLocalSocket::readyRead,
-            this, &McpServer::onReadyRead);
-    connect(m_client, &QLocalSocket::disconnected,
-            this, &McpServer::onClientDisconnected);
-
-    qCInfo(log_server_mcp) << "MCP client connected";
-    emit logMessage("MCP client connected");
-}
-
-void McpServer::onReadyRead()
-{
-    if (!m_client) return;
-
-    while (m_client->canReadLine()) {
-        QString line = QString::fromUtf8(m_client->readLine()).trimmed();
-        if (line.isEmpty()) continue;
-
-        qCDebug(log_server_mcp) << "Received:" << line.left(200);
-        handleMessage(line, m_client);
-    }
-}
-void McpServer::onClientDisconnected()
-{
-    qCInfo(log_server_mcp) << "MCP client disconnected";
-    emit logMessage("MCP client disconnected");
-
-    if (m_client) {
-        m_client->deleteLater();
-        m_client = nullptr;
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -341,9 +229,6 @@ void McpServer::sendResponse(const QJsonObject& response, QIODevice* device)
     }
 
     device->write(data);
-    if (QLocalSocket* s = qobject_cast<QLocalSocket*>(device)) {
-        s->flush();
-    }
 
     qCDebug(log_server_mcp) << "Sent response:" << data.left(200);
 }
@@ -437,5 +322,70 @@ void McpServer::onStdinReadyRead()
             handleMessage(QString::fromUtf8(line), m_stdoutFile);
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// SSE Remote Transport
+// ---------------------------------------------------------------------------
+
+bool McpServer::startSse(quint16 port, const QHostAddress& bindAddress)
+{
+    // Create tool handler if not injected (same as start/startStdio)
+    if (!m_toolHandler) {
+        m_toolHandler = new McpToolHandler(this);
+        m_ownsToolHandler = true;
+        applyPendingDependencies();
+    }
+
+    if (!m_sseTransport) {
+        m_sseTransport = new McpSseTransport(m_toolHandler, this);
+        connect(m_sseTransport, &McpSseTransport::transportError,
+                this, [this](const QString& msg) {
+                    qCWarning(log_server_mcp) << "SSE transport error:" << msg;
+                    emit logMessage("SSE error: " + msg);
+                });
+    }
+
+    if (m_sseTransport->isRunning()) {
+        qCWarning(log_server_mcp) << "SSE transport already running on port"
+                                   << m_sseTransport->port();
+        return true;
+    }
+
+    if (!m_sseTransport->start(port, bindAddress)) {
+        qCCritical(log_server_mcp) << "Failed to start SSE transport on port" << port;
+        return false;
+    }
+
+    qCInfo(log_server_mcp) << "SSE transport started on" << bindAddress.toString() << ":" << port;
+    emit logMessage(QString("MCP SSE transport started on %1:%2")
+                        .arg(bindAddress.toString()).arg(port));
+    emit sseStarted(port);
+    return true;
+}
+
+void McpServer::stopSse()
+{
+    if (!m_sseTransport) return;
+
+    if (m_sseTransport->isRunning()) {
+        m_sseTransport->stop();
+        qCInfo(log_server_mcp) << "SSE transport stopped";
+        emit logMessage("MCP SSE transport stopped");
+        emit sseStopped();
+    }
+
+    delete m_sseTransport;
+    m_sseTransport = nullptr;
+}
+
+bool McpServer::isSseRunning() const
+{
+    return m_sseTransport && m_sseTransport->isRunning();
+}
+
+int McpServer::sseSessionCount() const
+{
+    return m_sseTransport ? m_sseTransport->activeSessionCount() : 0;
 }
 

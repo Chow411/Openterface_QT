@@ -76,6 +76,7 @@ private:
     QJsonObject toolCaptureLastImage(const QJsonObject& args);
     QJsonObject toolExecuteScript(const QJsonObject& args);
     QJsonObject toolSystemStatus(const QJsonObject& args);
+    QJsonObject toolUsbSwitch(const QJsonObject& args);
 
     // --- Helpers ---
     static QJsonObject textResult(const QString& text);

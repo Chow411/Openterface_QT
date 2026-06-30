@@ -261,6 +261,22 @@ QJsonArray McpToolHandler::listTools() const
         tools.append(tool);
     }
 
+    // ---- USB Control Tools ----
+    {
+        QJsonObject tool;
+        tool["name"] = MCP_TOOL_USB_SWITCH;
+        tool["description"] = "Switch the USB connection between host (control computer) and target (controlled computer). Use this to ensure keyboard/mouse data is sent to the correct destination.";
+
+        QJsonObject schema;
+        schema["type"] = "object";
+        QJsonObject props;
+        props["target"] = QJsonObject{{"type", "string"}, {"description", "USB target: 'host' for control computer, 'target' for controlled computer"}, {"enum", QJsonArray{"host", "target"}}};
+        schema["properties"] = props;
+        schema["required"] = QJsonArray{"target"};
+        tool["inputSchema"] = schema;
+        tools.append(tool);
+    }
+
     // ---- Script Execution ----
     {
         QJsonObject tool;
@@ -299,6 +315,7 @@ QJsonObject McpToolHandler::callTool(const QString& name, const QJsonObject& arg
     if (name == MCP_TOOL_CAPTURE_LAST_IMAGE)         return toolCaptureLastImage(arguments);
     if (name == MCP_TOOL_EXECUTE_SCRIPT)             return toolExecuteScript(arguments);
     if (name == MCP_TOOL_SYSTEM_STATUS)              return toolSystemStatus(arguments);
+    if (name == MCP_TOOL_USB_SWITCH)                 return toolUsbSwitch(arguments);
 
     return errorResult("Unknown tool: " + name);
 }
@@ -799,6 +816,31 @@ QJsonObject McpToolHandler::toolSystemStatus(const QJsonObject& args)
     status["all_ready"] = allOk;
 
     return textResult(QJsonDocument(status).toJson(QJsonDocument::Compact));
+}
+
+// ==========================================================================
+// USB Control Tool
+// ==========================================================================
+
+QJsonObject McpToolHandler::toolUsbSwitch(const QJsonObject& args)
+{
+    QString target = args.value("target").toString().toLower();
+
+    SerialPortManager& spm = SerialPortManager::getInstance();
+
+    if (target == "target") {
+        qCInfo(log_server_mcp_tool) << "Switching USB to TARGET (controlled computer)";
+        spm.switchUsbToTargetViaSerial();
+        QThread::msleep(100);  // Allow time for switch to take effect
+        return textResult("USB switched to target (controlled computer). Keyboard/mouse data will now be sent to the target.");
+    } else if (target == "host") {
+        qCInfo(log_server_mcp_tool) << "Switching USB to HOST (control computer)";
+        spm.switchUsbToHostViaSerial();
+        QThread::msleep(100);
+        return textResult("USB switched to host (control computer).");
+    } else {
+        return errorResult("Invalid USB target: '" + target + "'. Use 'host' or 'target'.");
+    }
 }
 
 // ==========================================================================

@@ -63,6 +63,7 @@
 #define MCP_TOOL_CAPTURE_LAST_IMAGE        "capture_last_image"
 #define MCP_TOOL_EXECUTE_SCRIPT            "execute_script"
 #define MCP_TOOL_SYSTEM_STATUS             "system_status"
+#define MCP_TOOL_USB_SWITCH                "usb_switch"
 
 // Default Named Pipe Name
 #define MCP_DEFAULT_PIPE_NAME "openterface-mcp"

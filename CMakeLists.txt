@@ -82,7 +82,7 @@ endif()
 
 # Include source files from modular file
 include(cmake/SourceFiles.cmake)
-qt_add_executable(openterfaceQT ${SOURCE_FILES})
+qt_add_executable(openterfaceQT WIN32 ${SOURCE_FILES})
 
 # Force static linking of compression libraries (must be done early)
 force_static_compression_libraries(openterfaceQT)

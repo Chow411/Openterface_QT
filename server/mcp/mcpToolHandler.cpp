@@ -293,6 +293,22 @@ QJsonArray McpToolHandler::listTools() const
         tools.append(tool);
     }
 
+    // ---- Script Validation ----
+    {
+        QJsonObject tool;
+        tool["name"] = MCP_TOOL_VALIDATE_SCRIPT;
+        tool["description"] = "Validate an AutoHotkey-like script without executing it. Returns detailed information about syntax errors, invalid commands, and parameter issues.";
+
+        QJsonObject schema;
+        schema["type"] = "object";
+        QJsonObject props;
+        props["script"] = QJsonObject{{"type", "string"}, {"description", "Script text to validate"}};
+        schema["properties"] = props;
+        schema["required"] = QJsonArray{"script"};
+        tool["inputSchema"] = schema;
+        tools.append(tool);
+    }
+
     return tools;
 }
 
@@ -314,6 +330,7 @@ QJsonObject McpToolHandler::callTool(const QString& name, const QJsonObject& arg
     if (name == MCP_TOOL_CAPTURE_SCREEN)             return toolCaptureScreen(arguments);
     if (name == MCP_TOOL_CAPTURE_LAST_IMAGE)         return toolCaptureLastImage(arguments);
     if (name == MCP_TOOL_EXECUTE_SCRIPT)             return toolExecuteScript(arguments);
+    if (name == MCP_TOOL_VALIDATE_SCRIPT)             return toolValidateScript(arguments);
     if (name == MCP_TOOL_SYSTEM_STATUS)              return toolSystemStatus(arguments);
     if (name == MCP_TOOL_USB_SWITCH)                 return toolUsbSwitch(arguments);
 
@@ -748,6 +765,63 @@ QJsonObject McpToolHandler::toolExecuteScript(const QJsonObject& args)
     }
 
     return errorResult("ScriptRunner not available");
+}
+
+// ==========================================================================
+// Script Validation Tool
+// ==========================================================================
+
+QJsonObject McpToolHandler::toolValidateScript(const QJsonObject& args)
+{
+    QString scriptText = args.value("script").toString();
+
+    // 1. Check if script is empty
+    if (scriptText.isEmpty()) {
+        return errorResult("Script text is empty");
+    }
+
+    // 2. Try to tokenize (catch lexer errors)
+    try {
+        Lexer lexer;
+        lexer.setSource(scriptText.toStdString());
+        std::vector<Token> tokens = lexer.tokenize();
+
+        // 3. Try to parse (catch parser errors)
+        Parser parser(tokens);
+        std::unique_ptr<ASTNode> tree = parser.parse();
+
+        if (!tree) {
+            return errorResult("Failed to parse script: syntax error");
+        }
+
+        // 4. Return success with validation details
+        QJsonObject result;
+        result["valid"] = true;
+        result["message"] = "Script validation successful";
+        result["tokenCount"] = static_cast<qint64>(tokens.size());
+
+        // Count commands in the AST
+        int commandCount = 0;
+        // Simple traversal to count CommandStatement nodes
+        // This is a basic implementation - could be enhanced later
+        if (auto statementList = dynamic_cast<StatementListNode*>(tree.get())) {
+            for (const auto& stmt : statementList->getChildren()) {
+                if (dynamic_cast<CommandStatementNode*>(stmt.get())) {
+                    commandCount++;
+                }
+            }
+        }
+        result["commandCount"] = commandCount;
+
+        return textResult(QJsonDocument(result).toJson(QJsonDocument::Compact));
+
+    } catch (const std::exception& e) {
+        // Catch lexer/parser errors
+        QJsonObject result;
+        result["valid"] = false;
+        result["error"] = QString::fromStdString(e.what());
+        return textResult(QJsonDocument(result).toJson(QJsonDocument::Compact));
+    }
 }
 
 // ==========================================================================

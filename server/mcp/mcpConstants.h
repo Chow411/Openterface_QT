@@ -62,6 +62,7 @@
 #define MCP_TOOL_CAPTURE_SCREEN            "capture_screen"
 #define MCP_TOOL_CAPTURE_LAST_IMAGE        "capture_last_image"
 #define MCP_TOOL_EXECUTE_SCRIPT            "execute_script"
+#define MCP_TOOL_VALIDATE_SCRIPT           "validate_script"
 #define MCP_TOOL_SYSTEM_STATUS             "system_status"
 #define MCP_TOOL_USB_SWITCH                "usb_switch"
 

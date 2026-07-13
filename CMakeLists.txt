@@ -135,7 +135,16 @@ if(OPENTERFACE_BUILD_STATIC)
     endforeach()
 endif()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::Gui Qt6::Network Qt6::Multimedia Qt6::MultimediaWidgets Qt6::SerialPort Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Xml Qt6::Svg Qt6::SvgWidgets Qt6::Concurrent Qt6::DBus Threads::Threads)
+# Qt6::HttpServer is optional (requires Qt 6.6.3+)
+set(QT_HTTPSERVER_LIB)
+if(TARGET Qt6::HttpServer)
+    set(QT_HTTPSERVER_LIB Qt6::HttpServer)
+    message(STATUS "Qt6::HttpServer found - enabling QHttpServer support")
+else()
+    message(STATUS "Qt6::HttpServer not found - using raw QTcpServer for Qt 6.5 compatibility")
+endif()
+
+target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::Gui Qt6::Network Qt6::Multimedia Qt6::MultimediaWidgets Qt6::SerialPort Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Xml Qt6::Svg Qt6::SvgWidgets Qt6::Concurrent Qt6::DBus ${QT_HTTPSERVER_LIB} Threads::Threads)
 
 # Link Windows HID and SetupAPI libraries
 if(WIN32)

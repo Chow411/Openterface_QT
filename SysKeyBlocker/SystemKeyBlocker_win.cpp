@@ -167,6 +167,43 @@ LRESULT CALLBACK SystemKeyBlocker::lowLevelKeyboardProc(
         case VK_RWIN:      g_modifierState.rWin = isKeyDown;   break;
     }
 
+    // ---- Detect "stuck" Win/GUI keys ----
+    //
+    // Windows does NOT deliver WM_KEYUP for VK_LWIN/VK_RWIN to WH_KEYBOARD_LL
+    // hooks when the Start menu (or another system hotkey handler) consumes the
+    // key. This leaves our tracked modifier state permanently in the "down"
+    // position, and every subsequent keyCaptured carries Qt::MetaModifier —
+    // which in turn makes KeyboardManager include LGUI/RGUI in every HID report
+    // sent to the target machine, breaking all target-side shortcuts.
+    //
+    // Fix: on every non-Win event, poll the real physical state via
+    // GetAsyncKeyState.  If we believe the Win key is down but the OS reports
+    // it as physically released, synthesize a KEYUP so both our state and the
+    // target machine recover.  Same idea as VirtualBox's UIKeyboardHandler.
+    if (vk != VK_LWIN && vk != VK_RWIN) {
+        if (g_modifierState.lWin && !(GetAsyncKeyState(VK_LWIN) & 0x8000)) {
+            // Build a modifier mask that still includes Meta, so the target
+            // sees this release in the correct modifier context.
+            int stuckMods = Qt::MetaModifier;
+            if (g_modifierState.lShift || g_modifierState.rShift) stuckMods |= Qt::ShiftModifier;
+            if (g_modifierState.lCtrl  || g_modifierState.rCtrl)  stuckMods |= Qt::ControlModifier;
+            if (g_modifierState.lAlt   || g_modifierState.rAlt)   stuckMods |= Qt::AltModifier;
+            emit s_self->keyCaptured(Qt::Key_Meta, stuckMods, false, VK_LWIN);
+            g_modifierState.lWin = false;
+            qCInfo(log_syskey_win) << "Synthesized VK_LWIN KEYUP — hook missed the real release "
+                                      "(typically caused by Start menu opening on the local OS)";
+        }
+        if (g_modifierState.rWin && !(GetAsyncKeyState(VK_RWIN) & 0x8000)) {
+            int stuckMods = Qt::MetaModifier;
+            if (g_modifierState.lShift || g_modifierState.rShift) stuckMods |= Qt::ShiftModifier;
+            if (g_modifierState.lCtrl  || g_modifierState.rCtrl)  stuckMods |= Qt::ControlModifier;
+            if (g_modifierState.lAlt   || g_modifierState.rAlt)   stuckMods |= Qt::AltModifier;
+            emit s_self->keyCaptured(Qt::Key_Meta, stuckMods, false, VK_RWIN);
+            g_modifierState.rWin = false;
+            qCInfo(log_syskey_win) << "Synthesized VK_RWIN KEYUP — hook missed the real release";
+        }
+    }
+
     // ---- Build modifier mask from our tracked state ----
     int modifiers = 0;
     if (g_modifierState.lShift || g_modifierState.rShift) modifiers |= Qt::ShiftModifier;

@@ -391,7 +391,7 @@ QList<QSize> FFmpegDeviceValidator::GetSupportedResolutions(const QString& devic
         frmsize.index = 0;
         frmsize.pixel_format = V4L2_PIX_FMT_MJPEG;
 
-        while (ioctl(fd, VIDIOC_ENUM_FRMSIZES, &frmsize) >= 0) {
+        while (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frmsize) >= 0) {
             if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
                 QSize res(frmsize.discrete.width, frmsize.discrete.height);
                 if (res.width() > 0 && res.height() > 0) {

@@ -25,6 +25,7 @@
 
 #include <QString>
 #include <QSize>
+#include <QList>
 
 #ifdef HAVE_FFMPEG
 extern "C" {
@@ -74,6 +75,14 @@ public:
      * @return true if capability was successfully retrieved
      */
     bool GetMaxCameraCapability(const QString& devicePath, CameraCapability& capability);
+
+    /**
+     * @brief Enumerate all supported camera resolutions using platform-specific APIs
+     * @param deviceName The device name for enumeration (e.g., "Openterface" on Windows, "/dev/video0" on Linux)
+     * @return List of supported resolutions, sorted by total pixels (descending).
+     *         Returns a default list if enumeration fails.
+     */
+    static QList<QSize> GetSupportedResolutions(const QString& deviceName);
 
 private:
     bool CheckOSSpecificDeviceAccess(const QString& devicePath, 

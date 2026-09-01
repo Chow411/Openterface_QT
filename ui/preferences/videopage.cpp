@@ -26,6 +26,7 @@
 #include "host/cameramanager.h"
 #include "host/multimediabackend.h"
 #include "host/backend/ffmpegbackendhandler.h"
+#include "host/backend/ffmpeg/ffmpeg_device_validator.h"
 #include "ui/statusbar/statuswidget.h"
 #include <QDebug>
 #include <QComboBox>
@@ -353,135 +354,70 @@ void VideoPage::setupUI()
     // Note: Camera format enumeration removed with FFmpeg backend
     // FFmpeg uses DirectShow/V4L2 format negotiation
     if (m_cameraManager) {
-        // Populate with empty list (user can use custom resolution)
-        populateResolutionBox(QList<QCameraFormat>());
+        // Enumerate supported resolutions from the camera device
+        // Try to get device name from camera manager or use default
+        QString deviceName = "Openterface";
+        QList<QSize> supportedResolutions = FFmpegDeviceValidator::GetSupportedResolutions(deviceName);
 
-        // Add default resolution options for FFmpeg backend
-        if (videoFormatBox->count() == 0) {
-            // Add common resolutions as defaults when no camera formats available
-            // Include the lower rates the capture chip offers (MS2109/MS2130
-            // expose 10/20/30/50/60 per resolution): on CPU-constrained hosts
-            // a lower framerate is the cheapest way to cut decode/display load.
-            std::set<int> defaultFps = {10, 20, 30, 60, 120};
-            QVariant fpsVariant = QVariant::fromValue<std::set<int>>(defaultFps);
+        // Populate resolution combo box with enumerated resolutions
+        populateResolutionBox(supportedResolutions);
 
-            videoFormatBox->addItem("1920x1080 [10 - 60 Hz]", fpsVariant);
-            videoFormatBox->addItem("1280x720 [10 - 60 Hz]", fpsVariant);
-            videoFormatBox->addItem("640x480 [10 - 60 Hz]", fpsVariant);
+        // Populate framerate combo box with common values
+        populateFpsBox();
 
-            // Set default resolution
+        // Set default resolution to 1920x1080 if available
+        if (videoFormatBox->count() > 0) {
             m_currentResolution = QSize(1920, 1080);
+            for (int i = 0; i < videoFormatBox->count(); i++) {
+                QSize res = videoFormatBox->itemData(i).toSize();
+                if (res == m_currentResolution) {
+                    videoFormatBox->setCurrentIndex(i);
+                    break;
+                }
+            }
         }
 
         connect(videoFormatBox, &QComboBox::currentIndexChanged, [this](int /*index*/){
             if (videoFormatBox->count() > 0) {
-                QString resolutionText = videoFormatBox->currentText();
-                QStringList resolutionParts = resolutionText.split(' ').first().split('x');
-                if (resolutionParts.size() >= 2) {
-                    m_currentResolution = QSize(resolutionParts[0].toInt(), resolutionParts[1].toInt());
+                QSize res = videoFormatBox->currentData().toSize();
+                if (res.isValid()) {
+                    m_currentResolution = res;
                 }
             }
         });
 
-        // Only process if combobox has items
-        if (videoFormatBox->count() > 0) {
-            const std::set<int> fpsValues = boxValue(videoFormatBox).value<std::set<int>>();
-            setFpsRange(fpsValues);
-
-            QString resolutionText = videoFormatBox->currentText();
-            QStringList resolutionParts = resolutionText.split(' ').first().split('x');
-            if (resolutionParts.size() >= 2) {
-                m_currentResolution = QSize(resolutionParts[0].toInt(), resolutionParts[1].toInt());
-            }
-        }
-
         updatePixelFormats();
-        // connect(pixelFormatBox, &QComboBox::currentIndexChanged, this,
-        //         &VideoPage::updatePixelFormats);
     } else {
         qWarning() << "CameraManager or Camera is not valid.";
     }
 }
 
-void VideoPage::populateResolutionBox(const QList<QCameraFormat> &videoFormats) {
-    std::map<QSize, std::set<int>, QSizeComparator> resolutionSampleRates;
+void VideoPage::populateResolutionBox(const QList<QSize> &resolutions) {
+    videoFormatBox->clear();
 
-    // Check if we're using GStreamer for special handling
-    QString mediaBackend = GlobalSetting::instance().getMediaBackend();
-    bool isGStreamer = (mediaBackend == "gstreamer");
-
-    // Process videoFormats to fill resolutionSampleRates and videoFormatMap
-    for (const QCameraFormat &format : videoFormats) {
-        QSize resolution = format.resolution();
-        int minFrameRate = format.minFrameRate();
-        int maxFrameRate = format.maxFrameRate();
-
-        if (isGStreamer) {
-            // For GStreamer, be very conservative - only use safe standard frame rates
-            std::vector<int> safeFrameRates = {5, 10, 15, 20, 24, 25, 30, 50, 60};
-
-            for (int safeRate : safeFrameRates) {
-                if (safeRate >= minFrameRate && safeRate <= maxFrameRate) {
-                    resolutionSampleRates[resolution].insert(safeRate);
-                }
-            }
-
-            // For GStreamer, DO NOT include actual min/max if they're not standard
-            // This prevents the step assertion error
-        } else {
-            // For other backends, use the original approach with standard rates
-            std::vector<int> standardFrameRates = {5, 10, 15, 20, 24, 25, 30, 50, 60, 120};
-
-            for (int stdRate : standardFrameRates) {
-                if (stdRate >= minFrameRate && stdRate <= maxFrameRate) {
-                    resolutionSampleRates[resolution].insert(stdRate);
-                }
-            }
-
-            // Always include the actual min and max if they're not standard values
-            resolutionSampleRates[resolution].insert(minFrameRate);
-            resolutionSampleRates[resolution].insert(maxFrameRate);
-        }
-    }
-
-    // Populate videoFormatBox with consolidated information
-    for (const auto &entry : resolutionSampleRates) {
-        const QSize &resolution = entry.first;
-        const std::set<int> &sampleRates = entry.second;
-
-        // Convert sampleRates to QStringList for printing
-        QStringList sampleRatesList;
-        for (int rate : sampleRates) {
-            sampleRatesList << QString::number(rate);
-        }
-
-        // Print all sampleRates
-
-        if (!sampleRates.empty()) {
-            int minSampleRate = *std::begin(sampleRates); // First element is the smallest
-            int maxSampleRate = *std::rbegin(sampleRates); // Last element is the largest
-            QString itemText = QString("%1x%2 [%3 - %4 Hz]").arg(resolution.width()).arg(resolution.height()).arg(minSampleRate).arg(maxSampleRate);
-
-            // Convert the entire set to QVariant
-            QVariant sampleRatesVariant = QVariant::fromValue<std::set<int>>(sampleRates);
-
-            QComboBox *videoFormatBox = this->findChild<QComboBox*>("videoFormatBox");
-            videoFormatBox->addItem(itemText, sampleRatesVariant);
+    for (const QSize &resolution : resolutions) {
+        if (resolution.width() > 0 && resolution.height() > 0) {
+            // Display format: "1920x1080" (no fps range suffix)
+            QString itemText = QString("%1x%2").arg(resolution.width()).arg(resolution.height());
+            videoFormatBox->addItem(itemText, QVariant::fromValue(resolution));
         }
     }
 }
 
-void VideoPage::setFpsRange(const std::set<int> &fpsValues) {
-    if (!fpsValues.empty()) {
-        QComboBox *fpsComboBox = this->findChild<QComboBox*>("fpsComboBox");
-        fpsComboBox->clear();
-        int largestFps = *fpsValues.rbegin(); // Get the largest FPS value
-        for (int fps : fpsValues) {
-            fpsComboBox->addItem(QString::number(fps), fps);
-            if (fps == largestFps) {
-                fpsComboBox->setCurrentIndex(fpsComboBox->count() - 1);
-            }
-        }
+void VideoPage::populateFpsBox() {
+    fpsComboBox->clear();
+
+    // Common framerate values for KVM cameras
+    QList<int> commonFps = {10, 20, 30, 50, 60, 120};
+
+    for (int fps : commonFps) {
+        fpsComboBox->addItem(QString::number(fps), fps);
+    }
+
+    // Set default to 30 fps
+    int defaultIndex = fpsComboBox->findData(30);
+    if (defaultIndex >= 0) {
+        fpsComboBox->setCurrentIndex(defaultIndex);
     }
 }
 
@@ -655,15 +591,13 @@ void VideoPage::initVideoSettings() {
 
     QComboBox *videoFormatBox = this->findChild<QComboBox*>("videoFormatBox");
 
-    // Set the resolution in the combo box
+    // Set the resolution in the combo box by matching QSize stored in itemData
+    QSize targetSize(width, height);
     for (int i = 0; i < videoFormatBox->count(); ++i) {
-        QString resolutionText = videoFormatBox->itemText(i).split(' ').first();
-        QStringList resolutionParts = resolutionText.split('x');
-        if (resolutionParts.size() >= 2) {
-            if (resolutionParts[0].toInt() == width && resolutionParts[1].toInt() == height) {
-                videoFormatBox->setCurrentIndex(i);
-                break;
-            }
+        QSize itemSize = videoFormatBox->itemData(i).toSize();
+        if (itemSize == targetSize) {
+            videoFormatBox->setCurrentIndex(i);
+            break;
         }
     }
 
@@ -819,12 +753,11 @@ void VideoPage::revertToSnapshot()
     fpsComboBox->setCurrentIndex(m_snap_fpsIndex);
     m_currentResolution = m_snap_resolution;
 
-    // Restore video format box's derived resolution
+    // Restore video format box's derived resolution from itemData
     if (videoFormatBox->count() > 0) {
-        QString resolutionText = videoFormatBox->currentText();
-        QStringList resolutionParts = resolutionText.split(' ').first().split('x');
-        if (resolutionParts.size() >= 2) {
-            m_currentResolution = QSize(resolutionParts[0].toInt(), resolutionParts[1].toInt());
+        QSize storedSize = videoFormatBox->currentData().toSize();
+        if (storedSize.isValid()) {
+            m_currentResolution = storedSize;
         }
     }
 

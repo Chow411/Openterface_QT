@@ -102,8 +102,8 @@ private:
     int m_snap_customWidth;
     int m_snap_customHeight;
     QString m_snap_gstSinkPriority;
-    void populateResolutionBox(const QList<QCameraFormat> &videoFormats);
-    void setFpsRange(const std::set<int> &fpsValues);
+    void populateResolutionBox(const QList<QSize> &resolutions);
+    void populateFpsBox();
     void handleResolutionSettings();
     QVariant boxValue(const QComboBox *) const;
     void updatePixelFormats();

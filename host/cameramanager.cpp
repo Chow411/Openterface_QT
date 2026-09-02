@@ -309,6 +309,18 @@ CameraManager::CameraManager(QObject *parent)
                 // No port chain to reconnect to — either initial startup or never had camera.
                 return;
             }
+            if (m_lastFrameTimestamp <= 0) {
+                // No frame has ever arrived, so the initial camera start is still in flight:
+                // the --device bind has already set the port chain, and isCameraStreaming() is
+                // still false simply because the first frame has not landed yet. Neither guard
+                // above holds, so without this the recovery fires against a camera that is
+                // merely starting, tears it down a moment after it goes healthy, and then fails
+                // to restart it ("No matching camera found"), leaving the camera dead.
+                // Recovery restores something that worked; there is nothing to restore yet.
+                qCInfo(log_ui_camera) << "[SerialRecovery] Ignoring serial connect before the"
+                                      << "first frame — initial camera start is still in progress";
+                return;
+            }
             if (isCameraStreaming()) {
                 // Camera is actively streaming — no restart needed.
                 return;
@@ -504,6 +516,13 @@ void CameraManager::initializeBackendHandler()
             // Connect fpsChanged signal from backend to CameraManager
             connect(m_backendHandler.get(), &MultimediaBackendHandler::fpsChanged,
                     this, &CameraManager::fpsChanged);
+
+            // Connect frameReceived signal so backends that render outside
+            // the Qt graphics path (e.g. GStreamer via X11 video overlay)
+            // can keep the frame-alive timestamp fresh. Without this, the
+            // frame-timeout watchdog falsely reports "no video signal".
+            connect(m_backendHandler.get(), &MultimediaBackendHandler::frameReceived,
+                    this, &CameraManager::onNewVideoFrameReceived, Qt::UniqueConnection);
             
             // Connect FFmpeg-specific signals if this is an FFmpeg backend
             if (auto ffmpegHandler = qobject_cast<FFmpegBackendHandler*>(m_backendHandler.get())) {

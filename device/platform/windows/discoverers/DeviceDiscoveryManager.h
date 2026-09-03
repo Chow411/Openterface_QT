@@ -73,6 +73,29 @@ private:
      */
     DeviceInfo mergeDeviceInfo(const DeviceInfo& primary, const DeviceInfo& secondary);
 
+    /**
+     * @brief Merge USB 3.0 companion devices that were not paired by individual discoverers
+     *
+     * On USB 3.0 systems the KVMGO composite device (345F:2132) and CH32V208 serial chip
+     * (1A86:FE0C) may enumerate on different USB port chains. When BotherDeviceDiscoverer
+     * finds only the serial side and Generation3Discoverer finds only the composite side,
+     * deduplicateDevices() cannot merge them (different port chains). This method runs
+     * after deduplication and pairs serial-only devices with composite-only devices by
+     * USB topology proximity (same hub prefix or port chain distance <= 2).
+     *
+     * @param devices Deduplicated device list (modified in place)
+     * @return Device list with USB 3.0 companion pairs merged
+     */
+    QVector<DeviceInfo> mergeUsb30CompanionDevices(const QVector<DeviceInfo>& devices);
+
+    /**
+     * @brief Calculate port chain distance between two devices
+     * @param chain1 First port chain
+     * @param chain2 Second port chain
+     * @return Distance (number of differing segments), or INT_MAX if chains are incompatible
+     */
+    static int portChainDistance(const QString& chain1, const QString& chain2);
+
 private:
     std::shared_ptr<IDeviceEnumerator> m_enumerator;
     QVector<std::shared_ptr<IDeviceDiscoverer>> m_discoverers;

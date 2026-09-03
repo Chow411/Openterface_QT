@@ -291,9 +291,24 @@ QString Generation3Discoverer::findSerialPortByIntegratedDevice(const USBDeviceD
     
     if (!bestMatchDeviceId.isEmpty()) {
         qCDebug(log_device_discoverer) << "Found best matching serial port:" << bestMatchDeviceId << "(score:" << bestScore << ")";
+        return bestMatchDeviceId;
     }
-    
-    return bestMatchDeviceId;
+
+    // Fallback: On USB 3.0 systems the serial chip (1A86:FE0C) and composite device
+    // (345F:2132) may enumerate on completely different USB root controllers (e.g.
+    // serial on USB 2.0 hub 0004, composite on USB 3.0 hub 0020). In this case all
+    // proximity checks (same hub, adjacent ports, etc.) fail. Since these VID/PID
+    // pairs are unique to KVMGO, if there is exactly one serial chip in the system
+    // it MUST be the companion of this composite device — pair them unconditionally.
+    if (serialDevices.size() == 1) {
+        qCDebug(log_device_discoverer) << "USB 3.0 fallback: single serial chip"
+                                       << serialDevices[0].portChain
+                                       << "paired with composite" << integratedDevice.portChain
+                                       << "(cross-controller pair)";
+        return serialDevices[0].deviceInstanceId;
+    }
+
+    return QString();
 }
 
 void Generation3Discoverer::processIntegratedDeviceInterfaces(DeviceInfo& deviceInfo, const USBDeviceData& integratedDevice)

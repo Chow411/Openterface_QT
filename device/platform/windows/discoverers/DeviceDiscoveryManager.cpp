@@ -1,7 +1,9 @@
 #ifdef _WIN32
 #include "DeviceDiscoveryManager.h"
+#include "device/platform/DeviceConstants.h"
 #include <QDebug>
 #include <QLoggingCategory>
+#include <climits>
 
 Q_DECLARE_LOGGING_CATEGORY(log_device_discoverer)
 
@@ -38,7 +40,10 @@ QVector<DeviceInfo> DeviceDiscoveryManager::discoverAllDevices()
     
     // Deduplicate devices
     QVector<DeviceInfo> uniqueDevices = deduplicateDevices(allDevices);
-    
+
+    // Merge USB 3.0 companion devices (serial + composite on different port chains)
+    uniqueDevices = mergeUsb30CompanionDevices(uniqueDevices);
+
     qCDebug(log_device_discoverer) << "=== Unified Discovery Complete - Found" << uniqueDevices.size() << "unique devices ===";
     
     // Log final summary
@@ -200,6 +205,174 @@ DeviceInfo DeviceDiscoveryManager::mergeDeviceInfo(const DeviceInfo& primary, co
     }
     
     return merged;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USB 3.0 companion merge — post-deduplication pass
+// ─────────────────────────────────────────────────────────────────────────────
+
+int DeviceDiscoveryManager::portChainDistance(const QString& chain1, const QString& chain2)
+{
+    if (chain1.isEmpty() || chain2.isEmpty()) return INT_MAX;
+    if (chain1 == chain2) return 0;
+
+    QStringList parts1 = chain1.split('-');
+    QStringList parts2 = chain2.split('-');
+
+    // Different root hubs → not comparable
+    if (parts1.isEmpty() || parts2.isEmpty() || parts1.first() != parts2.first())
+        return INT_MAX;
+
+    // Compare segment by segment; count differing segments
+    int maxLen = qMax(parts1.size(), parts2.size());
+    int distance = 0;
+    for (int i = 0; i < maxLen; ++i) {
+        QString s1 = (i < parts1.size()) ? parts1[i] : QString();
+        QString s2 = (i < parts2.size()) ? parts2[i] : QString();
+        if (s1 != s2) ++distance;
+    }
+    return distance;
+}
+
+QVector<DeviceInfo> DeviceDiscoveryManager::mergeUsb30CompanionDevices(const QVector<DeviceInfo>& devices)
+{
+    if (devices.size() < 2) return devices;
+
+    QVector<DeviceInfo> result = devices;
+    QVector<bool> consumed(result.size(), false);
+
+    // Classify devices into serial-only and composite-only buckets
+    QList<int> serialOnlyIndices;
+    QList<int> compositeOnlyIndices;
+
+    for (int i = 0; i < result.size(); ++i) {
+        const DeviceInfo& d = result[i];
+        bool hasSerial = d.hasSerialPort();
+        bool hasHidOrCam = d.hasHidDevice() || d.hasCameraDevice();
+
+        if (hasSerial && !hasHidOrCam) {
+            serialOnlyIndices.append(i);
+        } else if (!hasSerial && hasHidOrCam) {
+            compositeOnlyIndices.append(i);
+        }
+    }
+
+    if (serialOnlyIndices.isEmpty() || compositeOnlyIndices.isEmpty()) {
+        return result;
+    }
+
+    qCDebug(log_device_discoverer) << "USB 3.0 companion merge: candidates —"
+                                   << serialOnlyIndices.size() << "serial-only,"
+                                   << compositeOnlyIndices.size() << "composite-only";
+
+    // For each serial-only device, find the best matching composite-only device.
+    // On USB 3.0 systems the serial chip (1A86:FE0C) and composite device (345F:2132)
+    // enumerate on DIFFERENT USB controllers (USB 2.0 vs USB 3.0 root hubs), so their
+    // port chains have different root segments (e.g. "0004-..." vs "0020-...").
+    // Since these VID/PID pairs are unique to KVMGO, we match by VID/PID rather than
+    // requiring port chain proximity — there is at most one of each per system.
+    QVector<int> mergePairs; // flat: [serialIdx, compositeIdx, ...]
+    QSet<int> usedComposite;
+
+    for (int si : serialOnlyIndices) {
+        const DeviceInfo& serialDev = result[si];
+
+        // Verify this is the KVMGO serial chip (1A86:FE0C)
+        bool isKvmgoSerial = (serialDev.vid.toUpper() == SERIAL_VID_V2 && serialDev.pid.toUpper() == SERIAL_PID_V2);
+        if (!isKvmgoSerial) continue;
+
+        int bestIdx = -1;
+        int bestDist = INT_MAX;
+
+        for (int ci : compositeOnlyIndices) {
+            if (usedComposite.contains(ci)) continue;
+            const DeviceInfo& compDev = result[ci];
+
+            // Verify this is the KVMGO composite device (345F:2132)
+            bool isKvmgoComposite = (compDev.vid.toUpper() == OPENTERFACE_VID_V2 && compDev.pid.toUpper() == OPENTERFACE_PID_V2);
+            if (!isKvmgoComposite) continue;
+
+            // Calculate distance for tie-breaking (lower is better), but accept any pair
+            int dist = portChainDistance(serialDev.portChain, compDev.portChain);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestIdx = ci;
+            }
+        }
+
+        if (bestIdx >= 0) {
+            usedComposite.insert(bestIdx);
+            mergePairs.append(si);
+            mergePairs.append(bestIdx);
+            qCDebug(log_device_discoverer) << "USB 3.0 companion match: serial"
+                                           << serialDev.portChain << "↔ composite"
+                                           << result[bestIdx].portChain;
+        }
+    }
+
+    if (mergePairs.isEmpty()) return result;
+
+    // Apply merges: merge composite into serial device, mark composite as consumed
+    for (int pairIdx = 0; pairIdx < mergePairs.size(); pairIdx += 2) {
+        int serialIdx = mergePairs[pairIdx];
+        int compositeIdx = mergePairs[pairIdx + 1];
+
+        DeviceInfo& serialDev = result[serialIdx];
+        const DeviceInfo& compDev = result[compositeIdx];
+
+        // Merge composite interfaces into the serial device
+        if (serialDev.hidDeviceId.isEmpty() && !compDev.hidDeviceId.isEmpty()) {
+            serialDev.hidDeviceId = compDev.hidDeviceId;
+            serialDev.hidDevicePath = compDev.hidDevicePath;
+            serialDev.hidVid = compDev.hidVid;
+            serialDev.hidPid = compDev.hidPid;
+            qCDebug(log_device_discoverer) << "    Merged HID from composite";
+        }
+        if (serialDev.cameraDeviceId.isEmpty() && !compDev.cameraDeviceId.isEmpty()) {
+            serialDev.cameraDeviceId = compDev.cameraDeviceId;
+            serialDev.cameraDevicePath = compDev.cameraDevicePath;
+            qCDebug(log_device_discoverer) << "    Merged camera from composite";
+        }
+        if (serialDev.audioDeviceId.isEmpty() && !compDev.audioDeviceId.isEmpty()) {
+            serialDev.audioDeviceId = compDev.audioDeviceId;
+            serialDev.audioDevicePath = compDev.audioDevicePath;
+            qCDebug(log_device_discoverer) << "    Merged audio from composite";
+        }
+
+        // Use composite device's instance ID for HID/Camera interface enumeration
+        if (!compDev.deviceInstanceId.isEmpty()) {
+            serialDev.deviceInstanceId = compDev.deviceInstanceId;
+        }
+
+        // Set companion relationship
+        serialDev.companionPortChain = compDev.portChain;
+        serialDev.hasCompanionDevice = true;
+
+        // Mark the composite device as consumed
+        consumed[compositeIdx] = true;
+
+        serialDev.platformSpecific["generation"] =
+            serialDev.platformSpecific.value("generation").toString()
+            + " + USB3.0 companion merge";
+
+        qCInfo(log_device_discoverer) << "USB 3.0 companion merge complete:"
+                                      << serialDev.portChain
+                                      << "↔" << compDev.portChain
+                                      << "→ single device with"
+                                      << serialDev.getInterfaceSummary();
+    }
+
+    // Filter out consumed devices
+    QVector<DeviceInfo> finalResult;
+    for (int i = 0; i < result.size(); ++i) {
+        if (!consumed[i]) {
+            finalResult.append(result[i]);
+        }
+    }
+
+    qCDebug(log_device_discoverer) << "USB 3.0 companion merge:" << devices.size()
+                                   << "→" << finalResult.size() << "devices";
+    return finalResult;
 }
 
 #endif // _WIN32

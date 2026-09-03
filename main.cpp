@@ -677,15 +677,15 @@ int main(int argc, char *argv[])
     
     // Defer device menu setup (device enumeration) - improves startup time
     // Hotplug monitor is already connected, so new devices will be detected
-    QTimer::singleShot(5, window, [window]() {
+    QTimer::singleShot(0, window, [window]() {
         qInfo() << "Setting up device menu...";
         window->deferredSetupCoordinators();
         qInfo() << "Device menu setup complete";
     });
-    
+
     // Defer camera, audio, and VideoHid initialization (improves startup time)
     // This was blocking startup for ~500ms
-    QTimer::singleShot(150, window, [window]() {
+    QTimer::singleShot(50, window, [window]() {
         qInfo() << "Initializing camera and audio...";
         window->deferredInitializeCamera();
         qInfo() << "Camera and audio initialization started";
@@ -695,10 +695,10 @@ int main(int argc, char *argv[])
     if (autoStartMcp) {
         // Capture port for the lambda (use 0 to indicate SSE disabled)
         int capturedSsePort = mcpSsePort;
-        // Wait longer for camera initialization to complete before starting MCP server
-        // Camera initialization happens in deferredInitializeCamera (150ms delay)
+        // Wait for camera initialization to complete before starting MCP server
+        // Camera initialization happens in deferredInitializeCamera (50ms delay)
         // and may take additional time for device auto-selection and capture start
-        QTimer::singleShot(1500, window, [window, capturedSsePort]() {
+        QTimer::singleShot(800, window, [window, capturedSsePort]() {
             qInfo() << "Auto-starting MCP Server (--mcp-start)...";
             
             // Wait for camera frame to be available (similar to headless mode)
@@ -767,7 +767,7 @@ int main(int argc, char *argv[])
     // Defer environment check to after window is shown (improves startup time)
     // Run environment check in background after a short delay
     if (!skipEnvironmentCheck && EnvironmentSetupDialog::autoEnvironmentCheck()) {
-        QTimer::singleShot(500, [&app]() {
+        QTimer::singleShot(300, [&app]() {
             qInfo() << "Running deferred environment check...";
             if (!EnvironmentSetupDialog::checkEnvironmentSetup()) {
                 // Show environment dialog on main thread
@@ -784,7 +784,7 @@ int main(int argc, char *argv[])
 
     // Always check if CH9329 is present but CH340 driver is missing (independent of environment check)
     // Silent if driver is installed; prompts user only when driver is missing
-    QTimer::singleShot(1000, [&app]() {
+    QTimer::singleShot(500, [&app]() {
         if (SerialPortManager::isCH9329PresentAndDriverMissing()) {
             QMetaObject::invokeMethod(&app, []() {
                 qInfo() << "CH9329 detected but CH340 driver is missing - showing install prompt";

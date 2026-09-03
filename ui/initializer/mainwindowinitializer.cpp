@@ -107,7 +107,7 @@ void MainWindowInitializer::initialize()
     finalize();
 
     // Initialize MCP server if enabled in settings
-    QTimer::singleShot(1000, m_mainWindow, [this]() {
+    QTimer::singleShot(500, m_mainWindow, [this]() {
         m_mainWindow->onMcpSettingsApplied();
     });
 
@@ -528,7 +528,7 @@ void MainWindowInitializer::deferredInitializeCamera()
     // Capture audioManager pointer directly to avoid dangling reference
     AudioManager* audioManager = m_mainWindow->m_audioManager;
     CornerWidgetManager* cornerWidgetManager = m_cornerWidgetManager;
-    QTimer::singleShot(300, m_mainWindow, [audioManager, cornerWidgetManager]() {
+    QTimer::singleShot(100, m_mainWindow, [audioManager, cornerWidgetManager]() {
         audioManager->initializeAudio();
 
         // Restore mute state from settings
@@ -546,9 +546,9 @@ void MainWindowInitializer::deferredInitializeCamera()
     // Perform initial device discovery — detect already-connected devices and start
     // the DeviceLifecycleManager state machine. This must run after all subsystems
     // (SerialPortManager, VideoHid, CameraManager) have connected to the lifecycle manager.
-    // Use a longer delay (2s) to allow USB enumeration to complete for all composite
-    // device interfaces (CH32V208 serial, HID, camera may enumerate at different times).
-    QTimer::singleShot(2000, m_mainWindow, []() {
+    // Use a shorter delay (500ms) for faster device availability. Hotplug monitor will
+    // handle any devices that enumerate later.
+    QTimer::singleShot(500, m_mainWindow, []() {
         qInfo() << "Triggering initial device discovery via DeviceLifecycleManager...";
         DeviceLifecycleManager::getInstance().performInitialDiscovery();
     });
@@ -764,7 +764,7 @@ void MainWindowInitializer::finalize()
     });
 
     // Show floating window at startup if enabled in settings
-    QTimer::singleShot(200, m_mainWindow, [this]() {
+    QTimer::singleShot(100, m_mainWindow, [this]() {
         if (GlobalSetting::instance().getFloatingWindowEnabled()) {
             m_mainWindow->showFloatingWindow();
         }

@@ -380,7 +380,9 @@ if(NOT WIN32)
     endif()
 endif()
 
-# Link Media Foundation libraries on Windows
+# Link Media Foundation and DirectShow libraries on Windows
+# strmiids is required for DirectShow GUIDs (CLSID_VideoInputDeviceCategory,
+# IID_IAMStreamConfig, IID_IBaseFilter, etc.) used by ffmpeg_device_validator.cpp
 if(WIN32)
     target_link_libraries(openterfaceQT PRIVATE
         mf
@@ -388,8 +390,9 @@ if(WIN32)
         mfreadwrite
         mfuuid
         wmcodecdspuuid
+        strmiids
     )
-    message(STATUS "Linked Media Foundation libraries for Windows video capture")
+    message(STATUS "Linked Media Foundation and DirectShow libraries for Windows video capture")
 endif()
 
 # Add DBus on Unix systems (excluding macOS)
